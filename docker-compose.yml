@@ -1,0 +1,41 @@
+# Qdrant: REST + gRPC и веб-дашборд
+# API: интервью-помощник с RAG по docx-файлу
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12.5
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - "${DOCX_SOURCE_PATH_HOST:?Укажите путь к docx в DOCX_SOURCE_PATH_HOST}:/data/interview_questions.docx:ro"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-interview_qa}
+      QDRANT_SHARD_NUMBER: ${QDRANT_SHARD_NUMBER:-2}
+      QDRANT_REPLICATION_FACTOR: ${QDRANT_REPLICATION_FACTOR:-1}
+      EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-16}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      VECTORIZATION_MAX_CHUNK_CHARS: ${VECTORIZATION_MAX_CHUNK_CHARS:-1000}
+      VECTORIZATION_OVERLAP: ${VECTORIZATION_OVERLAP:-100}
+      INTERVIEW_TOP_K: ${INTERVIEW_TOP_K:-5}
+      # В контейнере путь к смонтированному docx всегда Linux-style
+      INTERVIEW_DOCX_PATH: /data/interview_questions.docx
+      INGEST_STATE_PATH: ${INGEST_STATE_PATH:-data/interview_ingest_state.json}
+      INGEST_INTERVAL_HOURS: ${INGEST_INTERVAL_HOURS:-1}
+    depends_on:
+      - qdrant
+
+volumes:
+  qdrant_storage:
