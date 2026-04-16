@@ -10,7 +10,7 @@
 3. Если файл изменился:
    - парсит пары вопрос/ответ,
    - разбивает на фрагменты,
-   - векторизует (OpenAI embeddings),
+   - векторизует (Ollama embeddings),
    - перезаписывает точки `kind=interview_qa` в Qdrant.
 4. В чате модель проводит техскрин и ссылается на номера ответов из базы.
 
@@ -43,7 +43,6 @@
   "answer": "… Источник: ответ №12",
   "meta": {
     "used_rag": true,
-    "tool_calls": 1,
     "retrieved_chunks": 5,
     "answer_numbers": [12, 27]
   }
@@ -54,12 +53,15 @@
 
 | Переменная | Назначение |
 |------------|------------|
-| `OPENAI_API_KEY` | Ключ OpenAI |
+| `OLLAMA_URL` | URL API Ollama |
+| `OLLAMA_MODEL` | Чат-модель (например `qwen2.5:7b`) |
+| `OLLAMA_EMBED_MODEL` | Модель эмбеддингов в Ollama |
+| `OLLAMA_TIMEOUT_SEC` | Таймаут запросов к Ollama |
 | `QDRANT_URL` | URL Qdrant |
 | `QDRANT_COLLECTION` | Коллекция (`interview_qa`) |
 | `QDRANT_SHARD_NUMBER` | Число шардов при создании |
 | `QDRANT_REPLICATION_FACTOR` | Репликация |
-| `EMBEDDING_MODEL` | Модель эмбеддингов |
+| `EMBEDDING_DIM` | Размерность эмбеддингов |
 | `EMBEDDING_BATCH_SIZE` | Батч эмбеддингов |
 | `VECTORIZATION_MAX_CHUNK_CHARS` | Макс. размер чанка |
 | `VECTORIZATION_OVERLAP` | Перекрытие чанков |
@@ -86,7 +88,9 @@ uv run ingest-interview
 
 В `.env` обязательно задайте:
 
-- `OPENAI_API_KEY`
+- `OLLAMA_URL` (для Docker обычно `http://host.docker.internal:11434`)
+- `OLLAMA_MODEL`
+- `OLLAMA_EMBED_MODEL`
 - `DOCX_SOURCE_PATH_HOST` — путь на хосте до вашего `.docx`
 
 Потом:
