@@ -16,12 +16,12 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
 from app.services.chat_rag import run_chat
 from app.services.ingest import sync_interview_index
+from app.services.llm import OllamaClient
 from app.services.qdrant_service import QdrantService
 
 logging.basicConfig(level=logging.INFO)
@@ -68,26 +68,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """
     Инициализация при запуске и корректное завершение фоновых задач.
 
-    Сохраняет в ``app.state``: ``settings``, ``openai``, ``qdrant`` — используются
+    Сохраняет в ``app.state``: ``settings``, ``llm``, ``qdrant`` — используются
     в обработчиках через ``request.app.state``.
     """
     settings = get_settings()
-    if not settings.openai_api_key:
-        logger.warning("OPENAI_API_KEY не задан — чат и индексация недоступны")
+    llm = OllamaClient(settings)
+    qdrant = QdrantService(settings, llm)
 
-    openai = AsyncOpenAI(api_key=settings.openai_api_key or "sk-placeholder")
-    qdrant = QdrantService(settings, openai)
-
-    if settings.openai_api_key:
-        await qdrant.ensure_collection()
-        try:
-            state = await sync_interview_index(settings, qdrant)
-            logger.info("Состояние индекса: %s", state)
-        except Exception:
-            logger.exception("Первая индексация docx не удалась")
+    if not await llm.ping():
+        logger.warning("Ollama недоступна по %s", settings.ollama_url)
+    await qdrant.ensure_collection()
+    try:
+        state = await sync_interview_index(settings, qdrant)
+        logger.info("Состояние индекса: %s", state)
+    except Exception:
+        logger.exception("Первая индексация docx не удалась")
 
     app.state.settings = settings
-    app.state.openai = openai
+    app.state.llm = llm
     app.state.qdrant = qdrant
     app.state.sessions = SessionStore(
         max_sessions=settings.session_store_max_sessions,
@@ -106,8 +104,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                     timeout=settings.ingest_interval_hours * 3600.0,
                 )
             except TimeoutError:
-                if not settings.openai_api_key:
-                    continue
                 try:
                     state = await sync_interview_index(settings, qdrant)
                     if state.get("status") == "updated":
@@ -115,7 +111,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 except Exception:
                     logger.exception("Периодическая индексация не удалась")
 
-    task = asyncio.create_task(periodic_ingest_loop()) if settings.openai_api_key else None
+    task = asyncio.create_task(periodic_ingest_loop())
     yield
     stop.set()
     if task is not None:
@@ -125,11 +121,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except asyncio.CancelledError:
             pass
     await qdrant.close()
-    await openai.close()
+    await llm.close()
 
 
 app = FastAPI(
-    title="Interview Assistant RAG (Qdrant + OpenAI)",
+    title="Interview Assistant RAG (Qdrant + Ollama)",
     description="Личный помощник по подготовке к Python собеседованиям",
     lifespan=lifespan,
 )
@@ -158,7 +154,7 @@ async def health(request: Request) -> dict:
     return {
         "status": "ok",
         "qdrant": q_ok,
-        "openai_configured": bool(request.app.state.settings.openai_api_key),
+        "ollama_available": await request.app.state.llm.ping(),
     }
 
 
@@ -176,12 +172,9 @@ async def chat(request: Request, body: ChatRequest) -> dict:
     """
     Чат с RAG: делегирует логику ``run_chat`` (function calling + поиск в Qdrant).
 
-    При отсутствии ``OPENAI_API_KEY`` возвращает ``error`` и ``answer: null``.
     Успешный ответ: ``answer`` (строка), ``meta`` (``used_rag``, ``retrieved_chunks``, …).
     """
     settings = request.app.state.settings
-    if not settings.openai_api_key:
-        return {"error": "OPENAI_API_KEY не задан", "answer": None}
 
     sessions = request.app.state.sessions
     session_id = body.session_id.strip() or "default"
@@ -190,7 +183,7 @@ async def chat(request: Request, body: ChatRequest) -> dict:
 
     answer, meta = await run_chat(
         settings,
-        request.app.state.openai,
+        request.app.state.llm,
         request.app.state.qdrant,
         message,
         history=history,

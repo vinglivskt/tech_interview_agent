@@ -20,11 +20,12 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    openai_api_key: str = Field(default="", description="Ключ OpenAI")
-    openai_model: str = Field(default="gpt-4o-mini", description="LLM для интервью-ассистента")
-    embedding_model: str = Field(default="text-embedding-3-small", description="Модель эмбеддингов OpenAI")
+    ollama_url: str = Field(default="http://localhost:11434", description="URL локального Ollama API")
+    ollama_model: str = Field(default="qwen2.5:7b", description="LLM для интервью-ассистента")
+    ollama_embed_model: str = Field(default="nomic-embed-text", description="Модель эмбеддингов в Ollama")
+    ollama_timeout_sec: float = Field(default=120.0, gt=0, description="Таймаут запросов к Ollama (сек)")
     embedding_batch_size: int = Field(default=16, ge=1, description="Размер батча эмбеддингов")
-    embedding_dim: int = Field(default=1536, ge=1, description="Размерность эмбеддингов текущей модели")
+    embedding_dim: int = Field(default=768, ge=1, description="Размерность эмбеддингов текущей модели")
 
     qdrant_url: str = Field(default="http://localhost:6333", description="URL Qdrant")
     qdrant_collection: str = Field(default="interview_qa", description="Коллекция Qdrant")
@@ -54,7 +55,7 @@ class Settings(BaseSettings):
     session_store_max_sessions: int = Field(default=1000, ge=1, description="Макс. число сессий в памяти")
 
     @field_validator(
-        "openai_api_key", "openai_model", "embedding_model", "qdrant_url", "qdrant_collection", mode="before"
+        "ollama_url", "ollama_model", "ollama_embed_model", "qdrant_url", "qdrant_collection", mode="before"
     )
     @classmethod
     def _strip_strings(cls, value: str) -> str:

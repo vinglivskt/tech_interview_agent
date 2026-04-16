@@ -3,10 +3,6 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from openai import AsyncOpenAI
 
 
 def chunk_text(text: str, max_chunk_chars: int, overlap: int = 0) -> list[str]:
@@ -20,7 +16,7 @@ def chunk_text(text: str, max_chunk_chars: int, overlap: int = 0) -> list[str]:
     3. Короткие абзацы склеиваются, пока не превышен ``max_chunk_chars``.
 
     Args:
-        text: Исходный текст (например документ погоды).
+        text: Исходный текст (например docx с вопросами/ответами).
         max_chunk_chars: Максимальная длина одного фрагмента в символах.
         overlap: Символов перекрытия между соседними окнами внутри одного длинного абзаца.
 
@@ -70,22 +66,3 @@ def chunk_text(text: str, max_chunk_chars: int, overlap: int = 0) -> list[str]:
         merged.append(cur)
 
     return merged if merged else [t[:max_chunk_chars]]
-
-
-async def vectorize_texts(
-    openai: "AsyncOpenAI",
-    model: str,
-    texts: list[str],
-    *,
-    batch_size: int = 16,
-) -> list[list[float]]:
-    """Строит эмбеддинги OpenAI для списка текстов пакетами."""
-    if not texts:
-        return []
-    all_embeddings: list[list[float]] = []
-    for i in range(0, len(texts), batch_size):
-        batch = texts[i : i + batch_size]
-        resp = await openai.embeddings.create(model=model, input=batch)
-        ordered = sorted(resp.data, key=lambda d: d.index)
-        all_embeddings.extend(d.embedding for d in ordered)
-    return all_embeddings

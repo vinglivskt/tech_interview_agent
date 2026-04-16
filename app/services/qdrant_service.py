@@ -1,4 +1,4 @@
-"""Работа с Qdrant: создание коллекции, векторизация OpenAI, upsert, поиск."""
+"""Работа с Qdrant: создание коллекции, векторизация Ollama, upsert, поиск."""
 
 from __future__ import annotations
 
@@ -7,12 +7,11 @@ import logging
 import uuid
 from typing import Any
 
-from openai import AsyncOpenAI
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Condition, Distance, FieldCondition, Filter, MatchValue, PointStruct, VectorParams
 
 from app.config import Settings
-from app.services.vectorization import vectorize_texts
+from app.services.llm import OllamaClient
 
 logger = logging.getLogger(__name__)
 
@@ -39,14 +38,12 @@ def point_id_for_chunk(*, source_file: str, question_number: int, chunk_index: i
 
 class QdrantService:
     """
-    Обёртка над AsyncQdrantClient + эмбеддинги OpenAI.
+    Обёртка над AsyncQdrantClient + эмбеддинги Ollama.
     """
 
-    EMBEDDING_DIM = 1536
-
-    def __init__(self, settings: Settings, openai: AsyncOpenAI) -> None:
+    def __init__(self, settings: Settings, llm: OllamaClient) -> None:
         self._settings = settings
-        self._openai = openai
+        self._llm = llm
         self._client = AsyncQdrantClient(url=settings.qdrant_url)
 
     @property
@@ -67,7 +64,7 @@ class QdrantService:
             return
         await self._client.create_collection(
             collection_name=self.collection,
-            vectors_config=VectorParams(size=self.EMBEDDING_DIM, distance=Distance.COSINE),
+            vectors_config=VectorParams(size=self._settings.embedding_dim, distance=Distance.COSINE),
             shard_number=max(1, self._settings.qdrant_shard_number),
             replication_factor=max(1, self._settings.qdrant_replication_factor),
         )
@@ -87,16 +84,11 @@ class QdrantService:
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """
-        Векторизация списка строк через OpenAI embeddings API.
+        Векторизация списка строк через Ollama embeddings API.
 
         Порядок выходных векторов совпадает с порядком ``texts``.
         """
-        return await vectorize_texts(
-            self._openai,
-            self._settings.embedding_model,
-            texts,
-            batch_size=self._settings.embedding_batch_size,
-        )
+        return await self._llm.embed(texts)
 
     async def delete_by_payload_kind(self, kind: str, *, doc_hash: str | None = None) -> None:
         """
