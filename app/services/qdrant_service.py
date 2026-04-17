@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import uuid
 from typing import Any
@@ -17,12 +16,6 @@ logger = logging.getLogger(__name__)
 
 # Фиксированный UUID-неймспейс для uuid5 — стабильные id фрагментов между переиндексациями
 _CHUNK_ID_NS = uuid.UUID("a1b2c3d4-e5f6-4789-a012-3456789abcde")
-
-
-def _point_id_from_text(text: str) -> str:
-    """Детерминированный UUID из SHA-256 текста (для одиночного документа без явного id)."""
-    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:32]
-    return str(uuid.UUID(digest))
 
 
 def point_id_for_chunk(*, source_file: str, question_number: int, chunk_index: int, chunk: str) -> str:
@@ -105,70 +98,6 @@ class QdrantService:
             points_selector=Filter(must=must),
         )
 
-    async def upsert_document(
-        self,
-        text: str,
-        payload: dict[str, Any],
-        *,
-        point_id: str | None = None,
-    ) -> None:
-        """
-        Записывает одну точку: один текст → один вектор.
-
-        Args:
-            text: Текст для эмбеддинга и поля ``payload["text"]``.
-            payload: Дополнительные поля payload (метаданные).
-            point_id: Явный id точки; иначе вычисляется из ``text``.
-        """
-        vectors = await self.embed_texts([text])
-        pid = point_id or _point_id_from_text(text)
-        await self._client.upsert(
-            collection_name=self.collection,
-            points=[
-                PointStruct(
-                    id=pid,
-                    vector=vectors[0],
-                    payload={"text": text, **payload},
-                )
-            ],
-        )
-
-    async def upsert_vectorized_chunks(
-        self,
-        chunks: list[str],
-        vectors: list[list[float]],
-        payload_base: dict[str, Any],
-    ) -> None:
-        """
-        Массовый upsert: каждый фрагмент — отдельная точка с уже посчитанными векторами.
-
-        В payload добавляются ``chunk_index``, ``total_chunks`` и поля из ``payload_base``
-        (например ``kind``, ``source``, время снимка).
-        """
-        if len(chunks) != len(vectors):
-            raise ValueError("chunks и vectors должны совпадать по длине")
-        source_file = str(payload_base.get("source_file", ""))
-        question_number = int(payload_base.get("question_number", 0))
-        points = [
-            PointStruct(
-                id=point_id_for_chunk(
-                    source_file=source_file,
-                    question_number=question_number,
-                    chunk_index=i,
-                    chunk=c,
-                ),
-                vector=vectors[i],
-                payload={
-                    "text": c,
-                    "chunk_index": i,
-                    "total_chunks": len(chunks),
-                    **payload_base,
-                },
-            )
-            for i, c in enumerate(chunks)
-        ]
-        await self._client.upsert(collection_name=self.collection, points=points)
-
     async def upsert_chunks_with_payloads(
         self,
         chunk_payload_pairs: list[tuple[str, dict[str, Any]]],
@@ -215,24 +144,4 @@ class QdrantService:
         for hit in res.points:
             if hit.payload:
                 out.append(dict(hit.payload))
-        return out
-
-    async def search(self, query: str, limit: int = 4) -> list[str]:
-        """
-        Семантический поиск: запрос векторизуется, возвращаются ``limit`` ближайших фрагментов.
-
-        Returns:
-            Список строк ``payload["text"]`` из найденных точек (порядок по релевантности).
-        """
-        vectors = await self.embed_texts([query])
-        res = await self._client.query_points(
-            collection_name=self.collection,
-            query=vectors[0],
-            limit=limit,
-            with_payload=True,
-        )
-        out: list[str] = []
-        for hit in res.points:
-            if hit.payload and "text" in hit.payload:
-                out.append(str(hit.payload["text"]))
         return out
