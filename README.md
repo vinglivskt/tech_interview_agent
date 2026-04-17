@@ -1,7 +1,6 @@
-# FastAPI + Qdrant RAG (Python Interview Assistant)
+# FastAPI + Ollama + Qdrant RAG (Python Interview Assistant)
 
-Приложение превращает личный `.docx` файл с вопросами/ответами по собеседованиям в
-векторную базу и использует её как источник в RAG-чате.
+# Вопросы по собеседованиям — одни из лучших источников для подготовки. Но как быстро найти нужный ответ в длинном документе? Этот проект — FastAPI-приложение, которое превращает ваш `.docx` с вопросами/ответами в векторную базу Qdrant и позволяет общаться с ней через RAG-чат.
 
 ## Что делает
 
@@ -51,24 +50,24 @@
 
 ## Переменные окружения
 
-| Переменная | Назначение |
-|------------|------------|
-| `OLLAMA_URL` | URL API Ollama |
-| `OLLAMA_MODEL` | Чат-модель (например `qwen2.5:7b`) |
-| `OLLAMA_EMBED_MODEL` | Модель эмбеддингов в Ollama |
-| `OLLAMA_TIMEOUT_SEC` | Таймаут запросов к Ollama |
-| `QDRANT_URL` | URL Qdrant |
-| `QDRANT_COLLECTION` | Коллекция (`interview_qa`) |
-| `QDRANT_SHARD_NUMBER` | Число шардов при создании |
-| `QDRANT_REPLICATION_FACTOR` | Репликация |
-| `EMBEDDING_DIM` | Размерность эмбеддингов |
-| `EMBEDDING_BATCH_SIZE` | Батч эмбеддингов |
-| `VECTORIZATION_MAX_CHUNK_CHARS` | Макс. размер чанка |
-| `VECTORIZATION_OVERLAP` | Перекрытие чанков |
-| `INTERVIEW_DOCX_PATH` | Путь к исходному docx |
-| `INGEST_STATE_PATH` | JSON-состояние ingest (хеш файла) |
-| `INGEST_INTERVAL_HOURS` | Частота проверки изменений файла |
-| `INTERVIEW_TOP_K` | Сколько фрагментов вытаскивать из Qdrant |
+| Переменная                      | Назначение                               |
+| ------------------------------- | ---------------------------------------- |
+| `OLLAMA_URL`                    | URL API Ollama                           |
+| `OLLAMA_MODEL`                  | Чат-модель (например `qwen2.5:7b`)       |
+| `OLLAMA_EMBED_MODEL`            | Модель эмбеддингов в Ollama              |
+| `OLLAMA_TIMEOUT_SEC`            | Таймаут запросов к Ollama                |
+| `QDRANT_URL`                    | URL Qdrant                               |
+| `QDRANT_COLLECTION`             | Коллекция (`interview_qa`)               |
+| `QDRANT_SHARD_NUMBER`           | Число шардов при создании                |
+| `QDRANT_REPLICATION_FACTOR`     | Репликация                               |
+| `EMBEDDING_DIM`                 | Размерность эмбеддингов                  |
+| `EMBEDDING_BATCH_SIZE`          | Батч эмбеддингов                         |
+| `VECTORIZATION_MAX_CHUNK_CHARS` | Макс. размер чанка                       |
+| `VECTORIZATION_OVERLAP`         | Перекрытие чанков                        |
+| `INTERVIEW_DOCX_PATH`           | Путь к исходному docx                    |
+| `INGEST_STATE_PATH`             | JSON-состояние ingest (хеш файла)        |
+| `INGEST_INTERVAL_HOURS`         | Частота проверки изменений файла         |
+| `INTERVIEW_TOP_K`               | Сколько фрагментов вытаскивать из Qdrant |
 
 ## Запуск локально
 
@@ -76,12 +75,6 @@
 copy .env.example .env
 uv sync
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Ручная индексация:
-
-```bash
-uv run ingest-interview
 ```
 
 ## Запуск в Docker Compose
