@@ -24,7 +24,6 @@ class Settings(BaseSettings):
     ollama_model: str = Field(default="qwen2.5:7b", description="LLM для интервью-ассистента")
     ollama_embed_model: str = Field(default="nomic-embed-text", description="Модель эмбеддингов в Ollama")
     ollama_timeout_sec: float = Field(default=120.0, gt=0, description="Таймаут запросов к Ollama (сек)")
-    embedding_batch_size: int = Field(default=16, ge=1, description="Размер батча эмбеддингов")
     embedding_dim: int = Field(default=768, ge=1, description="Размерность эмбеддингов текущей модели")
 
     qdrant_url: str = Field(default="http://localhost:6333", description="URL Qdrant")
