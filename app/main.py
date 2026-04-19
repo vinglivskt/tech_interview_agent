@@ -13,7 +13,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -29,16 +29,22 @@ logger = logging.getLogger(__name__)
 
 
 class SessionStore:
-    def __init__(self, max_sessions: int, max_messages_per_session: int, ttl_seconds: int) -> None:
+    def __init__(
+        self, max_sessions: int, max_messages_per_session: int, ttl_seconds: int
+    ) -> None:
         self._max_sessions = max_sessions
         self._max_messages_per_session = max_messages_per_session
         self._ttl_seconds = ttl_seconds
-        self._store: OrderedDict[str, tuple[float, list[dict[str, str]]]] = OrderedDict()
+        self._store: OrderedDict[str, tuple[float, list[dict[str, str]]]] = (
+            OrderedDict()
+        )
 
     def _prune_expired(self) -> None:
         now = time.time()
         expired_keys = [
-            session_id for session_id, (updated_at, _) in self._store.items() if now - updated_at > self._ttl_seconds
+            session_id
+            for session_id, (updated_at, _) in self._store.items()
+            if now - updated_at > self._ttl_seconds
         ]
         for session_id in expired_keys:
             self._store.pop(session_id, None)
@@ -130,7 +136,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-cors_allow_origins = [origin.strip() for origin in get_settings().cors_allow_origins if origin.strip()]
+cors_allow_origins = [
+    origin.strip() for origin in get_settings().cors_allow_origins if origin.strip()
+]
 allow_all_origins = "*" in cors_allow_origins
 
 app.add_middleware(
@@ -161,10 +169,10 @@ async def health(request: Request) -> dict:
 class ChatRequest(BaseModel):
     """Тело POST ``/api/chat``: один обязательный текст запроса."""
 
-    message: str = Field(
-        ..., min_length=1, max_length=get_settings().chat_max_message_length, description="Текст запроса пользователя"
+    message: str = Field(..., min_length=1, description="Текст запроса пользователя")
+    session_id: str = Field(
+        default="default", min_length=1, description="Идентификатор диалога"
     )
-    session_id: str = Field(default="default", min_length=1, description="Идентификатор диалога")
 
 
 @app.post("/api/chat")
@@ -179,6 +187,12 @@ async def chat(request: Request, body: ChatRequest) -> dict:
     sessions = request.app.state.sessions
     session_id = body.session_id.strip() or "default"
     message = body.message.strip()
+
+    if len(message) > settings.chat_max_message_length:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Длина сообщения превышает допустимый лимит ({settings.chat_max_message_length} символов)",
+        )
     history = sessions.get_history(session_id)
 
     answer, meta = await run_chat(
