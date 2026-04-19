@@ -64,12 +64,15 @@ SYSTEM_PROMPT = """Ты выступаешь в роли опытного Tech L
 _CJK_RE = re.compile(r"[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]")
 
 
-def _build_history_messages(history: list[dict[str, str]] | None) -> list[dict[str, str]]:
+def _build_history_messages(
+    history: list[dict[str, str]] | None,
+    limit: int = 12,
+) -> list[dict[str, str]]:
     if not history:
         return []
 
     messages: list[dict[str, str]] = []
-    for item in history[-12:]:
+    for item in history[-limit:]:
         role = item.get("role", "")
         content = (item.get("content", "") or "").strip()
         if not content:
@@ -87,6 +90,7 @@ async def run_chat(
     qdrant: QdrantService,
     user_message: str,
     history: list[dict[str, str]] | None = None,
+    history_limit: int | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """
     Выполняет диалог с retrieval из Qdrant.
@@ -97,6 +101,8 @@ async def run_chat(
         qdrant: Сервис поиска по коллекции.
         user_message: Текст пользователя.
         history: История диалога.
+        history_limit: Сколько последних сообщений передавать в LLM.
+                       Если None — берётся из settings.session_history_limit.
 
     Returns:
         Кортеж ``(ответ_строка, meta)``.
@@ -111,11 +117,15 @@ async def run_chat(
         if isinstance(answer_number, int):
             numbers.append(answer_number)
         if text:
-            label = f"[answer_number={answer_number}] " if answer_number is not None else ""
+            label = (
+                f"[answer_number={answer_number}] " if answer_number is not None else ""
+            )
             context_parts.append(f"{label}{text}")
 
     unique_numbers = sorted(set(numbers))
-    refs = ", ".join(str(number) for number in unique_numbers) if unique_numbers else "нет"
+    refs = (
+        ", ".join(str(number) for number in unique_numbers) if unique_numbers else "нет"
+    )
     rag_context = (
         "\n\n---\n\n".join(context_parts)
         if context_parts
@@ -129,11 +139,16 @@ async def run_chat(
         "Если используешь сведения из базы, обязательно укажи источник(и) "
         f"в формате 'ответ №N'. Найденные номера: {refs}."
     )
+
+    effective_limit = (
+        history_limit if history_limit is not None else settings.session_history_limit
+    )
     messages = [
-        *_build_history_messages(history),
+        *_build_history_messages(history, limit=effective_limit),
         {"role": "user", "content": user_message.strip()},
     ]
     text = (await llm.chat(system_prompt=system_prompt, messages=messages)).strip()
+
     if _CJK_RE.search(text):
         messages.append(
             {
@@ -143,7 +158,11 @@ async def run_chat(
         )
         text = (await llm.chat(system_prompt=system_prompt, messages=messages)).strip()
 
-    if unique_numbers and "ответ №" not in text.lower() and "ответы №" not in text.lower():
+    if (
+        unique_numbers
+        and "ответ №" not in text.lower()
+        and "ответы №" not in text.lower()
+    ):
         refs_suffix = ", ".join(str(number) for number in unique_numbers)
         text = f"{text}\n\nИсточники: ответы №{refs_suffix}"
 

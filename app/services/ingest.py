@@ -50,7 +50,9 @@ def _write_state(path: Path, state: dict[str, Any]) -> None:
     logger.info("Сохранено состояние ingest в %s: %s", path, state)
 
 
-async def sync_interview_index(settings: Settings, qdrant: QdrantService) -> dict[str, Any]:
+async def sync_interview_index(
+    settings: Settings, qdrant: QdrantService
+) -> dict[str, Any]:
     """
     Синхронизирует Qdrant-индекс с docx-файлом.
 

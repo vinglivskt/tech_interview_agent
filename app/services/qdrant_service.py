@@ -7,7 +7,15 @@ import uuid
 from typing import Any
 
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import Condition, Distance, FieldCondition, Filter, MatchValue, PointStruct, VectorParams
+from qdrant_client.models import (
+    Condition,
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointStruct,
+    VectorParams,
+)
 
 from app.config import Settings
 from app.services.llm import OllamaClient
@@ -18,7 +26,9 @@ logger = logging.getLogger(__name__)
 _CHUNK_ID_NS = uuid.UUID("a1b2c3d4-e5f6-4789-a012-3456789abcde")
 
 
-def point_id_for_chunk(*, source_file: str, question_number: int, chunk_index: int, chunk: str) -> str:
+def point_id_for_chunk(
+    *, source_file: str, question_number: int, chunk_index: int, chunk: str
+) -> str:
     """
     Стабильный id точки для фрагмента текста.
 
@@ -57,7 +67,9 @@ class QdrantService:
             return
         await self._client.create_collection(
             collection_name=self.collection,
-            vectors_config=VectorParams(size=self._settings.embedding_dim, distance=Distance.COSINE),
+            vectors_config=VectorParams(
+                size=self._settings.embedding_dim, distance=Distance.COSINE
+            ),
             shard_number=max(1, self._settings.qdrant_shard_number),
             replication_factor=max(1, self._settings.qdrant_replication_factor),
         )
@@ -83,7 +95,9 @@ class QdrantService:
         """
         return await self._llm.embed(texts)
 
-    async def delete_by_payload_kind(self, kind: str, *, doc_hash: str | None = None) -> None:
+    async def delete_by_payload_kind(
+        self, kind: str, *, doc_hash: str | None = None
+    ) -> None:
         """
         Удаляет точки по ``kind`` и, если передан ``doc_hash``, только для этой версии документа.
         """
@@ -91,7 +105,9 @@ class QdrantService:
             FieldCondition(key="kind", match=MatchValue(value=kind)),
         ]
         if doc_hash:
-            must.append(FieldCondition(key="doc_hash", match=MatchValue(value=doc_hash)))
+            must.append(
+                FieldCondition(key="doc_hash", match=MatchValue(value=doc_hash))
+            )
 
         await self._client.delete(
             collection_name=self.collection,
