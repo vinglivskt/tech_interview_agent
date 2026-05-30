@@ -1,9 +1,4 @@
-"""
-Пайплайн индексации для интервью-ассистента.
-
-Источник: ``.docx`` файл с вопросами и ответами.
-Коллекция обновляется только если исходный файл реально изменился.
-"""
+"""Interview index ingestion/synchronization (docx -> Qdrant)."""
 
 from __future__ import annotations
 
@@ -13,10 +8,9 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from app.config import Settings
-from app.services.interview_docx import load_interview_qa
-from app.services.qdrant_service import QdrantService
-from app.services.vectorization import chunk_text
+from app.core.config import Settings
+from app.features.chat.domain.interview_docx import load_interview_qa
+from app.features.chat.domain.vectorization import chunk_text
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +44,8 @@ def _write_state(path: Path, state: dict[str, Any]) -> None:
     logger.info("Сохранено состояние ingest в %s: %s", path, state)
 
 
-async def sync_interview_index(
-    settings: Settings, qdrant: QdrantService
-) -> dict[str, Any]:
-    """
-    Синхронизирует Qdrant-индекс с docx-файлом.
-
-    Если хеш файла не изменился с прошлого успешного ingest — индексация пропускается.
-    """
+async def sync_interview_index(settings: Settings, qdrant: Any) -> dict[str, Any]:
+    """Synchronize Qdrant index with the source `.docx` file."""
     source_path = Path(settings.interview_docx_path)
     if not source_path.exists():
         raise FileNotFoundError(f"Файл не найден: {source_path}")
