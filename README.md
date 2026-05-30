@@ -1,98 +1,228 @@
-# FastAPI + Ollama + Qdrant RAG (Python Interview Assistant)
+# tech_interview_agent — Vertical Slice Architecture (VSA)
 
-# Вопросы по собеседованиям — одни из лучших источников для подготовки. Но как быстро найти нужный ответ в длинном документе? Этот проект — FastAPI-приложение, которое превращает ваш `.docx` с вопросами/ответами в векторную базу Qdrant и позволяет общаться с ней через RAG-чат.
+Проект: FastAPI‑приложение «интервью‑ассистент» с RAG (Qdrant) и генерацией ответов через LLM (Ollama).
 
-## Что делает
+После миграции проект организован в стиле **Vertical‑Slice Architecture**: каждая фича живёт в своём «слайсе» и содержит всё необходимое (API → Domain → Providers → Infrastructure).
 
-1. При запуске читает файл `INTERVIEW_DOCX_PATH`.
-2. Считает SHA-256 файла и сравнивает с последним успешным ingest.
-3. Если файл изменился:
-   - парсит пары вопрос/ответ,
-   - разбивает на фрагменты,
-   - векторизует (Ollama embeddings),
-   - перезаписывает точки `kind=interview_qa` в Qdrant.
-4. В чате модель проводит техскрин и ссылается на номера ответов из базы.
+---
 
-## Важно по сценарию
+## Быстрый старт
 
-- Источник знаний: ваш файл `Топ вопросов на собеседовании Python.docx`.
-- При ответе ассистент должен указывать источник:
-  `Источник: ответ №N` или `Источники: ответы №N1, №N2`.
-- В API добавлен `session_id` для сохранения контекста интервью между сообщениями.
+### 1) Установка зависимостей
 
-## API
-
-- `GET /` — фронт с полем ввода.
-- `GET /api/health` — статус API/Qdrant.
-- `POST /api/chat` — запрос в интервью-ассистент.
-
-Пример запроса:
-
-```json
-{
-  "session_id": "my-session-1",
-  "message": "Проведи техскрин по async Python"
-}
-```
-
-Пример ответа:
-
-```json
-{
-  "answer": "… Источник: ответ №12",
-  "meta": {
-    "used_rag": true,
-    "retrieved_chunks": 5,
-    "answer_numbers": [12, 27]
-  }
-}
-```
-
-## Переменные окружения
-
-| Переменная                      | Назначение                               |
-| ------------------------------- | ---------------------------------------- |
-| `OLLAMA_URL`                    | URL API Ollama                           |
-| `OLLAMA_MODEL`                  | Чат-модель (например `qwen2.5:7b`)       |
-| `OLLAMA_EMBED_MODEL`            | Модель эмбеддингов в Ollama              |
-| `OLLAMA_TIMEOUT_SEC`            | Таймаут запросов к Ollama                |
-| `QDRANT_URL`                    | URL Qdrant                               |
-| `QDRANT_COLLECTION`             | Коллекция (`interview_qa`)               |
-| `QDRANT_SHARD_NUMBER`           | Число шардов при создании                |
-| `QDRANT_REPLICATION_FACTOR`     | Репликация                               |
-| `EMBEDDING_DIM`                 | Размерность эмбеддингов                  |
-| `EMBEDDING_BATCH_SIZE`          | Батч эмбеддингов                         |
-| `VECTORIZATION_MAX_CHUNK_CHARS` | Макс. размер чанка                       |
-| `VECTORIZATION_OVERLAP`         | Перекрытие чанков                        |
-| `INTERVIEW_DOCX_PATH`           | Путь к исходному docx                    |
-| `INGEST_STATE_PATH`             | JSON-состояние ingest (хеш файла)        |
-| `INGEST_INTERVAL_HOURS`         | Частота проверки изменений файла         |
-| `INTERVIEW_TOP_K`               | Сколько фрагментов вытаскивать из Qdrant |
-
-## Запуск локально
+Проект использует `pyproject.toml`.
 
 ```bash
-copy .env.example .env
-uv sync
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python3 -m pip install -e .
+python3 -m pip install pytest
 ```
 
-## Запуск в Docker Compose
-
-В `.env` обязательно задайте:
-
-- `OLLAMA_URL` (для Docker обычно `http://host.docker.internal:11434`)
-- `OLLAMA_MODEL`
-- `OLLAMA_EMBED_MODEL`
-- `DOCX_SOURCE_PATH_HOST` — путь на хосте до вашего `.docx`
-
-Потом:
+### 2) Запуск приложения
 
 ```bash
-docker compose up --build
+uvicorn app.main:app --reload
 ```
 
-Доступ:
+Откройте:
 
-- API/Frontend: `http://localhost:8000`
-- Qdrant Dashboard: `http://localhost:6333/dashboard`
+- `GET /` — фронтенд (`static/index.html`)
+- `GET /api/health` — healthcheck
+- `POST /api/chat` — чат
+
+### 3) Запуск тестов
+
+```bash
+python3 -m pytest -q
+```
+
+---
+
+## Структура проекта (после VSA‑миграции)
+
+```
+tech_interview_agent/
+├─ app/
+│  ├─ core/
+│  │  ├─ config.py
+│  │  ├─ logger.py
+│  │  ├─ exceptions.py
+│  │  └─ interfaces/
+│  │     ├─ llm.py
+│  │     ├─ embeddings.py
+│  │     └─ vectorstore.py
+│  │
+│  ├─ features/
+│  │  └─ chat/
+│  │     ├─ api/
+│  │     │  └─ router.py
+│  │     ├─ domain/
+│  │     │  ├─ models.py
+│  │     │  ├─ services.py
+│  │     │  ├─ ingest.py
+│  │     │  ├─ interview_docx.py
+│  │     │  └─ vectorization.py
+│  │     ├─ providers/
+│  │     │  └─ ollama.py
+│  │     └─ infrastructure/
+│  │        └─ qdrant.py
+│  │
+│  ├─ shared/
+│  │  ├─ dto/
+│  │  ├─ enums/
+│  │  └─ utils/
+│  │
+│  └─ main.py
+│
+├─ static/
+├─ tests/
+│  ├─ unit/
+│  └─ integration/
+└─ pyproject.toml
+```
+
+### Как читать слои
+
+- **API** (`app/features/<feature>/api`) — FastAPI роутеры, валидация запросов/ответов, коды ошибок.
+- **Domain** (`.../domain`) — бизнес‑логика фичи, DTO/модели домена, use‑cases.
+- **Providers** (`.../providers`) — внешние провайдеры (LLM: Ollama/OpenAI/…); обычно HTTP‑клиенты.
+- **Infrastructure** (`.../infrastructure`) — инфраструктура хранения/очередей/БД (Qdrant/Pg/Kafka/…)
+- **Core** (`app/core`) — общие вещи: конфиг, логгер, интерфейсы (Protocol), исключения.
+- **Shared** (`app/shared`) — общие утилиты/DTO, которые реально используются более чем одной фичей.
+
+---
+
+## Точка входа: `app/main.py`
+
+`app/main.py` специально держится «тонким»:
+
+1. Создаёт `FastAPI`.
+2. В `lifespan`:
+   - загружает `settings`
+   - поднимает `llm` и `vectorstore`
+   - выполняет первичный ingest (`sync_interview_index`)
+   - запускает периодический ingest в фоне
+   - кладёт зависимости в `app.state` (чтобы роутеры могли их брать через `request.app.state`)
+3. Подключает роутеры фич: `app.include_router(chat_router, prefix="/api")`
+4. Отдаёт статику.
+
+---
+
+## Фича `chat`
+
+### API: `app/features/chat/api/router.py`
+
+Эндпоинты:
+
+- `GET /api/health`
+  - проверяет доступность Qdrant и LLM.
+
+- `POST /api/chat`
+  - тело запроса:
+    ```json
+    {
+      "message": "Привет",
+      "session_id": "default"
+    }
+    ```
+  - ответ:
+    ```json
+    {
+      "answer": "...",
+      "meta": {
+        "used_rag": true,
+        "retrieved_chunks": 5,
+        "answer_numbers": [1, 2]
+      }
+    }
+    ```
+
+### Domain: `app/features/chat/domain/services.py`
+
+Ключевой use‑case: `run_chat(...)`.
+
+Алгоритм (упрощённо):
+
+1. Делает retrieval из векторного стора (Qdrant):
+   - получает эмбеддинг запроса
+   - ищет топ‑K релевантных чанков
+2. Собирает `system_prompt`:
+   - базовый промпт берётся из `Settings.system_prompt`
+   - добавляет RAG‑контекст и список найденных номеров ответов
+3. Вызывает LLM через `llm.generate(messages)`.
+4. Возвращает `answer` и `meta`.
+
+### Ingest: `app/features/chat/domain/ingest.py`
+
+`sync_interview_index(settings, qdrant)`:
+
+- считает sha256 `.docx`
+- если хеш не изменился — пропускает ingest
+- иначе:
+  - парсит docx (`interview_docx.py`)
+  - режет на чанки (`vectorization.py`)
+  - upsert в Qdrant
+  - удаляет устаревшие точки по `doc_hash`
+  - сохраняет state в `data/interview_ingest_state.json`
+
+---
+
+## Интерфейсы (Protocol)
+
+Интерфейсы лежат в `app/core/interfaces/` и позволяют:
+
+- легко мокать зависимости в тестах
+- менять провайдера без переписывания доменной логики
+
+### `LLMGateway` (`app/core/interfaces/llm.py`)
+
+Минимальный контракт генерации:
+
+- `ping() -> bool`
+- `generate(messages, temperature?, max_tokens?, **kwargs) -> str`
+
+### `EmbeddingGateway` (`app/core/interfaces/embeddings.py`)
+
+Отдельный контракт для эмбеддингов:
+
+- `embed(texts: list[str]) -> list[list[float]]`
+
+### `VectorStoreGateway` (`app/core/interfaces/vectorstore.py`)
+
+- `ensure_collection()`
+- `upsert(vectors, payloads)`
+- `search(query_vector, top_k)`
+- `ping()`
+
+---
+
+## Конфигурация
+
+Все настройки — в `app/config.py` (источник), а `app/core/config.py` — новый «официальный» путь импорта.
+
+Главное:
+
+- `SYSTEM_PROMPT` теперь хранится в `Settings.system_prompt`
+- параметры генерации: `llm_temperature`, `llm_max_tokens`
+
+Настройки читаются из `.env` (см. `SettingsConfigDict`).
+
+---
+
+## Как добавить новую фичу
+
+1. Создать структуру:
+   - `app/features/<feature>/api/router.py`
+   - `app/features/<feature>/domain/...`
+   - `app/features/<feature>/providers/...`
+   - `app/features/<feature>/infrastructure/...`
+2. В `app/main.py` добавить:
+   - импорт роутера
+   - `app.include_router(..., prefix="/api")`
+3. Если нужны зависимости — инициализировать их в `lifespan` и положить в `app.state`.
+
+---
+
+## Примечания
+
+- Папка `app/services` удалена, вся логика разнесена по slice‑модулям.
+- Интеграционные тесты используют моки (`DummyLLM`, `DummyVector`) и подменяют lifespan приложения.

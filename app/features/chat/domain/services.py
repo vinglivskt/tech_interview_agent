@@ -1,15 +1,18 @@
-"""Логика интервью-ассистента с RAG и генерацией через Ollama."""
-
+# tech_interview_agent/app/features/chat/domain/services.py
 from __future__ import annotations
 
 import re
+import time
+from collections import OrderedDict
 from typing import Any
 
-from app.config import Settings
-from app.services.llm import OllamaClient
-from app.services.qdrant_service import QdrantService
+from app.core.interfaces.embeddings import EmbeddingGateway
+from app.core.interfaces.llm import LLMGateway
+from app.core.interfaces.vectorstore import VectorStoreGateway
 
-SYSTEM_PROMPT = """Ты выступаешь в роли опытного Tech Lead / Senior Python Backend разработчика с большим опытом проведения собеседований.
+# NOTE: prompt content moved to `Settings.system_prompt`.
+# This fallback is kept for safety (e.g. if settings miss the field).
+SYSTEM_PROMPT_FALLBACK = """Ты выступаешь в роли опытного Tech Lead / Senior Python Backend разработчика с большим опытом проведения собеседований.
 У тебя есть файл и база вопросов и ответов по Python-интервью. База и контекст из retrieval приоритетнее памяти модели.
 Твоя задача — проводить техническую подготовку в формате реального интервью.
 
@@ -84,30 +87,65 @@ def _build_history_messages(
     return messages
 
 
+class SessionStore:
+    """Хранилище истории диалогов в памяти (TTL‑кеш)."""
+
+    def __init__(self, max_sessions: int, max_messages_per_session: int, ttl_seconds: int) -> None:
+        self.max_sessions = max_sessions
+        self.max_messages_per_session = max_messages_per_session
+        self.ttl = ttl_seconds
+        self.store: OrderedDict[str, tuple[float, list[dict[str, str]]]] = OrderedDict()
+
+    def _prune(self) -> None:
+        now = time.time()
+        expired = [sid for sid, (ts, _) in self.store.items() if now - ts > self.ttl]
+        for sid in expired:
+            self.store.pop(sid, None)
+
+    def get(self, session_id: str) -> list[dict[str, str]]:
+        self._prune()
+        entry = self.store.get(session_id)
+        return list(entry[1]) if entry else []
+
+    def save(self, session_id: str, history: list[dict[str, str]]) -> None:
+        self._prune()
+        self.store[session_id] = (time.time(), history[-self.max_messages_per_session :])
+        self.store.move_to_end(session_id)
+        while len(self.store) > self.max_sessions:
+            self.store.popitem(last=False)
+
+
 async def run_chat(
-    settings: Settings,
-    llm: OllamaClient,
-    qdrant: QdrantService,
+    settings: Any,
+    llm: LLMGateway,
+    vectorstore: VectorStoreGateway,
     user_message: str,
     history: list[dict[str, str]] | None = None,
     history_limit: int | None = None,
+    *,
+    embedder: EmbeddingGateway | None = None,
 ) -> tuple[str, dict[str, Any]]:
-    """
-    Выполняет диалог с retrieval из Qdrant.
+    """Chat with RAG.
 
-    Args:
-        settings: Конфигурация приложения.
-        llm: Клиент Ollama.
-        qdrant: Сервис поиска по коллекции.
-        user_message: Текст пользователя.
-        history: История диалога.
-        history_limit: Сколько последних сообщений передавать в LLM.
-                       Если None — берётся из settings.session_history_limit.
+    - генерация: через `llm.generate`
+    - эмбеддинги: через отдельный `EmbeddingGateway` (если передан), иначе без retrieval.
 
-    Returns:
-        Кортеж ``(ответ_строка, meta)``.
+    `embedder` прокидывается из wiring (например, OllamaClient реализует EmbeddingGateway).
     """
-    hits = await qdrant.search_payload(user_message, limit=settings.interview_top_k)
+
+    top_k = getattr(settings, "interview_top_k", 5)
+    hits: list[dict[str, Any]] = []
+
+    try:
+        if embedder is not None:
+            query_vec = (await embedder.embed([user_message]))[0]
+            hits = await vectorstore.search(query_vec, top_k=top_k)
+        else:
+            # fallback for vectorstore implementations that expose legacy helper
+            if hasattr(vectorstore, "search_payload"):
+                hits = await vectorstore.search_payload(user_message, limit=top_k)  # type: ignore[attr-defined]
+    except Exception:
+        hits = []
 
     numbers: list[int] = []
     context_parts: list[str] = []
@@ -117,37 +155,35 @@ async def run_chat(
         if isinstance(answer_number, int):
             numbers.append(answer_number)
         if text:
-            label = (
-                f"[answer_number={answer_number}] " if answer_number is not None else ""
-            )
+            label = f"[answer_number={answer_number}] " if answer_number is not None else ""
             context_parts.append(f"{label}{text}")
 
     unique_numbers = sorted(set(numbers))
-    refs = (
-        ", ".join(str(number) for number in unique_numbers) if unique_numbers else "нет"
-    )
+    refs = ", ".join(str(number) for number in unique_numbers) if unique_numbers else "нет"
     rag_context = (
         "\n\n---\n\n".join(context_parts)
         if context_parts
         else "(в базе пока нет подходящих фрагментов — ответь аккуратно и без выдуманных ссылок)"
     )
 
+    base_prompt = getattr(settings, "system_prompt", "") or SYSTEM_PROMPT_FALLBACK
     system_prompt = (
-        f"{SYSTEM_PROMPT}\n\n"
+        f"{base_prompt}\n\n"
         "Контекст из векторной базы:\n"
         f"{rag_context}\n\n"
         "Если используешь сведения из базы, обязательно укажи источник(и) "
         f"в формате 'ответ №N'. Найденные номера: {refs}."
     )
 
-    effective_limit = (
-        history_limit if history_limit is not None else settings.session_history_limit
-    )
+    effective_limit = history_limit if history_limit is not None else getattr(settings, "session_history_limit", 20)
+
     messages = [
+        {"role": "system", "content": system_prompt},
         *_build_history_messages(history, limit=effective_limit),
         {"role": "user", "content": user_message.strip()},
     ]
-    text = (await llm.chat(system_prompt=system_prompt, messages=messages)).strip()
+
+    text = (await llm.generate(messages)).strip()
 
     if _CJK_RE.search(text):
         messages.append(
@@ -156,13 +192,9 @@ async def run_chat(
                 "content": "Переформулируй предыдущий ответ полностью на русском языке без иностранных вставок.",
             }
         )
-        text = (await llm.chat(system_prompt=system_prompt, messages=messages)).strip()
+        text = (await llm.generate(messages)).strip()
 
-    if (
-        unique_numbers
-        and "ответ №" not in text.lower()
-        and "ответы №" not in text.lower()
-    ):
+    if unique_numbers and "ответ №" not in text.lower() and "ответы №" not in text.lower():
         refs_suffix = ", ".join(str(number) for number in unique_numbers)
         text = f"{text}\n\nИсточники: ответы №{refs_suffix}"
 

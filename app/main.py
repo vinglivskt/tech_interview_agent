@@ -1,93 +1,51 @@
-"""
-Точка входа HTTP: FastAPI-приложение для интервью-помощника с RAG.
+"""FastAPI application entrypoint.
 
-При старте выполняется синхронизация индекса Qdrant с docx-файлом вопросов.
-Фоновая задача периодически проверяет изменения файла и переиндексирует данные.
+VSA migration: `main.py` contains only FastAPI initialization, lifespan wiring,
+router registration and static file serving.
 """
+
+from __future__ import annotations
 
 import asyncio
 import logging
-import time
-from collections import OrderedDict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
 
-from app.config import get_settings
-from app.services.chat_rag import run_chat
-from app.services.ingest import sync_interview_index
-from app.services.llm import OllamaClient
-from app.services.qdrant_service import QdrantService
+from app.core.config import get_settings
+from app.core.logger import configure_logging
+from app.features.chat.api.router import router as chat_router
+from app.features.chat.domain.ingest import sync_interview_index
+from app.features.chat.domain.services import SessionStore
+from app.features.chat.infrastructure.qdrant import QdrantService
+from app.features.chat.providers.ollama import OllamaClient
 
-logging.basicConfig(level=logging.INFO)
+configure_logging()
 logger = logging.getLogger(__name__)
-
-
-class SessionStore:
-    def __init__(
-        self, max_sessions: int, max_messages_per_session: int, ttl_seconds: int
-    ) -> None:
-        self._max_sessions = max_sessions
-        self._max_messages_per_session = max_messages_per_session
-        self._ttl_seconds = ttl_seconds
-        self._store: OrderedDict[str, tuple[float, list[dict[str, str]]]] = (
-            OrderedDict()
-        )
-
-    def _prune_expired(self) -> None:
-        now = time.time()
-        expired_keys = [
-            session_id
-            for session_id, (updated_at, _) in self._store.items()
-            if now - updated_at > self._ttl_seconds
-        ]
-        for session_id in expired_keys:
-            self._store.pop(session_id, None)
-
-    def get_history(self, session_id: str) -> list[dict[str, str]]:
-        self._prune_expired()
-        session = self._store.get(session_id)
-        if session is None:
-            return []
-        _, history = session
-        self._store.move_to_end(session_id)
-        return list(history)
-
-    def save_history(self, session_id: str, history: list[dict[str, str]]) -> None:
-        self._prune_expired()
-        self._store[session_id] = (
-            time.time(),
-            history[-self._max_messages_per_session :],
-        )
-        self._store.move_to_end(session_id)
-        while len(self._store) > self._max_sessions:
-            self._store.popitem(last=False)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """
-    Инициализация при запуске и корректное завершение фоновых задач.
-
-    Сохраняет в ``app.state``: ``settings``, ``llm``, ``qdrant`` — используются
-    в обработчиках через ``request.app.state``.
-    """
     settings = get_settings()
     llm = OllamaClient(settings)
     qdrant = QdrantService(settings, llm)
 
     if not await llm.ping():
         logger.warning("Ollama недоступна по %s", settings.ollama_url)
+
     await qdrant.ensure_collection()
+
     try:
         state = await sync_interview_index(settings, qdrant)
         logger.info("Состояние индекса: %s", state)
     except Exception:
+        # В docker-compose Ollama может быть не поднята/недоступна.
+        # Не валим приложение на старте: чат/health должны продолжить работать,
+        # а индексация повторится по расписанию.
         logger.exception("Первая индексация docx не удалась")
 
     app.state.settings = settings
@@ -102,7 +60,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     stop = asyncio.Event()
 
     async def periodic_ingest_loop() -> None:
-        """Периодически проверяет изменения docx и обновляет индекс при необходимости."""
         while not stop.is_set():
             try:
                 await asyncio.wait_for(
@@ -120,12 +77,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     task = asyncio.create_task(periodic_ingest_loop())
     yield
     stop.set()
-    if task is not None:
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
     await qdrant.close()
     await llm.close()
 
@@ -136,9 +93,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-cors_allow_origins = [
-    origin.strip() for origin in get_settings().cors_allow_origins if origin.strip()
-]
+# CORS
+cors_allow_origins = [origin.strip() for origin in get_settings().cors_allow_origins if origin.strip()]
 allow_all_origins = "*" in cors_allow_origins
 
 app.add_middleware(
@@ -149,73 +105,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Routers
+app.include_router(chat_router, prefix="/api")
 
-@app.get("/api/health")
-async def health(request: Request) -> dict:
-    """
-    Проверка живости API и доступности Qdrant.
-
-    Возвращает ``qdrant: true``, если HTTP-клиент успешно получил список коллекций.
-    """
-    q = request.app.state.qdrant
-    q_ok = await q.ping()
-    return {
-        "status": "ok",
-        "qdrant": q_ok,
-        "ollama_available": await request.app.state.llm.ping(),
-    }
-
-
-class ChatRequest(BaseModel):
-    """Тело POST ``/api/chat``: один обязательный текст запроса."""
-
-    message: str = Field(..., min_length=1, description="Текст запроса пользователя")
-    session_id: str = Field(
-        default="default", min_length=1, description="Идентификатор диалога"
-    )
-
-
-@app.post("/api/chat")
-async def chat(request: Request, body: ChatRequest) -> dict:
-    """
-    Чат с RAG: делегирует логику ``run_chat`` (function calling + поиск в Qdrant).
-
-    Успешный ответ: ``answer`` (строка), ``meta`` (``used_rag``, ``retrieved_chunks``, …).
-    """
-    settings = request.app.state.settings
-
-    sessions = request.app.state.sessions
-    session_id = body.session_id.strip() or "default"
-    message = body.message.strip()
-
-    if len(message) > settings.chat_max_message_length:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Длина сообщения превышает допустимый лимит ({settings.chat_max_message_length} символов)",
-        )
-    history = sessions.get_history(session_id)
-
-    answer, meta = await run_chat(
-        settings,
-        request.app.state.llm,
-        request.app.state.qdrant,
-        message,
-        history=history,
-    )
-
-    new_history = history + [
-        {"role": "user", "content": message},
-        {"role": "assistant", "content": answer},
-    ]
-    sessions.save_history(session_id, new_history)
-    return {"answer": answer, "meta": meta}
-
-
-# Каталог со статикой лежит рядом с пакетом app (корень репозитория /static)
+# Static
 static_dir = Path(__file__).resolve().parent.parent / "static"
 
 
 @app.get("/")
 async def index() -> FileResponse:
-    """Отдаёт одностраничный фронт (форма чата)."""
     return FileResponse(static_dir / "index.html")

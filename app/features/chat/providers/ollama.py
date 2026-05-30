@@ -1,18 +1,12 @@
-"""HTTP-клиент к Ollama API (POST /api/chat)."""
+# tech_interview_agent/app/features/chat/providers/ollama.py
 
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 
-from app.config import Settings
-
-# Поддерживаемые embed endpoints в порядке приоритета проверки.
-# Каждый элемент: (url, поле тела запроса с текстом, ключ вектора в ответе)
-_EMBED_ENDPOINTS = [
-    ("/api/embeddings", "prompt", "embedding"),
-    ("/api/embed", "input", "embeddings"),
-    ("/v1/embeddings", "input", "data"),
-]
+from app.core.config import Settings
 
 
 class OllamaClient:
@@ -37,42 +31,62 @@ class OllamaClient:
         except Exception:
             return False
 
-    async def chat(
+    async def generate(
         self,
-        system_prompt: str,
         messages: list[dict[str, str]],
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        **kwargs: Any,
     ) -> str:
-        resp = await self._http.post(
-            "/api/chat",
-            json={
-                "model": self._model,
-                "stream": False,
-                "messages": [{"role": "system", "content": system_prompt}, *messages],
-            },
-        )
+        """Генерация ответа LLM через Ollama API.
+
+        Ожидает список сообщений в формате OpenAI:
+            [{"role": "system", "content": "..."},
+             {"role": "user", "content": "..."},
+             ...]
+        """
+        payload: dict[str, Any] = {
+            "model": self._model,
+            "stream": False,
+            "messages": messages,
+        }
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        payload.update(kwargs)
+
+        resp = await self._http.post("/api/chat", json=payload)
         resp.raise_for_status()
         return resp.json()["message"]["content"]
 
+    # --- Embedding methods (implements EmbeddingGateway) ---
     async def _detect_embed_endpoint(self) -> tuple[str, str, str]:
         """Определяет рабочий embed endpoint один раз и кеширует результат."""
         if self._embed_endpoint is not None:
             return self._embed_endpoint
 
-        # Пробуем каждый endpoint с одним пустым текстом
-        for url, body_key, response_key in _EMBED_ENDPOINTS:
+        # Поддерживаемые embed endpoints в порядке приоритета проверки.
+        embed_endpoints = [
+            ("/api/embeddings", "prompt", "embedding"),
+            ("/api/embed", "input", "embeddings"),
+            ("/v1/embeddings", "input", "data"),
+        ]
+        for url, body_key, response_key in embed_endpoints:
             resp = await self._http.post(
-                url, json={"model": self._embed_model, body_key: " "}
+                url,
+                json={"model": self._embed_model, body_key: " "},
             )
             if resp.status_code != 404:
                 resp.raise_for_status()
                 self._embed_endpoint = (url, body_key, response_key)
                 return self._embed_endpoint
 
-        raise RuntimeError(
-            "Ollama не поддерживает embeddings endpoint. Обновите Ollama и установите embedding-модель."
-        )
+        raise RuntimeError("Ollama не поддерживает embeddings endpoint. Обновите Ollama и установите embedding-модель.")
 
-    def _extract_vector(self, payload: dict, response_key: str) -> list[float]:
+    @staticmethod
+    def _extract_vector(payload: dict[str, Any], response_key: str) -> list[float]:
         """Извлекает вектор из ответа embed endpoint."""
         if response_key == "embedding" and "embedding" in payload:
             return payload["embedding"]
@@ -94,7 +108,8 @@ class OllamaClient:
             batch = texts[i : i + self._batch_size]
             for text in batch:
                 resp = await self._http.post(
-                    url, json={"model": self._embed_model, body_key: text}
+                    url,
+                    json={"model": self._embed_model, body_key: text},
                 )
                 resp.raise_for_status()
                 out.append(self._extract_vector(resp.json(), response_key))

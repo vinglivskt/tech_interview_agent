@@ -1,9 +1,4 @@
-"""
-Парсинг ``.docx`` файла с вопросами/ответами для подготовки к собеседованиям.
-
-Модуль старается аккуратно извлечь пары "вопрос/ответ" даже если документ размечен
-нестрого. Номер вопроса извлекается из заголовка (например ``12. ...``).
-"""
+"""Parsing of the interview `.docx` file (Q/A pairs)."""
 
 from __future__ import annotations
 
@@ -13,15 +8,13 @@ from pathlib import Path
 
 from docx import Document
 
-QUESTION_PATTERN = re.compile(
-    r"^\s*(?:вопрос\s*)?(\d{1,4})\s*[.)\-:]\s*(.+)?$", re.IGNORECASE
-)
+QUESTION_PATTERN = re.compile(r"^\s*(?:вопрос\s*)?(\d{1,4})\s*[.)\-:]\s*(.+)?$", re.IGNORECASE)
 ANSWER_MARKER_PATTERN = re.compile(r"^\s*ответ\s*[:\-]?\s*(.*)$", re.IGNORECASE)
 
 
 @dataclass(slots=True)
 class InterviewQA:
-    """Одна запись "вопрос/ответ" из docx."""
+    """One Q/A item from docx."""
 
     number: int
     question: str
@@ -29,7 +22,6 @@ class InterviewQA:
 
     @property
     def as_document(self) -> str:
-        """Текстовый документ для RAG-индексации."""
         return f"Вопрос №{self.number}\n{self.question}\n\nОтвет №{self.number}\n{self.answer}"
 
 
@@ -44,11 +36,6 @@ def _normalize_paragraphs(path: Path) -> list[str]:
 
 
 def _load_from_tables(path: Path) -> list[InterviewQA]:
-    """
-    Извлекает пары вопрос/ответ из табличной структуры.
-
-    Ожидается формат строк: [номер, вопрос, ответ].
-    """
     doc = Document(str(path))
     out: list[InterviewQA] = []
     for table in doc.tables:
@@ -58,7 +45,6 @@ def _load_from_tables(path: Path) -> list[InterviewQA]:
                 continue
             number_str = cells[0]
             if not number_str.isdigit():
-                # Обычно первая строка — заголовок колонок.
                 continue
             number = int(number_str)
             question = cells[1].strip()
@@ -69,20 +55,11 @@ def _load_from_tables(path: Path) -> list[InterviewQA]:
 
 
 def load_interview_qa(path: Path) -> list[InterviewQA]:
-    """
-    Читает ``.docx`` и извлекает список вопросов и ответов.
-
-    Поддерживаются маркеры вида:
-    - ``12. Что такое GIL``
-    - ``Вопрос 12: ...``
-    - ``Ответ: ...`` (опционально)
-    """
-    # 1) Попробуем явную табличную структуру (наиболее частый формат рабочих шпаргалок).
+    """Extract Q/A list from `.docx`."""
     table_items = _load_from_tables(path)
     if table_items:
         return table_items
 
-    # 2) Fallback: парсинг последовательности абзацев.
     paragraphs = _normalize_paragraphs(path)
     if not paragraphs:
         return []
@@ -134,7 +111,6 @@ def load_interview_qa(path: Path) -> list[InterviewQA]:
         elif not cur_question:
             cur_question = line
         else:
-            # Иногда ответы идут сразу после вопроса без "Ответ:"
             cur_answer_parts.append(line)
 
     flush()
