@@ -10,6 +10,11 @@ from app.core.config import Settings
 
 
 class OllamaClient:
+    """
+    Клиент для взаимодействия с Ollama API (LLM и эмбеддинги).
+    Реализует генерацию ответов и получение эмбеддингов.
+    """
+
     def __init__(self, settings: Settings) -> None:
         self._model = settings.ollama_model
         self._embed_model = settings.ollama_embed_model
@@ -22,9 +27,16 @@ class OllamaClient:
         self._embed_endpoint: tuple[str, str, str] | None = None
 
     async def close(self) -> None:
+        """
+        Закрывает HTTP-клиент Ollama.
+        """
         await self._http.aclose()
 
     async def ping(self) -> bool:
+        """
+        Проверяет доступность Ollama (по /api/tags).
+        :return: True если Ollama доступен
+        """
         try:
             resp = await self._http.get("/api/tags", timeout=3.0)
             return resp.status_code == 200
@@ -39,6 +51,13 @@ class OllamaClient:
         max_tokens: int | None = None,
         **kwargs: Any,
     ) -> str:
+        """
+        Генерирует ответ LLM через Ollama API.
+        :param messages: список сообщений (OpenAI-формат)
+        :param temperature: температура генерации
+        :param max_tokens: максимальное число токенов
+        :return: сгенерированный текст
+        """
         """Генерация ответа LLM через Ollama API.
 
         Ожидает список сообщений в формате OpenAI:
@@ -63,6 +82,10 @@ class OllamaClient:
 
     # --- Embedding methods (implements EmbeddingGateway) ---
     async def _detect_embed_endpoint(self) -> tuple[str, str, str]:
+        """
+        Определяет рабочий endpoint для эмбеддингов и кеширует его.
+        :return: url, ключ для тела, ключ для ответа
+        """
         """Определяет рабочий embed endpoint один раз и кеширует результат."""
         if self._embed_endpoint is not None:
             return self._embed_endpoint
@@ -87,6 +110,12 @@ class OllamaClient:
 
     @staticmethod
     def _extract_vector(payload: dict[str, Any], response_key: str) -> list[float]:
+        """
+        Извлекает вектор из ответа Ollama embed endpoint.
+        :param payload: json-ответ
+        :param response_key: ключ для поиска вектора
+        :return: список float
+        """
         """Извлекает вектор из ответа embed endpoint."""
         if response_key == "embedding" and "embedding" in payload:
             return payload["embedding"]
@@ -97,6 +126,11 @@ class OllamaClient:
         raise RuntimeError(f"Ollama embed вернул пустой ответ (ключ: {response_key})")
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
+        """
+        Векторизует список текстов батчами через Ollama.
+        :param texts: список строк
+        :return: список векторов
+        """
         """Векторизует тексты батчами, используя кешированный endpoint."""
         if not texts:
             return []

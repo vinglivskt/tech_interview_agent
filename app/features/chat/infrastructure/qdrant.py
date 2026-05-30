@@ -1,5 +1,8 @@
 # tech_interview_agent/app/features/chat/infrastructure/qdrant.py
-"""Qdrant infrastructure implementation of VectorStoreGateway."""
+"""
+Инфраструктурная реализация VectorStoreGateway для Qdrant.
+Обеспечивает хранение и поиск векторов для RAG через Qdrant.
+"""
 
 from __future__ import annotations
 

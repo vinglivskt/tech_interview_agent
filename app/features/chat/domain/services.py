@@ -71,6 +71,12 @@ def _build_history_messages(
     history: list[dict[str, str]] | None,
     limit: int = 12,
 ) -> list[dict[str, str]]:
+    """
+    Преобразует историю сообщений в формат для LLM (ограничивает по количеству).
+    :param history: список сообщений
+    :param limit: максимальное число сообщений
+    :return: список сообщений для LLM
+    """
     if not history:
         return []
 
@@ -88,7 +94,10 @@ def _build_history_messages(
 
 
 class SessionStore:
-    """Хранилище истории диалогов в памяти (TTL‑кеш)."""
+    """
+    Хранилище истории диалогов в памяти (TTL‑кеш).
+    Позволяет ограничивать число сессий, сообщений и время жизни.
+    """
 
     def __init__(self, max_sessions: int, max_messages_per_session: int, ttl_seconds: int) -> None:
         self.max_sessions = max_sessions
@@ -125,12 +134,20 @@ async def run_chat(
     *,
     embedder: EmbeddingGateway | None = None,
 ) -> tuple[str, dict[str, Any]]:
-    """Chat with RAG.
-
-    - генерация: через `llm.generate`
-    - эмбеддинги: через отдельный `EmbeddingGateway` (если передан), иначе без retrieval.
-
-    `embedder` прокидывается из wiring (например, OllamaClient реализует EmbeddingGateway).
+    """
+    Основная функция общения с ассистентом с использованием RAG.
+    1. Получает эмбеддинг запроса и ищет релевантные фрагменты в Qdrant.
+    2. Формирует system_prompt с контекстом.
+    3. Вызывает LLM для генерации ответа.
+    4. Возвращает ответ и метаинформацию (использовался ли RAG, номера ответов и т.д.).
+    :param settings: настройки приложения
+    :param llm: шлюз к LLM
+    :param vectorstore: шлюз к векторному хранилищу
+    :param user_message: сообщение пользователя
+    :param history: история диалога
+    :param history_limit: лимит истории
+    :param embedder: шлюз к эмбеддингам
+    :return: ответ ассистента и метаинформация
     """
 
     top_k = getattr(settings, "interview_top_k", 5)

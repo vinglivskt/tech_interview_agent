@@ -226,3 +226,76 @@ tech_interview_agent/
 
 - Папка `app/services` удалена, вся логика разнесена по slice‑модулям.
 - Интеграционные тесты используют моки (`DummyLLM`, `DummyVector`) и подменяют lifespan приложения.
+
+---
+
+## Архитектурная схема
+
+```mermaid
+flowchart TD
+    User[Пользователь] -->|HTTP| FastAPI[FastAPI (app.main)]
+    FastAPI -->|/api/chat| ChatRouter[Chat API Router]
+    ChatRouter -->|use-case| RunChat[run_chat (services.py)]
+    RunChat -->|RAG| Qdrant[QdrantService]
+    RunChat -->|LLM| Ollama[OllamaClient]
+    Qdrant <--> Ollama
+    RunChat -->|docx ingest| Ingest[Ingest/Docx Parser]
+```
+
+---
+
+## Примеры запросов к API
+
+### Проверка состояния
+
+```bash
+curl http://localhost:8000/api/health
+```
+
+### Диалог с ассистентом
+
+```bash
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Что такое GIL в Python?", "session_id": "default"}'
+```
+
+Пример ответа:
+
+```json
+{
+  "answer": "GIL (Global Interpreter Lock) — это механизм CPython, ...",
+  "meta": {
+    "used_rag": true,
+    "retrieved_chunks": 3,
+    "answer_numbers": [12, 15]
+  }
+}
+```
+
+---
+
+## FAQ
+
+**Q: Почему не запускается Ollama или Qdrant?**
+
+- Проверьте, что сервисы Ollama и Qdrant запущены и доступны по адресам из `.env`.
+
+**Q: Как обновить базу вопросов?**
+
+- Просто замените docx-файл и дождитесь автоматического ingest (или перезапустите приложение).
+
+**Q: Как добавить новую тему для интервью?**
+
+- Добавьте вопросы/ответы в docx-файл, они будут автоматически проиндексированы.
+
+**Q: Как изменить системный промпт?**
+
+- Измените переменную `system_prompt` в `.env` или настройках.
+
+---
+
+## Контакты
+
+- Вопросы и предложения: [your-email@example.com]
+- Issues и баги: через GitHub Issues
