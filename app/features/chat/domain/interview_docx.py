@@ -1,4 +1,4 @@
-"""Parsing of the interview `.docx` file (Q/A pairs)."""
+"""Парсинг файла интервью `.docx` (вопросы/ответы)."""
 
 from __future__ import annotations
 
@@ -14,7 +14,9 @@ ANSWER_MARKER_PATTERN = re.compile(r"^\s*ответ\s*[:\-]?\s*(.*)$", re.IGNORE
 
 @dataclass(slots=True)
 class InterviewQA:
-    """One Q/A item from docx."""
+    """
+    Одна пара вопрос/ответ из docx-файла.
+    """
 
     number: int
     question: str
@@ -26,6 +28,11 @@ class InterviewQA:
 
 
 def _normalize_paragraphs(path: Path) -> list[str]:
+    """
+    Нормализует параграфы из docx-файла (убирает лишние пробелы).
+    :param path: путь к docx
+    :return: список строк
+    """
     doc = Document(str(path))
     out: list[str] = []
     for p in doc.paragraphs:
@@ -36,6 +43,11 @@ def _normalize_paragraphs(path: Path) -> list[str]:
 
 
 def _load_from_tables(path: Path) -> list[InterviewQA]:
+    """
+    Извлекает вопросы/ответы из таблиц docx-файла.
+    :param path: путь к docx
+    :return: список InterviewQA
+    """
     doc = Document(str(path))
     out: list[InterviewQA] = []
     for table in doc.tables:
@@ -55,7 +67,11 @@ def _load_from_tables(path: Path) -> list[InterviewQA]:
 
 
 def load_interview_qa(path: Path) -> list[InterviewQA]:
-    """Extract Q/A list from `.docx`."""
+    """
+    Извлекает список пар вопрос/ответ из docx-файла.
+    :param path: путь к docx
+    :return: список InterviewQA
+    """
     table_items = _load_from_tables(path)
     if table_items:
         return table_items

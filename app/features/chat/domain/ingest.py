@@ -1,4 +1,4 @@
-"""Interview index ingestion/synchronization (docx -> Qdrant)."""
+"""Индексация и синхронизация вопросов для интервью (docx -> Qdrant)."""
 
 from __future__ import annotations
 
@@ -18,6 +18,11 @@ INTERVIEW_KIND = "interview_qa"
 
 
 def _sha256_file(path: Path) -> str:
+    """
+    Вычисляет SHA256-хеш для файла по указанному пути.
+    :param path: путь к файлу
+    :return: строка с хешем
+    """
     hasher = hashlib.sha256()
     with path.open("rb") as fh:
         for chunk in iter(lambda: fh.read(1024 * 1024), b""):
@@ -26,6 +31,11 @@ def _sha256_file(path: Path) -> str:
 
 
 def _read_state(path: Path) -> dict[str, Any]:
+    """
+    Читает состояние индексации из файла.
+    :param path: путь к файлу состояния
+    :return: словарь состояния или пустой словарь
+    """
     if not path.exists():
         logger.info("Файл состояния ingest не найден: %s", path)
         return {}
@@ -39,12 +49,24 @@ def _read_state(path: Path) -> dict[str, Any]:
 
 
 def _write_state(path: Path, state: dict[str, Any]) -> None:
+    """
+    Сохраняет состояние индексации в файл.
+    :param path: путь к файлу состояния
+    :param state: состояние для сохранения
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
     logger.info("Сохранено состояние ingest в %s: %s", path, state)
 
 
 async def sync_interview_index(settings: Settings, qdrant: Any) -> dict[str, Any]:
+    """
+    Синхронизирует индекс Qdrant с исходным `.docx` файлом.
+    Если файл не изменился — индексация пропускается.
+    :param settings: настройки приложения
+    :param qdrant: клиент Qdrant
+    :return: информация о статусе индексации
+    """
     """Synchronize Qdrant index with the source `.docx` file."""
     source_path = Path(settings.interview_docx_path)
     if not source_path.exists():

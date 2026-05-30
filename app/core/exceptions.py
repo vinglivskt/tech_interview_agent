@@ -1,5 +1,5 @@
-"""Project-wide exception types (placeholder)."""
+"""Исключения для всего проекта."""
 
 
 class AppError(Exception):
-    """Base application error."""
+    """Базовое исключение приложения."""

@@ -1,4 +1,4 @@
-"""Chunking utilities for RAG indexing."""
+"""Утилиты для разбиения текста на чанки для индексации RAG."""
 
 from __future__ import annotations
 
@@ -6,6 +6,13 @@ import re
 
 
 def chunk_text(text: str, max_chunk_chars: int, overlap: int = 0) -> list[str]:
+    """
+    Разбивает текст на чанки заданной длины с перекрытием.
+    :param text: исходный текст
+    :param max_chunk_chars: максимальная длина чанка
+    :param overlap: перекрытие между чанками
+    :return: список чанков
+    """
     if max_chunk_chars <= 0:
         raise ValueError("max_chunk_chars должен быть > 0")
     if overlap < 0:

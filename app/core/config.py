@@ -1,7 +1,7 @@
-"""Core config module.
+"""Основной модуль конфигурации.
 
-VSA migration note: historically settings lived in `app/config.py`.
-This module re-exports `Settings` and `get_settings` to provide the new import path.
+Примечание по миграции VSA: исторически настройки находились в `app/config.py`.
+Этот модуль повторно экспортирует `Settings` и `get_settings` для предоставления нового пути импорта.
 """
 
 from __future__ import annotations

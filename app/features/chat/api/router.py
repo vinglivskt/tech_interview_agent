@@ -9,6 +9,10 @@ router = APIRouter()
 
 @router.get("/health")
 async def health(request: Request):
+    """
+    Эндпоинт для проверки состояния сервисов (Qdrant и LLM).
+    Возвращает статус и доступность внешних сервисов.
+    """
     q = request.app.state.qdrant
     return {
         "status": "ok",
@@ -22,11 +26,16 @@ async def chat_endpoint(
     request: Request,
     body: ChatRequest,
 ):
+    """
+    Эндпоинт для общения с ассистентом.
+    Проверяет длину сообщения, сохраняет историю, вызывает LLM и возвращает ответ.
+    """
     settings = request.app.state.settings
     sessions: SessionStore = request.app.state.sessions
     session_id = body.session_id.strip() or "default"
     message = body.message.strip()
 
+    # Проверяем длину сообщения пользователя
     if len(message) > settings.chat_max_message_length:
         raise HTTPException(
             status_code=400,
