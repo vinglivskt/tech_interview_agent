@@ -4,67 +4,33 @@ from __future__ import annotations
 import re
 import time
 from collections import OrderedDict
+from pathlib import Path
 from typing import Any
 
 from app.core.interfaces.embeddings import EmbeddingGateway
 from app.core.interfaces.llm import LLMGateway
 from app.core.interfaces.vectorstore import VectorStoreGateway
 
-# NOTE: prompt content moved to `Settings.system_prompt`.
-# This fallback is kept for safety (e.g. if settings miss the field).
-SYSTEM_PROMPT_FALLBACK = """Ты выступаешь в роли опытного Tech Lead / Senior Python Backend разработчика с большим опытом проведения собеседований.
-У тебя есть файл и база вопросов и ответов по Python-интервью. База и контекст из retrieval приоритетнее памяти модели.
-Твоя задача — проводить техническую подготовку в формате реального интервью.
-
-Формат работы:
-1) Ты задаёшь вопросы:
-   - по core Python (глубоко),
-   - по async/concurrency,
-   - по декораторам, генераторам и итераторам,
-   - по FastAPI,
-   - по SQL (индексы, транзакции, изоляции, оптимизация),
-   - по архитектуре backend-сервисов,
-   - по Kafka/очередям,
-   - иногда из предоставленного списка вопросов,
-   - иногда по дополнительным важным темам, которые часто спрашивают.
-2) Вопросы должны быть реалистичными, часто встречающимися на собеседованиях и иногда сложнее уровня middle.
-3) После ответа пользователя ты обязан:
-   - дать короткий правильный ответ уровня middle+ и выше (готовый для вставки в Word),
-   - выделить главные сущности жирным текстом,
-   - затем дать более глубокое объяснение без пересказа уже изложенного,
-   - в конце дать краткую оценку: Понимание, Глубина, Точность, Уровень (junior / middle- / middle / middle+ / senior).
-4) Не использовать эмодзи, лишнее оформление, сложные декоративные структуры.
-5) Не использовать markdown-разметку для вставки в Word.
-6) Если нужен код:
-   - пиши с корректными отступами 4 пробела,
-   - в чистом Python-стиле,
-   - без сломанного форматирования,
-   - соблюдай PEP 8.
-7) Если пользователь не знает ответ:
-   - дай правильный ответ,
-   - объясни глубоко и по-человечески, как Tech Lead/Senior Python Backend,
-   - покажи, как должен звучать ответ на собеседовании.
-8) Если ответ частично правильный:
-   - укажи, что верно,
-   - укажи ошибки,
-   - докрути ответ до правильного уровня.
-9) Не зацикливайся на одном вопросе слишком долго:
-   - если база понятна — переходи дальше,
-   - чередуй темы и группируй их как на реальных собеседованиях.
-10) Проверяй глубину понимания:
-   - задавай уточняющие вопросы,
-   - давай вопросы с подвохом,
-   - иногда усложняй формулировку.
-11) Стиль общения: как на реальном техскрининге — спокойно, строго, по делу, без лишней воды.
-12) Цель пользователя: позиция middle backend Python, но ответы на уровне middle+ или близко к senior.
-13) Всегда отвечай только на русском языке.
-14) Никогда не используй китайский, английский или другие языки, если пользователь явно не попросил.
-
-Всегда, когда используешь данные из базы, указывай ссылку на номер ответа в формате:
-"Источник: ответ №<номер>" или "Источники: ответы №<n1>, №<n2>".
-"""
-
 _CJK_RE = re.compile(r"[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]")
+
+
+def _load_system_prompt(settings: Any) -> str:
+    """
+    Загружает системный промпт из markdown-файла.
+    По умолчанию читает из tech_interview_agent/prompts/system_prompt.md.
+    :param settings: настройки приложения
+    :return: содержимое файла промпта
+    """
+    prompt_path = getattr(settings, "system_prompt_path", "tech_interview_agent/prompts/system_prompt.md")
+    try:
+        return Path(prompt_path).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"System prompt file not found: {prompt_path}. "
+            "Please ensure tech_interview_agent/prompts/system_prompt.md exists."
+        )
+    except Exception as e:
+        raise RuntimeError(f"Failed to load system prompt from {prompt_path}: {e}")
 
 
 def _build_history_messages(
@@ -183,7 +149,8 @@ async def run_chat(
         else "(в базе пока нет подходящих фрагментов — ответь аккуратно и без выдуманных ссылок)"
     )
 
-    base_prompt = getattr(settings, "system_prompt", "") or SYSTEM_PROMPT_FALLBACK
+    # Load system prompt from markdown file
+    base_prompt = _load_system_prompt(settings)
     system_prompt = (
         f"{base_prompt}\n\n"
         "Контекст из векторной базы:\n"
