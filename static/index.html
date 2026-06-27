@@ -1,177 +1,274 @@
-<!DOCTYPE html>
+<!doctype html>
 <!-- Статическая страница интервью-ассистента: POST /api/chat с session_id -->
 <html lang="ru">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>RAG — Python интервью ассистент</title>
-  <style>
-    :root {
-      --bg: #0f1419;
-      --panel: #1a2332;
-      --text: #e7eef7;
-      --muted: #8b9bb4;
-      --accent: #3b82f6;
-      --accent-dim: #2563eb;
-      --border: #2a3a52;
-      --err: #f87171;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
-      background: radial-gradient(1200px 600px at 20% -10%, #1e3a5f 0%, transparent 55%), var(--bg);
-      color: var(--text);
-      line-height: 1.5;
-    }
-    .wrap {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 2rem 1.25rem 3rem;
-    }
-    h1 {
-      font-size: 1.35rem;
-      font-weight: 600;
-      margin: 0 0 0.35rem;
-      letter-spacing: -0.02em;
-    }
-    .sub {
-      color: var(--muted);
-      font-size: 0.9rem;
-      margin-bottom: 1.5rem;
-    }
-    label {
-      display: block;
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-bottom: 0.4rem;
-    }
-    textarea {
-      width: 100%;
-      min-height: 120px;
-      padding: 0.75rem 0.85rem;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--panel);
-      color: var(--text);
-      font-size: 0.95rem;
-      resize: vertical;
-    }
-    textarea:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
-    }
-    .row {
-      display: flex;
-      gap: 0.75rem;
-      align-items: center;
-      margin-top: 0.85rem;
-      flex-wrap: wrap;
-    }
-    button {
-      appearance: none;
-      border: none;
-      border-radius: 10px;
-      padding: 0.65rem 1.1rem;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      background: linear-gradient(180deg, var(--accent), var(--accent-dim));
-      color: #fff;
-    }
-    button:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-    .out {
-      margin-top: 1.75rem;
-      padding: 1rem 1.1rem;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--panel);
-      min-height: 4rem;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .out.empty { color: var(--muted); }
-    .meta {
-      margin-top: 0.6rem;
-      font-size: 0.78rem;
-      color: var(--muted);
-      font-family: ui-monospace, monospace;
-    }
-    .err { color: var(--err); }
-    a { color: var(--accent); }
-  </style>
-</head>
-<body>
-  <!-- Разметка: поле ввода, кнопка отправки, блок ответа и отладочный meta (RAG) -->
-  <div class="wrap">
-    <h1>Python Interview Assistant (RAG)</h1>
-    <p class="sub">
-      Помощник проводит техскрининг и опирается на вашу базу вопросов/ответов из docx,
-      проиндексированную в Qdrant. API: <code>POST /api/chat</code>
-    </p>
-    <label for="msg">Сообщение</label>
-    <textarea id="msg" placeholder="Например: Проведи техскрин по Python backend, начни с первого вопроса"></textarea>
-    <div class="row">
-      <button type="button" id="send">Отправить</button>
-      <span class="muted" id="status"></span>
-    </div>
-    <div class="out empty" id="out">Ответ появится здесь.</div>
-    <div class="meta" id="meta"></div>
-  </div>
-  <script>
-    // Отправка JSON на тот же origin; Ctrl/Cmd+Enter — отправить сообщение
-    const msg = document.getElementById("msg");
-    const SESSION_KEY = "interview_session_id";
-    const sessionId = localStorage.getItem(SESSION_KEY) || crypto.randomUUID();
-    localStorage.setItem(SESSION_KEY, sessionId);
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>RAG — Python интервью ассистент</title>
+        <style>
+            :root {
+                --bg: #0f1419;
+                --panel: #1a2332;
+                --text: #e7eef7;
+                --muted: #8b9bb4;
+                --accent: #3b82f6;
+                --accent-dim: #2563eb;
+                --border: #2a3a52;
+                --err: #f87171;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                min-height: 100vh;
+                font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+                background: radial-gradient(1200px 600px at 20% -10%, #1e3a5f 0%, transparent 55%), var(--bg);
+                color: var(--text);
+                line-height: 1.5;
+            }
+            .wrap {
+                max-width: 720px;
+                margin: 0 auto;
+                padding: 2rem 1.25rem 3rem;
+            }
+            h1 {
+                font-size: 1.35rem;
+                font-weight: 600;
+                margin: 0 0 0.35rem;
+                letter-spacing: -0.02em;
+            }
+            .sub {
+                color: var(--muted);
+                font-size: 0.9rem;
+                margin-bottom: 1.5rem;
+            }
+            label {
+                display: block;
+                font-size: 0.8rem;
+                color: var(--muted);
+                margin-bottom: 0.4rem;
+            }
+            textarea {
+                width: 100%;
+                min-height: 120px;
+                padding: 0.75rem 0.85rem;
+                border-radius: 10px;
+                border: 1px solid var(--border);
+                background: var(--panel);
+                color: var(--text);
+                font-size: 0.95rem;
+                resize: vertical;
+            }
+            textarea:focus {
+                outline: none;
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+            }
+            .row {
+                display: flex;
+                gap: 0.75rem;
+                align-items: center;
+                margin-top: 0.85rem;
+                flex-wrap: wrap;
+            }
+            button {
+                appearance: none;
+                border: none;
+                border-radius: 10px;
+                padding: 0.65rem 1.1rem;
+                font-size: 0.95rem;
+                font-weight: 600;
+                cursor: pointer;
+                background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+                color: #fff;
+            }
+            button:disabled {
+                opacity: 0.55;
+                cursor: not-allowed;
+            }
+            .out {
+                margin-top: 1.75rem;
+                padding: 1rem 1.1rem;
+                border-radius: 10px;
+                border: 1px solid var(--border);
+                background: var(--panel);
+                min-height: 4rem;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+            .out.empty {
+                color: var(--muted);
+            }
+            .meta {
+                margin-top: 0.6rem;
+                font-size: 0.78rem;
+                color: var(--muted);
+                font-family: ui-monospace, monospace;
+            }
+            .save-btn {
+                margin-top: 0.75rem;
+                display: none;
+                background: linear-gradient(180deg, #10b981, #059669);
+            }
+            .save-btn:hover {
+                background: linear-gradient(180deg, #059669, #047857);
+            }
+            .save-btn.visible {
+                display: inline-block;
+            }
+            .save-status {
+                margin-top: 0.5rem;
+                font-size: 0.82rem;
+                color: #34d399;
+                display: none;
+            }
+            .save-status.visible {
+                display: block;
+            }
+            .save-status.error {
+                color: var(--err);
+            }
+            .err {
+                color: var(--err);
+            }
+            a {
+                color: var(--accent);
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Разметка: поле ввода, кнопка отправки, блок ответа и отладочный meta (RAG) -->
+        <div class="wrap">
+            <h1>Python Interview Assistant (RAG)</h1>
+            <p class="sub">
+                Помощник проводит техскрининг и опирается на вашу базу вопросов/ответов из docx, проиндексированную в
+                Qdrant. API: <code>POST /api/chat</code>
+            </p>
+            <label for="msg">Сообщение</label>
+            <textarea
+                id="msg"
+                placeholder="Например: Проведи техскрин по Python backend, начни с первого вопроса"
+            ></textarea>
+            <div class="row">
+                <button type="button" id="send">Отправить</button>
+                <span class="muted" id="status"></span>
+            </div>
+            <div class="out empty" id="out">Ответ появится здесь.</div>
+            <button type="button" class="save-btn" id="saveBtn">💾 Сохранить в Word</button>
+            <div class="save-status" id="saveStatus"></div>
+            <div class="meta" id="meta"></div>
+        </div>
+        <script>
+            // Отправка JSON на тот же origin; Ctrl/Cmd+Enter — отправить сообщение
+            const msg = document.getElementById("msg");
+            const SESSION_KEY = "interview_session_id";
+            const sessionId = localStorage.getItem(SESSION_KEY) || crypto.randomUUID();
+            localStorage.setItem(SESSION_KEY, sessionId);
 
-    const send = document.getElementById("send");
-    const out = document.getElementById("out");
-    const meta = document.getElementById("meta");
-    const statusEl = document.getElementById("status");
+            const send = document.getElementById("send");
+            const out = document.getElementById("out");
+            const meta = document.getElementById("meta");
+            const statusEl = document.getElementById("status");
+            const saveBtn = document.getElementById("saveBtn");
+            const saveStatus = document.getElementById("saveStatus");
 
-    async function submit() {
-      const text = msg.value.trim();
-      if (!text) return;
-      send.disabled = true;
-      statusEl.textContent = "Запрос…";
-      out.classList.remove("empty", "err");
-      out.textContent = "";
-      meta.textContent = "";
-      try {
-        const r = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text, session_id: sessionId }),
-        });
-        const data = await r.json();
-        if (data.error) {
-          out.classList.add("err");
-          out.textContent = data.error;
-        } else {
-          out.textContent = data.answer || "(пустой ответ)";
-          if (data.meta) {
-            meta.textContent = JSON.stringify(data.meta);
-          }
-        }
-      } catch (e) {
-        out.classList.add("err");
-        out.textContent = String(e);
-      } finally {
-        send.disabled = false;
-        statusEl.textContent = "";
-      }
-    }
+            let lastQuestion = "";
+            let lastAnswer = "";
 
-    send.addEventListener("click", submit);
-    msg.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submit();
-    });
-  </script>
-</body>
+            async function submit() {
+                const text = msg.value.trim();
+                if (!text) return;
+                send.disabled = true;
+                statusEl.textContent = "Запрос…";
+                out.classList.remove("empty", "err");
+                out.textContent = "";
+                meta.textContent = "";
+                saveBtn.classList.remove("visible");
+                saveStatus.classList.remove("visible", "error");
+                saveStatus.textContent = "";
+                lastQuestion = text;
+                lastAnswer = "";
+                try {
+                    const r = await fetch("/api/chat", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ message: text, session_id: sessionId }),
+                    });
+                    const data = await r.json();
+                    if (data.error) {
+                        out.classList.add("err");
+                        out.textContent = data.error;
+                    } else {
+                        out.textContent = data.answer || "(пустой ответ)";
+                        lastAnswer = data.answer || "";
+                        if (data.meta) {
+                            meta.textContent = JSON.stringify(data.meta);
+                            if (data.meta.suggest_save) {
+                                saveBtn.classList.add("visible");
+                            }
+                        }
+                    }
+                } catch (e) {
+                    out.classList.add("err");
+                    out.textContent = String(e);
+                } finally {
+                    send.disabled = false;
+                    statusEl.textContent = "";
+                }
+            }
+
+            async function saveToWord() {
+                saveBtn.disabled = true;
+                saveStatus.classList.remove("visible", "error");
+                saveStatus.textContent = "Сохранение…";
+                saveStatus.classList.add("visible");
+                try {
+                    const r = await fetch("/api/interview/save-qa", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            question: lastQuestion,
+                            correct_answer: lastAnswer,
+                            session_id: sessionId,
+                        }),
+                    });
+                    let data = null;
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        // Сервер вернул не-JSON (например, HTML-страницу ошибки)
+                        throw new Error(`HTTP ${r.status}: сервер вернул неожиданный ответ`);
+                    }
+                    if (!r.ok) {
+                        throw new Error(data?.detail || `HTTP ${r.status}`);
+                    }
+                    if (data.status === "saved") {
+                        saveStatus.textContent = `✅ Сохранено как вопрос №${data.number}`;
+                        saveStatus.classList.remove("error");
+                        saveStatus.classList.add("visible");
+                        saveBtn.classList.remove("visible");
+                    } else if (data.status === "skipped") {
+                        saveStatus.textContent = "⚠️ Такой вопрос уже есть в базе";
+                        saveStatus.classList.remove("error");
+                        saveStatus.classList.add("visible");
+                    } else {
+                        throw new Error(data.detail || "Неизвестная ошибка");
+                    }
+                } catch (e) {
+                    saveStatus.textContent = `❌ Ошибка: ${e.message}`;
+                    saveStatus.classList.add("error");
+                    saveStatus.classList.add("visible");
+                } finally {
+                    saveBtn.disabled = false;
+                }
+            }
+
+            send.addEventListener("click", submit);
+            saveBtn.addEventListener("click", saveToWord);
+            msg.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submit();
+            });
+        </script>
+    </body>
 </html>

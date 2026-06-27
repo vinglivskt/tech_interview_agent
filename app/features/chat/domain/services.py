@@ -10,24 +10,60 @@ from typing import Any
 from app.core.interfaces.embeddings import EmbeddingGateway
 from app.core.interfaces.llm import LLMGateway
 from app.core.interfaces.vectorstore import VectorStoreGateway
+from app.features.chat.domain.docx_repository import question_exists
 
 _CJK_RE = re.compile(r"[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]")
+
+
+def _resolve_system_prompt_path(settings: Any) -> Path:
+    """
+    Определяет путь к файлу системного промпта.
+    Приоритет: настройка system_prompt_path > переменная окружения SYSTEM_PROMPT_PATH >
+    путь относительно корня проекта (prompts/system_prompt.md).
+    :param settings: настройки приложения
+    :return: абсолютный путь к файлу промпта
+    """
+    import os
+
+    # 1. Явный путь из настроек
+    prompt_path = getattr(settings, "system_prompt_path", None)
+    if prompt_path:
+        return Path(prompt_path)
+
+    # 2. Переменная окружения
+    env_path = os.environ.get("SYSTEM_PROMPT_PATH")
+    if env_path:
+        return Path(env_path)
+
+    # 3. Относительно корня проекта
+    # В Docker: /app/prompts/system_prompt.md
+    # Локально: <repo_root>/prompts/system_prompt.md
+    app_dir = Path(__file__).resolve().parent.parent.parent.parent
+    candidates = [
+        app_dir / "prompts" / "system_prompt.md",  # Docker (/app/prompts/)
+        app_dir.parent / "prompts" / "system_prompt.md",  # локально (<repo>/prompts/)
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    # Если не нашли — возвращаем путь по умолчанию (для сообщения об ошибке)
+    return candidates[0]
 
 
 def _load_system_prompt(settings: Any) -> str:
     """
     Загружает системный промпт из markdown-файла.
-    По умолчанию читает из tech_interview_agent/prompts/system_prompt.md.
+    Путь определяется относительно корня проекта.
     :param settings: настройки приложения
     :return: содержимое файла промпта
     """
-    prompt_path = getattr(settings, "system_prompt_path", "tech_interview_agent/prompts/system_prompt.md")
+    prompt_path = _resolve_system_prompt_path(settings)
     try:
-        return Path(prompt_path).read_text(encoding="utf-8")
+        return prompt_path.read_text(encoding="utf-8")
     except FileNotFoundError:
         raise FileNotFoundError(
             f"System prompt file not found: {prompt_path}. "
-            "Please ensure tech_interview_agent/prompts/system_prompt.md exists."
+            "Please ensure prompts/system_prompt.md exists in the project root."
         )
     except Exception as e:
         raise RuntimeError(f"Failed to load system prompt from {prompt_path}: {e}")
@@ -182,9 +218,15 @@ async def run_chat(
         refs_suffix = ", ".join(str(number) for number in unique_numbers)
         text = f"{text}\n\nИсточники: ответы №{refs_suffix}"
 
+    # Проверяем, есть ли этот вопрос в базе docx
+    # Если нет — предлагаем сохранить ответ
+    docx_path = Path(getattr(settings, "interview_docx_path", ""))
+    in_base = question_exists(docx_path, user_message) if docx_path.exists() else False
+
     meta: dict[str, Any] = {
         "used_rag": bool(hits),
         "retrieved_chunks": len(hits),
         "answer_numbers": unique_numbers,
+        "suggest_save": not in_base,
     }
     return text, meta
