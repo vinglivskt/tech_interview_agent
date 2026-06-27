@@ -174,3 +174,4 @@ poetry.toml
 pyrightconfig.json
 .agents
 # End of https://www.toptal.com/developers/gitignore/api/python
+.agents/skills/agents-best-practices/
