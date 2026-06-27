@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     vectorization_overlap: int = Field(default=100, ge=0, description="Перекрытие соседних фрагментов")
 
     interview_docx_path: str = Field(
-        default="./Топ вопросов на собеседовании Python.docx",
+        default="app/interview_questions.docx",
         description="Путь к docx-файлу с вопросами и ответами",
     )
     ingest_state_path: str = Field(

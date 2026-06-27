@@ -1,6 +1,10 @@
 # tech_interview_agent/app/features/chat/api/router.py
-from fastapi import APIRouter, HTTPException, Request
+from pathlib import Path
 
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field
+
+from ..domain.docx_repository import question_exists, save_question_answer
 from ..domain.models import ChatRequest
 from ..domain.services import SessionStore, run_chat
 
@@ -60,3 +64,63 @@ async def chat_endpoint(
     sessions.save(session_id, new_history)
 
     return {"answer": answer, "meta": meta}
+
+
+class SaveQARequest(BaseModel):
+    """
+    Запрос на сохранение вопроса/ответа в docx.
+    question — текст вопроса (то, что спросил пользователь),
+    correct_answer — правильный ответ агента,
+    session_id — идентификатор сессии (опционально).
+    """
+
+    question: str = Field(..., min_length=1, description="Текст вопроса для сохранения")
+    correct_answer: str = Field(..., min_length=1, description="Правильный ответ")
+    session_id: str = Field(default="default", min_length=1, description="Идентификатор диалога")
+
+
+@router.post("/interview/save-qa")
+async def save_qa_endpoint(
+    request: Request,
+    body: SaveQARequest,
+):
+    """
+    Эндпоинт для сохранения вопроса/ответа в docx-файл интервью.
+    Если вопрос уже есть в файле — возвращает skipped.
+    Если вопрос новый — дописывает его в конец таблицы и возвращает saved.
+    """
+    settings = request.app.state.settings
+    docx_path = Path(settings.interview_docx_path)
+
+    question = (body.question or "").strip()
+    answer = (body.correct_answer or "").strip()
+
+    if not question:
+        raise HTTPException(status_code=400, detail="Поле 'question' обязательно")
+    if not answer:
+        raise HTTPException(status_code=400, detail="Поле 'correct_answer' обязательно")
+
+    if not docx_path.exists():
+        raise HTTPException(status_code=500, detail=f"Файл не найден: {docx_path}")
+
+    result = save_question_answer(docx_path, question, answer)
+    return result
+
+
+@router.get("/interview/question-exists")
+async def question_exists_endpoint(
+    request: Request,
+    question: str = "",
+):
+    """
+    Проверяет, есть ли вопрос в docx-файле интервью.
+    Возвращает {"exists": true/false}.
+    """
+    settings = request.app.state.settings
+    docx_path = Path(settings.interview_docx_path)
+
+    if not question.strip():
+        raise HTTPException(status_code=400, detail="Параметр 'query' обязателен")
+
+    exists = question_exists(docx_path, question)
+    return {"exists": exists}

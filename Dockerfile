@@ -10,6 +10,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 COPY app ./app
 COPY static ./static
+COPY prompts ./prompts
 
 RUN uv sync --frozen --no-dev
 
