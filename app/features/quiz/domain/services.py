@@ -381,6 +381,23 @@ class QuizService:
             is_last,
         )
 
+    def _calculate_level(self, score: int, total: int) -> str:
+        """
+        Вычисляет итоговый уровень на основе процента правильных ответов.
+        - 0-50%: junior
+        - 51-75%: middle
+        - 76-100%: senior
+        """
+        if total == 0:
+            return "junior"
+        percentage = score / total
+        if percentage <= 0.5:
+            return "junior"
+        elif percentage <= 0.75:
+            return "middle"
+        else:
+            return "senior"
+
     def get_results(self, session_id: str) -> tuple[int, int, str, list[QuizAnswerRecord]]:
         """
         Возвращает итоговые результаты квиза.
@@ -394,9 +411,11 @@ class QuizService:
             raise ValueError(f"Сессия {session_id} не найдена или истекла")
 
         total_score = sum(1 for a in session.answers if a.is_correct)
+        # Вычисляем итоговый уровень на основе результатов
+        final_level = self._calculate_level(total_score, TOTAL_QUESTIONS)
         return (
             total_score,
             len(session.questions),
-            session.level,
+            final_level,
             session.answers,
         )
