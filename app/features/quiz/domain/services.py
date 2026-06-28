@@ -107,6 +107,25 @@ class QuizSessionStore:
             self.store.popitem(last=False)
 
 
+def _normalize_option(text: str, target_len: int) -> str:
+    """
+    Приводит вариант ответа к целевой длине.
+    Обрезает длинные ответы и немного расширяет короткие.
+    """
+    text = text.strip()
+
+    if len(text) > target_len * 1.3:
+        # Обрезаем до target_len, сохраняя целые слова
+        cut = text[:target_len]
+        last_space = cut.rfind(" ")
+        if last_space > target_len * 0.7:
+            text = cut[:last_space]
+        else:
+            text = cut
+
+    return text.strip()
+
+
 class QuizService:
     """
     Сервис для управления квиз-сессиями: старт, ответы, результаты.
@@ -213,6 +232,12 @@ class QuizService:
         """
         correct_answer = qa.answer.strip()
 
+        # Если ответ слишком длинный — берём первое предложение
+        if len(correct_answer) > 150:
+            first_sentence = correct_answer.split(".")[0].strip()
+            if len(first_sentence) > 50:
+                correct_answer = first_sentence
+
         # Генерируем 3 неправильных ответа
         wrong_answers = await generate_wrong_answers(
             self._llm,
@@ -220,21 +245,33 @@ class QuizService:
             correct_answer,
         )
 
-        # Собираем все 4 варианта и перемешиваем
-        all_options = [correct_answer] + wrong_answers[:3]
-        rng = Random(uuid.uuid4().int % (2**32))
-        rng.shuffle(all_options)
+        # Сохраняем индекс правильного ответа ДО нормализации
+        correct_idx_before = 0  # correct_answer всегда первый в списке
 
-        # Находим индекс правильного ответа после перемешивания
-        correct_index = all_options.index(correct_answer)
+        # Приводим все варианты к одной длине
+        all_options = [correct_answer] + wrong_answers[:3]
+        target_len = min(len(correct_answer), 100)  # Целевая длина: не более 100 символов
+        normalized = [_normalize_option(opt, target_len) for opt in all_options]
+
+        # Обновляем correct_answer после нормализации
+        correct_answer_normalized = normalized[correct_idx_before]
+
+        # Перемешиваем сохраняя индекс
+        indexed_options = list(enumerate(normalized))
+        rng = Random(uuid.uuid4().int % (2**32))
+        rng.shuffle(indexed_options)
+
+        # Находим новый индекс правильного ответа
+        correct_index = next(i for i, (_, opt) in enumerate(indexed_options) if opt == correct_answer_normalized)
+        shuffled_options = [opt for _, opt in indexed_options]
 
         return QuizQuestion(
             question_id=f"q_{question_index}_{uuid.uuid4().hex[:8]}",
             question_text=qa.question,
-            options=all_options,
+            options=shuffled_options,
             correct_index=correct_index,
-            correct_answer=correct_answer,
-            explanation=f"Правильный ответ основан на ответе №{qa.number} из базы: {correct_answer}",
+            correct_answer=correct_answer_normalized,
+            explanation=f"Правильный ответ основан на ответе №{qa.number} из базы: {correct_answer_normalized}",
         )
 
     async def start_quiz(self, level: str) -> tuple[QuizSession, QuizQuestion]:
