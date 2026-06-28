@@ -23,6 +23,7 @@ from app.features.chat.domain.ingest import sync_interview_index
 from app.features.chat.domain.services import SessionStore
 from app.features.chat.infrastructure.qdrant import QdrantService
 from app.features.chat.providers.ollama import OllamaClient
+from app.features.quiz.api.router import router as quiz_router
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -107,6 +108,7 @@ app.add_middleware(
 
 # Routers
 app.include_router(chat_router, prefix="/api")
+app.include_router(quiz_router, prefix="/api")
 
 # Static
 static_dir = Path(__file__).resolve().parent.parent / "static"

@@ -16,8 +16,6 @@ services:
     build: .
     ports:
       - "8000:8000"
-    volumes:
-      - ./docx_data:/app/docx_data
     environment:
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
@@ -32,8 +30,7 @@ services:
       VECTORIZATION_MAX_CHUNK_CHARS: ${VECTORIZATION_MAX_CHUNK_CHARS:-1000}
       VECTORIZATION_OVERLAP: ${VECTORIZATION_OVERLAP:-100}
       INTERVIEW_TOP_K: ${INTERVIEW_TOP_K:-5}
-      # В контейнере docx хранится в volume
-      INTERVIEW_DOCX_PATH: /app/docx_data/interview_questions.docx
+      INTERVIEW_DOCX_PATH: /app/app/interview_questions.docx
       INGEST_STATE_PATH: ${INGEST_STATE_PATH:-data/interview_ingest_state.json}
       INGEST_INTERVAL_HOURS: ${INGEST_INTERVAL_HOURS:-1}
     depends_on:
