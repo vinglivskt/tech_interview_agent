@@ -8,8 +8,7 @@ from pathlib import Path
 
 from docx import Document
 
-QUESTION_PATTERN = re.compile(r"^\s*(?:вопрос\s*)?(\d{1,4})\s*[.)\-:]\s*(.+)?$", re.IGNORECASE)
-ANSWER_MARKER_PATTERN = re.compile(r"^\s*ответ\s*[:\-]?\s*(.*)$", re.IGNORECASE)
+from app.features.chat.domain.utils.constants import ANSWER_MARKER_PATTERN, QUESTION_PATTERN
 
 
 @dataclass(slots=True)

@@ -95,7 +95,9 @@ app = FastAPI(
 )
 
 # CORS
-cors_allow_origins = [origin.strip() for origin in get_settings().cors_allow_origins if origin.strip()]
+cors_allow_origins = [
+    origin.strip() for origin in get_settings().cors_allow_origins if origin.strip()
+]
 allow_all_origins = "*" in cors_allow_origins
 
 app.add_middleware(

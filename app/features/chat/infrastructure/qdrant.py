@@ -30,7 +30,9 @@ logger = logging.getLogger(__name__)
 _CHUNK_ID_NS = uuid.UUID("a1b2c3d4-e5f6-4789-a012-3456789abcde")
 
 
-def point_id_for_chunk(*, source_file: str, question_number: int, chunk_index: int, chunk: str) -> str:
+def point_id_for_chunk(
+    *, source_file: str, question_number: int, chunk_index: int, chunk: str
+) -> str:
     """
     Стабильный id точки для фрагмента текста.
 
@@ -70,7 +72,9 @@ class QdrantService(VectorStoreGateway):
             return
         await self._client.create_collection(
             collection_name=self.collection,
-            vectors_config=VectorParams(size=self._settings.embedding_dim, distance=Distance.COSINE),
+            vectors_config=VectorParams(
+                size=self._settings.embedding_dim, distance=Distance.COSINE
+            ),
             shard_number=max(1, self._settings.qdrant_shard_number),
             replication_factor=max(1, self._settings.qdrant_replication_factor),
         )

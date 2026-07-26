@@ -106,7 +106,9 @@ class OllamaClient:
                 self._embed_endpoint = (url, body_key, response_key)
                 return self._embed_endpoint
 
-        raise RuntimeError("Ollama не поддерживает embeddings endpoint. Обновите Ollama и установите embedding-модель.")
+        raise RuntimeError(
+            "Ollama не поддерживает embeddings endpoint. Обновите Ollama и установите embedding-модель."
+        )
 
     @staticmethod
     def _extract_vector(payload: dict[str, Any], response_key: str) -> list[float]:

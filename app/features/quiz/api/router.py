@@ -90,7 +90,13 @@ async def submit_answer(
     quiz_service = QuizService(settings, llm, session_store)
 
     try:
-        is_correct, correct_index, explanation, next_question, is_last = await quiz_service.submit_answer(
+        (
+            is_correct,
+            correct_index,
+            explanation,
+            next_question,
+            is_last,
+        ) = await quiz_service.submit_answer(
             body.session_id,
             body.question_id,
             body.selected_index,

@@ -28,7 +28,9 @@ class QuizQuestionResponse(BaseModel):
     session_id: str = Field(..., description="Идентификатор сессии квиза")
     question_id: str = Field(..., description="Уникальный идентификатор вопроса в сессии")
     question_text: str = Field(..., description="Текст вопроса")
-    options: list[str] = Field(..., min_length=4, max_length=4, description="Четыре варианта ответа")
+    options: list[str] = Field(
+        ..., min_length=4, max_length=4, description="Четыре варианта ответа"
+    )
     question_number: int = Field(..., ge=1, description="Номер вопроса в квизе (1-based)")
     total_questions: int = Field(..., ge=1, description="Общее количество вопросов в квизе")
 
@@ -51,7 +53,9 @@ class QuizAnswerResponse(BaseModel):
     is_correct: bool = Field(..., description="Правильный ли ответ")
     correct_index: int = Field(..., ge=0, le=3, description="Индекс правильного ответа")
     explanation: str = Field(..., description="Объяснение правильного ответа")
-    next_question: QuizQuestionResponse | None = Field(default=None, description="Следующий вопрос (если есть)")
+    next_question: QuizQuestionResponse | None = Field(
+        default=None, description="Следующий вопрос (если есть)"
+    )
     is_last: bool = Field(..., description="Был ли это последний вопрос в квизе")
 
 

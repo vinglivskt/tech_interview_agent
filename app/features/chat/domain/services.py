@@ -195,7 +195,11 @@ async def run_chat(
         f"в формате 'ответ №N'. Найденные номера: {refs}."
     )
 
-    effective_limit = history_limit if history_limit is not None else getattr(settings, "session_history_limit", 20)
+    effective_limit = (
+        history_limit
+        if history_limit is not None
+        else getattr(settings, "session_history_limit", 20)
+    )
 
     messages = [
         {"role": "system", "content": system_prompt},

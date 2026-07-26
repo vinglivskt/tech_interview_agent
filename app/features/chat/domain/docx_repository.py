@@ -4,24 +4,19 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from docx import Document
 from docx.shared import Pt
 from docx.table import Table
 
 from app.features.chat.domain.interview_docx import load_interview_qa
+from app.features.chat.domain.utils.constants import _COLUMN_WIDTHS_EMU, _FONT_NAME, _FONT_SIZE_PT
 
 logger = logging.getLogger(__name__)
 
-# Ширина колонок таблицы из оригинального файла (в EMU).
-# Используются при создании нового файла; при дописывании в существующий
-# таблица уже имеет правильные размеры.
-_COLUMN_WIDTHS_EMU = (535305, 1947545, 6991350)
-_FONT_NAME = "Times New Roman"
-_FONT_SIZE_PT = 14.0  # 177800 EMU == 14pt
 
-
-def _find_table(doc: Document) -> Table:
+def _find_table(doc: Any) -> Table:
     """
     Находит единственную таблицу с вопросами в документе.
     :param doc: открытый Document

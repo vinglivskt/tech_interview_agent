@@ -262,7 +262,9 @@ class QuizService:
         rng.shuffle(indexed_options)
 
         # Находим новый индекс правильного ответа
-        correct_index = next(i for i, (_, opt) in enumerate(indexed_options) if opt == correct_answer_normalized)
+        correct_index = next(
+            i for i, (_, opt) in enumerate(indexed_options) if opt == correct_answer_normalized
+        )
         shuffled_options = [opt for _, opt in indexed_options]
 
         return QuizQuestion(
