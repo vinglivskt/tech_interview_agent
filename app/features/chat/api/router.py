@@ -2,7 +2,8 @@
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+
+from app.features.chat.api.models.save_qa_request import SaveQARequest
 
 from ..domain.docx_repository import question_exists, save_question_answer
 from ..domain.models import ChatRequest
@@ -64,19 +65,6 @@ async def chat_endpoint(
     sessions.save(session_id, new_history)
 
     return {"answer": answer, "meta": meta}
-
-
-class SaveQARequest(BaseModel):
-    """
-    Запрос на сохранение вопроса/ответа в docx.
-    question — текст вопроса (то, что спросил пользователь),
-    correct_answer — правильный ответ агента,
-    session_id — идентификатор сессии (опционально).
-    """
-
-    question: str = Field(..., min_length=1, description="Текст вопроса для сохранения")
-    correct_answer: str = Field(..., min_length=1, description="Правильный ответ")
-    session_id: str = Field(default="default", min_length=1, description="Идентификатор диалога")
 
 
 @router.post("/interview/save-qa")
