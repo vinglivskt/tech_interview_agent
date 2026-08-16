@@ -24,6 +24,7 @@ from app.features.chat.domain.services import SessionStore
 from app.features.chat.infrastructure.qdrant import QdrantService
 from app.features.chat.providers.ollama import OllamaClient
 from app.features.quiz.api.router import router as quiz_router
+from app.features.sobesedovanie.api.router import router as sobes_router
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -95,9 +96,7 @@ app = FastAPI(
 )
 
 # CORS
-cors_allow_origins = [
-    origin.strip() for origin in get_settings().cors_allow_origins if origin.strip()
-]
+cors_allow_origins = [origin.strip() for origin in get_settings().cors_allow_origins if origin.strip()]
 allow_all_origins = "*" in cors_allow_origins
 
 app.add_middleware(
@@ -111,6 +110,7 @@ app.add_middleware(
 # Routers
 app.include_router(chat_router, prefix="/api")
 app.include_router(quiz_router, prefix="/api")
+app.include_router(sobes_router, prefix="/api")
 
 # Static
 static_dir = Path(__file__).resolve().parent.parent / "static"
