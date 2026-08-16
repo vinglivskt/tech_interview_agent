@@ -144,8 +144,31 @@
                 flex-wrap: wrap;
             }
 
+            .question-card {
+                margin-top: 1rem;
+                padding: 1rem 1.1rem;
+                border-radius: 10px;
+                border: 1px solid var(--accent);
+                background: rgba(59, 130, 246, 0.08);
+            }
+            .question-card .q-badge {
+                display: inline-block;
+                font-weight: 700;
+                font-size: 0.85rem;
+                padding: 0.25rem 0.5rem;
+                border-radius: 6px;
+                border: 1px solid var(--accent);
+                color: var(--accent);
+                background: rgba(59, 130, 246, 0.12);
+                margin-bottom: 0.5rem;
+            }
+            .question-card .q-text {
+                font-size: 1rem;
+                line-height: 1.6;
+            }
+
             .out {
-                margin-top: 1.75rem;
+                margin-top: 1.25rem;
                 padding: 1rem 1.1rem;
                 border-radius: 10px;
                 border: 1px solid var(--border);
@@ -308,14 +331,20 @@
             <div id="chat-screen" class="hidden">
                 <button class="secondary" onclick="showHome()">← Назад</button>
                 <h1 style="margin-top: 1rem">Интервью</h1>
-                <p class="sub">Задайте вопрос по Python или попросите провести техскрининг</p>
-                <label for="msg">Сообщение</label>
-                <textarea id="msg" placeholder="Например: Расскажи про декораторы в Python"></textarea>
+                <p class="sub">Вверху — текущий вопрос. Ниже — поле для вашего ответа и результаты проверки.</p>
+
+                <div class="question-card" id="question-card">
+                    <div class="q-badge" id="question-badge">Вопрос №—</div>
+                    <div class="q-text" id="question-text">Здесь появится вопрос.</div>
+                </div>
+
+                <label for="msg" style="margin-top: 1rem; display: block">Ваш ответ</label>
+                <textarea id="msg" placeholder="Ваш ответ… (введите и нажмите Отправить)"></textarea>
                 <div class="row">
                     <button type="button" id="send">Отправить</button>
                     <span class="muted" id="status"></span>
                 </div>
-                <div class="out empty" id="out">Ответ появится здесь.</div>
+                <div class="out empty" id="out">Ответ ассистента появится здесь.</div>
                 <button type="button" class="save-btn" id="saveBtn">💾 Сохранить в Word</button>
                 <div class="save-status" id="saveStatus"></div>
                 <div class="meta" id="meta"></div>
@@ -485,9 +514,10 @@
                 const out = document.getElementById("out");
                 const status = document.getElementById("status");
                 const msg = document.getElementById("msg");
-                out.classList.remove("err");
+                const badge = document.getElementById("question-badge");
+                const qtext = document.getElementById("question-text");
                 out.classList.add("empty");
-                out.textContent = "Загружаю вопрос…";
+                out.textContent = "Ответ ассистента появится здесь.";
                 status.textContent = "Загрузка…";
                 try {
                     const r = await fetch("/api/interview/random-question");
@@ -500,8 +530,8 @@
                     if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
                     lastQuestionNumber = data.number;
                     lastQuestion = data.question || "";
-                    out.classList.remove("empty");
-                    out.textContent = "Вопрос №" + data.number + ": " + (data.question || "");
+                    badge.textContent = "Вопрос №" + data.number;
+                    qtext.textContent = data.question || "";
                     msg.placeholder = "Ваш ответ… (введите и нажмите Отправить)";
                     document.getElementById("meta").textContent = "Всего вопросов: " + (data.total || "?");
                 } catch (e) {
