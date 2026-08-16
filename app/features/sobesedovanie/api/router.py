@@ -50,7 +50,7 @@ async def start(request: Request, body: SobesStartRequest):
     try:
         sess, q = await service.start(body.level, body.topics)
     except ValueError as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     return SobesStartResponse(session_id=sess.session_id, question=q, total_planned=sess.planned_total)
 
 
@@ -65,7 +65,7 @@ async def answer(request: Request, body: SobesAnswerRequest):
             body.session_id, body.question_id, body.user_answer
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     next_q_dto: SobesQuestionDTO | None = None
     if next_q is not None:
@@ -77,7 +77,7 @@ async def answer(request: Request, body: SobesAnswerRequest):
             level=next_q.level,  # type: ignore[arg-type]
             difficulty_score=next_q.difficulty_score,
             topic_hint=(
-                settings.sobes_topic_hints.get(next_q.topic)
+                getattr(settings, "sobes_topic_hints", {}).get(next_q.topic)
                 if getattr(settings, "sobes_show_topic_hint", True)
                 else None
             ),
@@ -102,7 +102,7 @@ async def results(request: Request, session_id: str):
     try:
         level_req, verdict, summary, strengths, weaknesses, by_topic, details = service.results(session_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     return SobesResultsResponse(
         level_requested=level_req,  # type: ignore[arg-type]
@@ -123,7 +123,7 @@ async def skip(request: Request, body: SobesSkipRequest):
     try:
         next_q, is_last = service.skip(body.session_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     next_q_dto: SobesQuestionDTO | None = None
     if next_q is not None:
@@ -135,7 +135,7 @@ async def skip(request: Request, body: SobesSkipRequest):
             level=next_q.level,  # type: ignore[arg-type]
             difficulty_score=next_q.difficulty_score,
             topic_hint=(
-                settings.sobes_topic_hints.get(next_q.topic)
+            getattr(settings, "sobes_topic_hints", {}).get(next_q.topic)
                 if getattr(settings, "sobes_show_topic_hint", True)
                 else None
             ),
@@ -151,7 +151,7 @@ async def repeat(request: Request, body: SobesRepeatRequest):
     try:
         cur = service.repeat(body.session_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     qdto = SobesQuestionDTO(
         id=cur.id,
@@ -161,7 +161,9 @@ async def repeat(request: Request, body: SobesRepeatRequest):
         level=cur.level,  # type: ignore[arg-type]
         difficulty_score=cur.difficulty_score,
         topic_hint=(
-            settings.sobes_topic_hints.get(cur.topic) if getattr(settings, "sobes_show_topic_hint", True) else None
+            getattr(settings, "sobes_topic_hints", {}).get(cur.topic)
+            if getattr(settings, "sobes_show_topic_hint", True)
+            else None
         ),
     )
     return SobesRepeatResponse(question=qdto)

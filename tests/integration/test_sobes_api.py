@@ -1,5 +1,6 @@
 import json
 import re
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -76,7 +77,7 @@ def client(monkeypatch, tmp_path):
                 "sobes_cache_path": str(tmp_path / "sobes_cache.json"),
                 "sobes_max_explanation_len": 300,
                 # docx
-                "interview_docx_path": str((tmp_path.parent / "fixtures" / "test_interview_questions.docx").resolve()),
+                "interview_docx_path": str(Path(__file__).resolve().parents[1] / "fixtures" / "test_interview_questions.docx"),
             },
         )()
         _app.state.llm = DummyLLM()

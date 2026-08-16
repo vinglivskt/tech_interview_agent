@@ -135,7 +135,7 @@ class SobesService:
             level=first.level,  # type: ignore[arg-type]  # уровень вопроса по классификации
             difficulty_score=first.difficulty_score,
             topic_hint=(
-                self._settings.sobes_topic_hints.get(first.topic)
+                getattr(self._settings, "sobes_topic_hints", {}).get(first.topic)
                 if getattr(self._settings, "sobes_show_topic_hint", True)
                 else None
             ),
