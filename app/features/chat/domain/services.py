@@ -166,19 +166,27 @@ async def run_chat(
     except Exception:
         hits = []
 
-    numbers: list[int] = []
-    context_parts: list[str] = []
+    # Выбираем один единственный номер ответа (первый из самых релевантных хитов)
+    selected_number: int | None = None
     for hit in hits:
-        text = str(hit.get("text", "")).strip()
-        answer_number = hit.get("answer_number")
-        if isinstance(answer_number, int):
-            numbers.append(answer_number)
-        if text:
-            label = f"[answer_number={answer_number}] " if answer_number is not None else ""
-            context_parts.append(f"{label}{text}")
+        an = hit.get("answer_number")
+        if isinstance(an, int):
+            selected_number = an
+            break
 
-    unique_numbers = sorted(set(numbers))
-    refs = ", ".join(str(number) for number in unique_numbers) if unique_numbers else "нет"
+    selected_hits = hits if selected_number is None else [h for h in hits if h.get("answer_number") == selected_number]
+
+    numbers: list[int] = [selected_number] if selected_number is not None else []
+    context_parts: list[str] = []
+    for hit in selected_hits:
+        text = str(hit.get("text", "")).strip()
+        if not text:
+            continue
+        answer_number = hit.get("answer_number")
+        label = f"[answer_number={answer_number}] " if answer_number is not None else ""
+        context_parts.append(f"{label}{text}")
+
+    refs = str(selected_number) if selected_number is not None else "нет"
     rag_context = (
         "\n\n---\n\n".join(context_parts)
         if context_parts
@@ -191,15 +199,12 @@ async def run_chat(
         f"{base_prompt}\n\n"
         "Контекст из векторной базы:\n"
         f"{rag_context}\n\n"
-        "Если используешь сведения из базы, обязательно укажи источник(и) "
-        f"в формате 'ответ №N'. Найденные номера: {refs}."
+        "Если используешь сведения из базы, укажи источник в формате 'ответ №N'. "
+        "Используй только один источник и не объединяй ответы с разными номерами. "
+        f"Найденный номер: {refs}."
     )
 
-    effective_limit = (
-        history_limit
-        if history_limit is not None
-        else getattr(settings, "session_history_limit", 20)
-    )
+    effective_limit = history_limit if history_limit is not None else getattr(settings, "session_history_limit", 20)
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -218,9 +223,8 @@ async def run_chat(
         )
         text = (await llm.generate(messages)).strip()
 
-    if unique_numbers and "ответ №" not in text.lower() and "ответы №" not in text.lower():
-        refs_suffix = ", ".join(str(number) for number in unique_numbers)
-        text = f"{text}\n\nИсточники: ответы №{refs_suffix}"
+    if selected_number is not None and "ответ №" not in text.lower():
+        text = f"{text}\n\nИсточники: ответ №{selected_number}"
 
     # Проверяем, есть ли этот вопрос в базе docx
     # Если нет — предлагаем сохранить ответ
@@ -229,8 +233,8 @@ async def run_chat(
 
     meta: dict[str, Any] = {
         "used_rag": bool(hits),
-        "retrieved_chunks": len(hits),
-        "answer_numbers": unique_numbers,
+        "retrieved_chunks": len(selected_hits),
+        "answer_numbers": numbers,
         "suggest_save": not in_base,
     }
     return text, meta
