@@ -450,12 +450,17 @@
                     <div class="question-card" id="sobes-q-card">
                         <div class="q-badge" id="sobes-q-badge">Вопрос №—</div>
                         <div class="q-text" id="sobes-q-text">Здесь появится вопрос.</div>
+                        <div class="meta" id="sobes-topic-meta">Тема: — · Уровень: —</div>
                     </div>
+
+                    <div class="out" id="sobes-hint" style="border-color:#3b82f6; background:rgba(59,130,246,0.06); display:none"></div>
 
                     <label for="sobes-answer" style="margin-top: 1rem; display: block">Ваш ответ</label>
                     <textarea id="sobes-answer" placeholder="Ваш ответ… (Ctrl/Cmd+Enter — отправить)"></textarea>
                     <div class="row">
-                        <button type="button" id="sobes-submit-btn" disabled>Отправить ответ</button>
+                        <button type="button" class="secondary" id="sobes-repeat-btn">Повторить вопрос</button>
+                        <button type="button" class="secondary" id="sobes-skip-btn">Пропустить</button>
+                        <button type="button" id="sobes-submit-btn" disabled></button>Отправить ответ</button>
                         <span id="sobes-status" class="muted"></span>
                     </div>
 
@@ -841,6 +846,7 @@
             let sobesCurrentQuestion = null;
             let sobesAnsweredCount = 0;
             let sobesTotalPlanned = 0;
+            let sobesCurrentIndex = 1; // 1-based номер текущего вопроса
 
             async function loadSobesConfig() {
                 const topicsEl = document.getElementById("sobes-topics");
@@ -903,11 +909,26 @@
                     if (!r.ok) throw new Error((data && data.detail) || ("HTTP " + r.status));
                     sobesSessionId = data.session_id;
                     sobesTotalPlanned = data.total_planned || 0;
-                    showSobesQuestion(data.question, sobesTotalPlanned, 1);
+                    sobesCurrentIndex = 1;
+                    showSobesQuestion(data.question, sobesTotalPlanned, sobesCurrentIndex);
                 } catch (e) {
                     alert("Ошибка: " + e.message);
                 } finally {
                     setButtonLoading(btn, false);
+                }
+            }
+
+            function renderTopicMeta(q) {
+                const levelNames = { junior: "Junior", middle: "Middle", senior: "Senior" };
+                const meta = document.getElementById("sobes-topic-meta");
+                meta.textContent = `Тема: ${q.topic} · Уровень: ${levelNames[q.level] || q.level}`;
+                const hintEl = document.getElementById("sobes-hint");
+                if (q.topic_hint) {
+                    hintEl.style.display = "block";
+                    hintEl.textContent = "Подсказка: " + q.topic_hint;
+                } else {
+                    hintEl.style.display = "none";
+                    hintEl.textContent = "";
                 }
             }
 
@@ -921,6 +942,7 @@
                 document.getElementById("sobes-progress-bar").style.width = pct + "%";
                 document.getElementById("sobes-q-badge").textContent = `Вопрос №${q.number}`;
                 document.getElementById("sobes-q-text").textContent = q.text;
+                renderTopicMeta(q);
                 document.getElementById("sobes-expl").textContent = "Здесь появится оценка и объяснение.";
                 document.getElementById("sobes-covered").innerHTML = "";
                 document.getElementById("sobes-missed").innerHTML = "";
@@ -969,7 +991,8 @@
                     if (data.is_last || !data.next_question) {
                         await loadSobesResults();
                     } else {
-                        showSobesQuestion(data.next_question, sobesTotalPlanned, sobesAnsweredCount + 1);
+                        sobesCurrentIndex += 1;
+                        showSobesQuestion(data.next_question, sobesTotalPlanned, sobesCurrentIndex);
                     }
                 } catch (e) {
                     document.getElementById("sobes-expl").classList.add('err');
@@ -1016,6 +1039,8 @@
 
             document.getElementById("sobes-start-btn").addEventListener("click", startSobes);
             document.getElementById("sobes-submit-btn").addEventListener("click", submitSobesAnswer);
+            document.getElementById("sobes-repeat-btn").addEventListener("click", repeatSobesQuestion);
+            document.getElementById("sobes-skip-btn").addEventListener("click", skipSobesQuestion);
             const sobesAnsEl = document.getElementById("sobes-answer");
             sobesAnsEl.addEventListener("keydown", (e) => {
                 if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submitSobesAnswer();
@@ -1023,6 +1048,45 @@
             sobesAnsEl.addEventListener("input", () => {
                 document.getElementById("sobes-submit-btn").disabled = sobesAnsEl.value.trim().length === 0;
             });
+
+            async function repeatSobesQuestion() {
+                if (!sobesSessionId) return;
+                try {
+                    const r = await fetch('/api/sobesedovanie/repeat', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: sobesSessionId })
+                    });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error((data && data.detail) || ("HTTP " + r.status));
+                    showSobesQuestion(data.question, sobesTotalPlanned, sobesCurrentIndex);
+                } catch(e) {
+                    alert("Ошибка: " + e.message);
+                }
+            }
+
+            async function skipSobesQuestion() {
+                if (!sobesSessionId) return;
+                const btn = document.getElementById('sobes-skip-btn');
+                setButtonLoading(btn, true, 'Пропускаем…');
+                try {
+                    const r = await fetch('/api/sobesedovanie/skip', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: sobesSessionId })
+                    });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error((data && data.detail) || ("HTTP " + r.status));
+                    if (data.is_last || !data.next_question) {
+                        await loadSobesResults();
+                    } else {
+                        sobesCurrentIndex += 1;
+                        showSobesQuestion(data.next_question, sobesTotalPlanned, sobesCurrentIndex);
+                    }
+                } catch(e) {
+                    alert("Ошибка: " + e.message);
+                } finally {
+                    setButtonLoading(btn, false);
+                }
+            }
         </script>
     </body>
 </html>

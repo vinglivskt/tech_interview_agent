@@ -21,6 +21,7 @@ class SobesQuestionDTO(BaseModel):
     topic: str
     level: SobesLevel
     difficulty_score: float = Field(ge=0.0, le=1.0)
+    topic_hint: str | None = None
 
 
 class SobesStartResponse(BaseModel):
@@ -53,6 +54,23 @@ class SobesResultsResponse(BaseModel):
     weaknesses: list[str]
     by_topic: list[dict]
     details: list[dict]
+
+
+class SobesSkipRequest(BaseModel):
+    session_id: str
+
+
+class SobesSkipResponse(BaseModel):
+    next_question: SobesQuestionDTO | None = None
+    is_last: bool
+
+
+class SobesRepeatRequest(BaseModel):
+    session_id: str
+
+
+class SobesRepeatResponse(BaseModel):
+    question: SobesQuestionDTO
 
 
 @dataclass

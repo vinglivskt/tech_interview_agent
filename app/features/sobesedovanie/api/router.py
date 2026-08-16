@@ -9,7 +9,11 @@ from ..domain.models import (
     SobesAnswerRequest,
     SobesAnswerResponse,
     SobesQuestionDTO,
+    SobesRepeatRequest,
+    SobesRepeatResponse,
     SobesResultsResponse,
+    SobesSkipRequest,
+    SobesSkipResponse,
     SobesStartRequest,
     SobesStartResponse,
 )
@@ -72,6 +76,11 @@ async def answer(request: Request, body: SobesAnswerRequest):
             topic=next_q.topic,
             level=next_q.level,  # type: ignore[arg-type]
             difficulty_score=next_q.difficulty_score,
+            topic_hint=(
+                settings.sobes_topic_hints.get(next_q.topic)
+                if getattr(settings, "sobes_show_topic_hint", True)
+                else None
+            ),
         )
 
     return SobesAnswerResponse(
@@ -104,3 +113,55 @@ async def results(request: Request, session_id: str):
         by_topic=by_topic,
         details=details,
     )
+
+
+@router.post("/sobesedovanie/skip", response_model=SobesSkipResponse)
+async def skip(request: Request, body: SobesSkipRequest):
+    settings: Settings = request.app.state.settings
+    llm: OllamaClient = request.app.state.llm
+    service = SobesService(settings, llm, _store())
+    try:
+        next_q, is_last = service.skip(body.session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    next_q_dto: SobesQuestionDTO | None = None
+    if next_q is not None:
+        next_q_dto = SobesQuestionDTO(
+            id=next_q.id,
+            number=next_q.number,
+            text=next_q.text,
+            topic=next_q.topic,
+            level=next_q.level,  # type: ignore[arg-type]
+            difficulty_score=next_q.difficulty_score,
+            topic_hint=(
+                settings.sobes_topic_hints.get(next_q.topic)
+                if getattr(settings, "sobes_show_topic_hint", True)
+                else None
+            ),
+        )
+    return SobesSkipResponse(next_question=next_q_dto, is_last=is_last)
+
+
+@router.post("/sobesedovanie/repeat", response_model=SobesRepeatResponse)
+async def repeat(request: Request, body: SobesRepeatRequest):
+    settings: Settings = request.app.state.settings
+    llm: OllamaClient = request.app.state.llm
+    service = SobesService(settings, llm, _store())
+    try:
+        cur = service.repeat(body.session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    qdto = SobesQuestionDTO(
+        id=cur.id,
+        number=cur.number,
+        text=cur.text,
+        topic=cur.topic,
+        level=cur.level,  # type: ignore[arg-type]
+        difficulty_score=cur.difficulty_score,
+        topic_hint=(
+            settings.sobes_topic_hints.get(cur.topic) if getattr(settings, "sobes_show_topic_hint", True) else None
+        ),
+    )
+    return SobesRepeatResponse(question=qdto)

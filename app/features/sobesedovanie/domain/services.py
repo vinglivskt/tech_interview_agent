@@ -132,8 +132,13 @@ class SobesService:
             number=first.number,
             text=first.text,
             topic=first.topic,
-            level=level,
+            level=first.level,  # type: ignore[arg-type]  # уровень вопроса по классификации
             difficulty_score=first.difficulty_score,
+            topic_hint=(
+                self._settings.sobes_topic_hints.get(first.topic)
+                if getattr(self._settings, "sobes_show_topic_hint", True)
+                else None
+            ),
         )
 
     async def answer(
@@ -235,3 +240,25 @@ class SobesService:
 
         summary = {"counted": counted, "total": total, "avg_percent": avg_percent}
         return sess.level_requested, verdict, summary, strengths, weaknesses, by_topic, details
+
+    def repeat(self, session_id: str) -> SobesQuestion:
+        sess = self._store.get(session_id)
+        if not sess:
+            raise ValueError("Сессия не найдена или истекла")
+        if not (0 <= sess.current_index < len(sess.questions)):
+            # если вышли за предел — вернуть последний
+            if not sess.questions:
+                raise ValueError("В сессии нет вопросов")
+            return sess.questions[-1]
+        return sess.questions[sess.current_index]
+
+    def skip(self, session_id: str) -> tuple[SobesQuestion | None, bool]:
+        sess = self._store.get(session_id)
+        if not sess:
+            raise ValueError("Сессия не найдена или истекла")
+        # сдвигаем индекс вперёд, не добавляя ответа
+        sess.current_index += 1
+        self._store.save(sess)
+        is_last = sess.current_index >= sess.planned_total or sess.current_index >= len(sess.questions)
+        next_q = None if is_last else sess.questions[sess.current_index]
+        return next_q, is_last

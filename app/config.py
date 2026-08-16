@@ -142,6 +142,23 @@ class Settings(BaseSettings):
         description="Путь к кэшу классифицированной базы QA",
     )
     sobes_max_explanation_len: int = Field(default=600, ge=50, description="Максимальная длина пояснения техлида")
+    sobes_show_topic_hint: bool = Field(default=True, description="Показывать краткую подсказку по теме перед ответом")
+    sobes_topic_hints: dict[str, str] = Field(
+        default_factory=lambda: {
+            "python": "вспомни различия list/tuple/set/dict, мутабельность, ссылки vs копии, areas: GIL, ООП, итераторы/генераторы",
+            "db": "базовые типы индексов, нормальные формы, транзакции и уровни изоляции, explain/анализ запросов",
+            "networks": "TCP vs UDP, 3-way handshake, TLS, HTTP/2 и keep-alive, пулы соединений",
+            "brokers": "pub/sub vs queue, at-least-once/at-most-once/exactly-once, партиции и оффсеты",
+            "os": "процессы/потоки, планировщик, межпроцессное взаимодействие, файловые дескрипторы",
+            "algorithms": "сложности O(), структуры данных: хеш-таблица, дерево, граф, очередь, стек",
+            "patterns": "SOLID, зависимости, фабрики, стратегия, адаптер, фасад и их уместность",
+            "testing": "пирамиды тестирования, фикстуры, мок/стаб, given-when-then, изоляция",
+            "devops": "контейнеры, базовые сети docker, CI/CD, мониторинг и алерты",
+            "security": "OWASP Top 10, инъекции, XSS/CSRF, хранение секретов",
+            "other": "уточни контекст и ожидаемый уровень глубины ответа",
+        },
+        description="Подсказки по темам для режима собеседования",
+    )
 
     @field_validator(
         "ollama_url",
