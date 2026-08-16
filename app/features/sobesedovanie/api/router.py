@@ -17,6 +17,17 @@ from ..domain.services import SobesService, SobesSessionStore
 
 router = APIRouter()
 
+
+@router.get("/sobesedovanie/config")
+async def get_config(request: Request):
+    settings: Settings = request.app.state.settings
+    return {
+        "topics": settings.sobes_topics,
+        "counts_by_level": settings.sobes_counts_by_level,
+        "pass_threshold": settings.sobes_pass_threshold_percent,
+    }
+
+
 _s_store: SobesSessionStore | None = None
 
 
