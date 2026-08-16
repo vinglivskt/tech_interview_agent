@@ -1,4 +1,5 @@
 # tech_interview_agent/app/features/chat/api/router.py
+import random
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
@@ -6,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from app.features.chat.api.models.save_qa_request import SaveQARequest
 
 from ..domain.docx_repository import question_exists, save_question_answer
+from ..domain.interview_docx import load_interview_qa
 from ..domain.models import ChatRequest
 from ..domain.services import SessionStore, run_chat
 
@@ -112,3 +114,27 @@ async def question_exists_endpoint(
 
     exists = question_exists(docx_path, question)
     return {"exists": exists}
+
+
+@router.get("/interview/random-question")
+async def random_question_endpoint(request: Request):
+    """
+    Возвращает случайный вопрос из docx-базы интервью.
+    Формат ответа:
+    {
+        "number": int,
+        "question": str,
+        "total": int
+    }
+    """
+    settings = request.app.state.settings
+    docx_path = Path(settings.interview_docx_path)
+    if not docx_path.exists():
+        raise HTTPException(status_code=500, detail=f"Файл не найден: {docx_path}")
+
+    items = load_interview_qa(docx_path)
+    if not items:
+        raise HTTPException(status_code=500, detail="В базе нет вопросов")
+
+    qa = random.choice(items)
+    return {"number": qa.number, "question": qa.question, "total": len(items)}

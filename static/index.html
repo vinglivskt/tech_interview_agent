@@ -376,6 +376,8 @@
                 if (mode === "chat") {
                     document.getElementById("chat-screen").classList.remove("hidden");
                     document.getElementById("quiz-screen").classList.add("hidden");
+                    // Автоматически подгружаем случайный вопрос при входе в режим интервью
+                    loadRandomQuestion();
                 } else {
                     document.getElementById("chat-screen").classList.add("hidden");
                     document.getElementById("quiz-screen").classList.remove("hidden");
@@ -389,7 +391,8 @@
             localStorage.setItem(SESSION_KEY, sessionId);
 
             let lastQuestion = "",
-                lastAnswer = "";
+                lastAnswer = "",
+                lastQuestionNumber = null;
 
             async function submitChat() {
                 const text = document.getElementById("msg").value.trim();
@@ -402,7 +405,10 @@
                 document.getElementById("meta").textContent = "";
                 document.getElementById("saveBtn").classList.remove("visible");
                 document.getElementById("saveStatus").classList.remove("visible", "error");
-                lastQuestion = text;
+                // Если уже задан случайный вопрос, считаем, что пользователь отправляет свой ответ на него
+                if (!lastQuestion) {
+                    lastQuestion = text;
+                }
                 lastAnswer = "";
                 try {
                     const r = await fetch("/api/chat", {
@@ -474,6 +480,37 @@
             }
 
             document.getElementById("send").addEventListener("click", submitChat);
+
+            async function loadRandomQuestion() {
+                const out = document.getElementById("out");
+                const status = document.getElementById("status");
+                const msg = document.getElementById("msg");
+                out.classList.remove("err");
+                out.classList.add("empty");
+                out.textContent = "Загружаю вопрос…";
+                status.textContent = "Загрузка…";
+                try {
+                    const r = await fetch("/api/interview/random-question");
+                    let data = null;
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        throw new Error("HTTP " + r.status);
+                    }
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
+                    lastQuestionNumber = data.number;
+                    lastQuestion = data.question || "";
+                    out.classList.remove("empty");
+                    out.textContent = "Вопрос №" + data.number + ": " + (data.question || "");
+                    msg.placeholder = "Ваш ответ… (введите и нажмите Отправить)";
+                    document.getElementById("meta").textContent = "Всего вопросов: " + (data.total || "?");
+                } catch (e) {
+                    out.classList.add("err");
+                    out.textContent = "Не удалось загрузить вопрос: " + String(e);
+                } finally {
+                    status.textContent = "";
+                }
+            }
             document.getElementById("saveBtn").addEventListener("click", saveToWord);
             document.getElementById("msg").addEventListener("keydown", (e) => {
                 if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submitChat();
