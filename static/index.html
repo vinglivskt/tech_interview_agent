@@ -348,8 +348,8 @@
                     </div>
                     <div class="mode-card" onclick="startMode('sobes')">
                         <div class="icon">🎯</div>
-                        <h3>Собеседование</h3></h3>
-                        <p>15–25 вопросов по тем</p>ам, свободные ответы, оценка в процентах и финальный вердикт.</p>
+                        <h3>Собеседование</h3>
+                        <p>15–25 вопросов по темам, свободные ответы, оценка в процентах и финальный вердикт.</p>
                     </div>
                 </div>
             </div>
@@ -434,7 +434,7 @@
                     </select>
 
                     <div style="margin-top: 0.9rem">
-                        <label></label>Темы</label>
+                        <label>Темы</label>
                         <div id="sobes-topics" class="row"></div>
                         <div class="meta" id="sobes-config-hint"></div>
                     </div>
@@ -460,7 +460,7 @@
                     <div class="row">
                         <button type="button" class="secondary" id="sobes-repeat-btn">Повторить вопрос</button>
                         <button type="button" class="secondary" id="sobes-skip-btn">Пропустить</button>
-                        <button type="button" id="sobes-submit-btn" disabled></button>Отправить ответ</button>
+                        <button type="button" id="sobes-submit-btn" disabled>Отправить ответ</button>
                         <span id="sobes-status" class="muted"></span>
                     </div>
 
@@ -483,8 +483,8 @@
                         <div class="level" id="sobes-verdict">Вердикт: —</div>
                     </div>
                     <h2>Сильные и слабые стороны</h2>
-                    <</h2>div class="result-item"><strong>Сильные:</strong> <span id="</strong>sobes-strengths">—</span></div>
-                    <div class="result-item" style="margin-top:0.5rem"><strong>Слабые:</strong> <span id="sobes-</strong>weaknesses">—</span></div>
+                    <div class="result-item"><strong>Сильные:</strong> <span id="sobes-strengths">—</span></</strong>div>
+                    <div class="result-item" style="margin-top:0.5rem"><strong>Слабые:</strong> <span id="sobes-weaknesses">—</span></div>
 
                     <h2 style="margin-top:1rem">Детали</h2>
                     <div id="sobes-details"></div>
@@ -497,7 +497,7 @@
             </div>
         </div>
 
-        <script></script>
+        <script>
             // Утилиты загрузки
             function setButtonLoading(btn, loading, textWhileLoading = "") {
                 if (!btn) return;
@@ -1029,7 +1029,7 @@
                 (data.details || []).forEach((d, idx) => {
                     const div = document.createElement("div");
                     div.className = "result-item";
-                    div.innerHTML = `<h4>Вопрос ${idx + 1}: ${d</h4>.question_text}</h4>` +
+                    div.innerHTML = `<h4>Вопрос ${idx + 1}: ${d.question_text}</h4>` +
                         `<p><span class="label">Тема:</span> ${d.topic}</p>` +
                         `<p><span class="label">Процент:</span> ${d.score_percent}%</p>` +
                         `<p><span class="label">Комментарий:</span> ${d.explanation}</p>`;
