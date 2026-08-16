@@ -346,6 +346,11 @@
                         <h3>Тестирование</h3>
                         <p>20 вопросов с вариантами ответов. Проверьте свои знания и узнайте свой уровень.</p>
                     </div>
+                    <div class="mode-card" onclick="startMode('sobes')">
+                        <div class="icon">🎯</div>
+                        <h3>Собеседование</h3></h3>
+                        <p>15–25 вопросов по тем</p>ам, свободные ответы, оценка в процентах и финальный вердикт.</p>
+                    </div>
                 </div>
             </div>
 
@@ -413,9 +418,63 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Собеседование -->
+            <div id="sobes-screen" class="hidden">
+                <button class="secondary" onclick="showHome()">← Назад</button>
+                <h1 style="margin-top: 1rem">Собеседование</h1>
+
+                <div id="sobes-setup">
+                    <p class="sub">Выберите уровень. Система подберёт вопросы по темам и будет двигаться от простого к сложному.</p>
+                    <label for="sobes-level">Уровень</label>
+                    <select id="sobes-level">
+                        <option value="junior">Junior</option>
+                        <option value="middle" selected>Middle</option>
+                        <option value="sen</option>ior">Senior</option>
+                    </select>
+                    <div class="row">
+                        <button type="button" class="btn-green" id="sobes-start-btn">Начать собеседование</button>
+                    </div>
+                </div>
+
+                <div id="sobes-interview" class="hidden">
+                    <div class="meta" id="sobes-progress-text">Вопрос 1</div>
+                    <div class="question-card" id="sobes-q-card">
+                        <div class="q-badge" id="sobes-q-badge">Вопрос №—</div>
+                        <div class="q-text" id="sobes-q-text">Здесь появится вопрос.</div>
+                    </div>
+
+                    <label for="sobes-answer" style="margin-top: 1rem; display: block">Ваш ответ</label>
+                    <textarea id="sobes-answer" placeholder="Ваш ответ… (Ctrl/Cmd+Enter — отправить)"></textarea>
+                    <div class="row">
+                        <button type="button" id="sobes-submit-btn">Отправить ответ</button>
+                        <span id="sobes-status" class="muted"></span>
+                    </div>
+
+                    <div class="out" id="sobes-expl">Здесь появится оценка и объяснение.</div>
+                </div>
+
+                <div id="sobes-results" class="hidden">
+                    <div class="results-score">
+                        <div class="big" id="sobes-summary">0/0 — 0%</div>
+                        <div class="level" id="sobes-verdict">Вердикт: —</div>
+                    </div>
+                    <h2>Сильные и слабые стороны</h2>
+                    <</h2>div class="result-item"><strong>Сильные:</strong> <span id="</strong>sobes-strengths">—</span></div>
+                    <div class="result-item" style="margin-top:0.5rem"><strong>Слабые:</strong> <span id="sobes-</strong>weaknesses">—</span></div>
+
+                    <h2 style="margin-top:1rem">Детали</h2>
+                    <div id="sobes-details"></div>
+
+                    <div class="row" style="margin-top: 1.5rem">
+                        <button type="button" onclick="showHome()">На главную</button>
+                        <button type="button" class="secondary" onclick="startMode('sobes')">Пройти ещё раз</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <script>
+        <script></script>
             // Утилиты загрузки
             function setButtonLoading(btn, loading, textWhileLoading = "") {
                 if (!btn) return;
@@ -443,18 +502,26 @@
                 document.getElementById("home-screen").classList.remove("hidden");
                 document.getElementById("chat-screen").classList.add("hidden");
                 document.getElementById("quiz-screen").classList.add("hidden");
+                document.getElementById("sobes-screen").classList.add("hidden");
             }
             function startMode(mode) {
                 document.getElementById("home-screen").classList.add("hidden");
                 if (mode === "chat") {
                     document.getElementById("chat-screen").classList.remove("hidden");
                     document.getElementById("quiz-screen").classList.add("hidden");
+                    document.getElementById("sobes-screen").classList.add("hidden");
                     // Автоматически подгружаем случайный вопрос при входе в режим интервью
                     loadRandomQuestion();
-                } else {
+                } else if (mode === "quiz") {
                     document.getElementById("chat-screen").classList.add("hidden");
                     document.getElementById("quiz-screen").classList.remove("hidden");
+                    document.getElementById("sobes-screen").classList.add("hidden");
                     showQuizSetup();
+                } else if (mode === "sobes") {
+                    document.getElementById("chat-screen").classList.add("hidden");
+                    document.getElementById("quiz-screen").classList.add("hidden");
+                    document.getElementById("sobes-screen").classList.remove("hidden");
+                    showSobesSetup();
                 }
             }
 
@@ -750,6 +817,132 @@
 
             document.getElementById("start-quiz-btn").addEventListener("click", startQuiz);
             document.getElementById("quiz-next-btn").addEventListener("click", submitQuizAnswer);
+
+            // Собеседование
+            let sobesSessionId = null;
+            let sobesCurrentQuestion = null;
+            let sobesAnsweredCount = 0;
+            let sobesTotalPlanned = 0;
+
+            function showSobesSetup() {
+                document.getElementById("sobes-setup").classList.remove("hidden");
+                document.getElementById("sobes-interview").classList.add("hidden");
+                document.getElementById("sobes-results").classList.add("hidden");
+                document.getElementById("sobes-expl").textContent = "Здесь появится оценка и объяснение.";
+                document.getElementById("sobes-answer").value = "";
+                sobesSessionId = null;
+                sobesCurrentQuestion = null;
+                sobesAnsweredCount = 0;
+            }
+
+            async function startSobes() {
+                const level = document.getElementById("sobes-level").value;
+                const btn = document.getElementById("sobes-start-btn");
+                setButtonLoading(btn, true, "Готовим вопросы…");
+                try {
+                    const r = await fetch("/api/sobesedovanie/start", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ level }),
+                    });
+                    let data = null;
+                    try { data = await r.json(); } catch(_) { throw new Error("HTTP " + r.status); }
+                    if (!r.ok) throw new Error((data && data.detail) || ("HTTP " + r.status));
+                    sobesSessionId = data.session_id;
+                    sobesTotalPlanned = data.total_planned || 0;
+                    showSobesQuestion(data.question, sobesTotalPlanned, 1);
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                } finally {
+                    setButtonLoading(btn, false);
+                }
+            }
+
+            function showSobesQuestion(q, total, idx) {
+                document.getElementById("sobes-setup").classList.add("hidden");
+                document.getElementById("sobes-interview").classList.remove("hidden");
+                document.getElementById("sobes-results").classList.add("hidden");
+                sobesCurrentQuestion = q;
+                document.getElementById("sobes-progress-text").textContent = `Вопрос ${idx} из ${total}`;
+                document.getElementById("sobes-q-badge").textContent = `Вопрос №${q.number}`;
+                document.getElementById("sobes-q-text").textContent = q.text;
+                document.getElementById("sobes-expl").textContent = "Здесь появится оценка и объяснение.";
+                document.getElementById("sobes-status").textContent = "";
+                document.getElementById("sobes-answer").value = "";
+            }
+
+            async function submitSobesAnswer() {
+                if (!sobesSessionId || !sobesCurrentQuestion) return;
+                const btn = document.getElementById("sobes-submit-btn");
+                const status = document.getElementById("sobes-status");
+                const ans = document.getElementById("sobes-answer").value.trim();
+                if (!ans) return;
+                setButtonLoading(btn, true, "Оценка…");
+                setStatusLoading(status, true, "Оценка ответа…");
+                try {
+                    const r = await fetch("/api/sobesedovanie/answer", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ session_id: sobesSessionId, question_id: sobesCurrentQuestion.id, user_answer: ans }),
+                    });
+                    let data = null;
+                    try { data = await r.json(); } catch(_) { throw new Error("HTTP " + r.status); }
+                    if (!r.ok) throw new Error((data && data.detail) || ("HTTP " + r.status));
+
+                    sobesAnsweredCount += 1;
+                    const expl = `Оценка: ${data.score_percent}%\n\n${data.techlead_explanation}`;
+                    document.getElementById("sobes-expl").textContent = expl;
+
+                    if (data.is_last || !data.next_question) {
+                        await loadSobesResults();
+                    } else {
+                        showSobesQuestion(data.next_question, sobesTotalPlanned, sobesAnsweredCount + 1);
+                    }
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                } finally {
+                    setButtonLoading(btn, false);
+                    setStatusLoading(status, false);
+                }
+            }
+
+            async function loadSobesResults() {
+                try {
+                    const r = await fetch(`/api/sobesedovanie/results/${sobesSessionId}`);
+                    let data = null; try { data = await r.json(); } catch(_) { throw new Error("HTTP " + r.status); }
+                    if (!r.ok) throw new Error((data && data.detail) || ("HTTP " + r.status));
+                    showSobesResults(data);
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                }
+            }
+
+            function showSobesResults(data) {
+                document.getElementById("sobes-setup").classList.add("hidden");
+                document.getElementById("sobes-interview").classList.add("hidden");
+                document.getElementById("sobes-results").classList.remove("hidden");
+                document.getElementById("sobes-summary").textContent = `${data.summary.counted}/${data.summary.total} — ${data.summary.avg_percent}%`;
+                document.getElementById("sobes-verdict").textContent = `Вердикт: ${data.verdict_level}`;
+                document.getElementById("sobes-strengths").textContent = (data.strengths || []).join(", ") || "—";
+                document.getElementById("sobes-weaknesses").textContent = (data.weaknesses || []).join(", ") || "—";
+                const list = document.getElementById("sobes-details");
+                list.innerHTML = "";
+                (data.details || []).forEach((d, idx) => {
+                    const div = document.createElement("div");
+                    div.className = "result-item";
+                    div.innerHTML = `<h4>Вопрос ${idx + 1}: ${d</h4>.question_text}</h4>` +
+                        `<p><span class="label">Тема:</span> ${d.topic}</p>` +
+                        `<p><span class="label">Процент:</span> ${d.score_percent}%</p>` +
+                        `<p><span class="label">Комментарий:</span> ${d.explanation}</p>`;
+                    list.appendChild(div);
+                });
+            }
+
+            document.getElementById("sobes-start-btn").addEventListener("click", startSobes);
+            document.getElementById("sobes-submit-btn").addEventListener("click", submitSobesAnswer);
+            document.getElementById("sobes-answer").addEventListener("keydown", (e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submitSobesAnswer();
+            });
         </script>
     </body>
 </html>
