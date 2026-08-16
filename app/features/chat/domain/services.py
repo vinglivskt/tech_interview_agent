@@ -64,9 +64,9 @@ def _load_system_prompt(settings: Any) -> str:
         raise FileNotFoundError(
             f"System prompt file not found: {prompt_path}. "
             "Please ensure prompts/system_prompt.md exists in the project root."
-        )
+        ) from None
     except Exception as e:
-        raise RuntimeError(f"Failed to load system prompt from {prompt_path}: {e}")
+        raise RuntimeError(f"Failed to load system prompt from {prompt_path}: {e}") from e
 
 
 def _build_history_messages(

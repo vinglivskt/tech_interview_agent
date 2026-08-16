@@ -160,6 +160,20 @@ class Settings(BaseSettings):
         description="Подсказки по темам для режима собеседования",
     )
 
+    # --- Режим «системный дизайн» ---
+    design_levels: list[str] = Field(
+        default_factory=lambda: ["junior", "middle", "senior"],
+        description="Доступные уровни сценариев системного дизайна",
+    )
+    design_hint_penalty_percent: int = Field(default=10, ge=0, le=100)
+    design_pass_threshold_percent: int = Field(default=50, ge=0, le=100)
+    design_max_explanation_len: int = Field(default=600, ge=50)
+    design_scenarios_path: str = Field(
+        default="app/prompts/design/scenarios.yaml",
+        description="Путь к YAML-файлу со сценариями системного дизайна",
+    )
+    design_max_tokens: int = Field(default=800, ge=1)
+
     @field_validator(
         "ollama_url",
         "ollama_model",
@@ -186,7 +200,7 @@ class Settings(BaseSettings):
             return [str(item).strip() for item in value if str(item).strip()]
         raise TypeError("cors_allow_origins must be a list[str] or comma-separated string")
 
-    @field_validator("interview_docx_path", "ingest_state_path", mode="before")
+    @field_validator("interview_docx_path", "ingest_state_path", "design_scenarios_path", mode="before")
     @classmethod
     def _strip_paths(cls, value: str) -> str:
         if isinstance(value, str):

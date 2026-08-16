@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -15,7 +15,7 @@ class DesignConfigResponse(BaseModel):
 
 class DesignStartRequest(BaseModel):
     level: DesignLevel
-    scenario_id: Optional[str] = None
+    scenario_id: str | None = None
 
 
 class DesignStepDTO(BaseModel):

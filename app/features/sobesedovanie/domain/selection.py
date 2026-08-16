@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import math
 import uuid
+from collections.abc import Iterable
 from random import Random
-from typing import Iterable
 
 from .classification import ClassifiedQA
 from .models import SobesQuestion

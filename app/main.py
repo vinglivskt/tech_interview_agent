@@ -23,6 +23,7 @@ from app.features.chat.domain.ingest import sync_interview_index
 from app.features.chat.domain.services import SessionStore
 from app.features.chat.infrastructure.qdrant import QdrantService
 from app.features.chat.providers.ollama import OllamaClient
+from app.features.design.api.router import router as design_router
 from app.features.quiz.api.router import router as quiz_router
 from app.features.sobesedovanie.api.router import router as sobes_router
 
@@ -111,6 +112,7 @@ app.add_middleware(
 app.include_router(chat_router, prefix="/api")
 app.include_router(quiz_router, prefix="/api")
 app.include_router(sobes_router, prefix="/api")
+app.include_router(design_router, prefix="/api")
 
 # Static
 static_dir = Path(__file__).resolve().parent.parent / "static"

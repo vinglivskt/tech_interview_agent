@@ -50,7 +50,7 @@ async def start(request: Request, body: DesignStartRequest):
     try:
         sess, scenario_info, step_info = await service.start(body.level, body.scenario_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return DesignStartResponse(
         session_id=sess.session_id,
         total_steps=len(sess.steps_order),
@@ -69,7 +69,7 @@ async def answer(request: Request, body: DesignAnswerRequest):
             body.session_id, body.step_id, body.user_answer
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return DesignAnswerResponse(
         score_percent=score,
         rubric=rubric,
@@ -89,7 +89,7 @@ async def hint(request: Request, body: DesignHintRequest):
     try:
         text, penalty = await service.hint(body.session_id, body.step_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return DesignHintResponse(hint=text, penalty_applied_percent=penalty)
 
 
@@ -101,7 +101,7 @@ async def results(request: Request, session_id: str):
     try:
         summary, by_rubric, strengths, weaknesses, details, verdict = service.results(session_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return DesignResultsResponse(
         summary=summary,
         by_rubric=by_rubric,
