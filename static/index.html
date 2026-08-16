@@ -302,6 +302,28 @@
             .hidden {
                 display: none !important;
             }
+
+            /* Спиннер загрузки */
+            .spinner {
+                width: 14px;
+                height: 14px;
+                border: 2px solid var(--border);
+                border-top-color: var(--accent);
+                border-radius: 50%;
+                display: inline-block;
+                vertical-align: -2px;
+                margin-right: 6px;
+                animation: spin 0.8s linear infinite;
+            }
+            button .spinner {
+                border-color: rgba(255, 255, 255, 0.35);
+                border-top-color: #fff;
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
         </style>
     </head>
     <body>
@@ -394,6 +416,28 @@
         </div>
 
         <script>
+            // Утилиты загрузки
+            function setButtonLoading(btn, loading, textWhileLoading = "") {
+                if (!btn) return;
+                if (loading) {
+                    if (!btn.dataset.origText) btn.dataset.origText = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner"></span>' + (textWhileLoading || btn.textContent || "");
+                } else {
+                    btn.disabled = false;
+                    if (btn.dataset.origText) btn.innerHTML = btn.dataset.origText;
+                    delete btn.dataset.origText;
+                }
+            }
+            function setStatusLoading(el, loading, text = "Загрузка…") {
+                if (!el) return;
+                if (loading) {
+                    el.innerHTML = '<span class="spinner"></span>' + text;
+                } else {
+                    el.textContent = "";
+                }
+            }
+
             // Навигация
             function showHome() {
                 document.getElementById("home-screen").classList.remove("hidden");
@@ -427,8 +471,9 @@
                 const text = document.getElementById("msg").value.trim();
                 if (!text) return;
                 const sendBtn = document.getElementById("send");
-                sendBtn.disabled = true;
-                document.getElementById("status").textContent = "Запрос…";
+                const statusEl = document.getElementById("status");
+                setButtonLoading(sendBtn, true, "Отправка…");
+                setStatusLoading(statusEl, true, "Генерация ответа…");
                 document.getElementById("out").classList.remove("empty", "err");
                 document.getElementById("out").textContent = "";
                 document.getElementById("meta").textContent = "";
@@ -462,8 +507,8 @@
                     document.getElementById("out").classList.add("err");
                     document.getElementById("out").textContent = String(e);
                 } finally {
-                    sendBtn.disabled = false;
-                    document.getElementById("status").textContent = "";
+                    setButtonLoading(sendBtn, false);
+                    setStatusLoading(statusEl, false);
                     document.getElementById("msg").value = "";
                 }
             }
@@ -471,9 +516,9 @@
             async function saveToWord() {
                 const saveBtn = document.getElementById("saveBtn");
                 const saveStatus = document.getElementById("saveStatus");
-                saveBtn.disabled = true;
+                setButtonLoading(saveBtn, true, "Сохранение…");
                 saveStatus.classList.remove("visible", "error");
-                saveStatus.textContent = "Сохранение…";
+                saveStatus.innerHTML = '<span class="spinner"></span>Сохранение…';
                 saveStatus.classList.add("visible");
                 try {
                     const r = await fetch("/api/interview/save-qa", {
@@ -504,7 +549,7 @@
                     saveStatus.textContent = "❌ Ошибка: " + e.message;
                     saveStatus.classList.add("error");
                 } finally {
-                    saveBtn.disabled = false;
+                    setButtonLoading(saveBtn, false);
                 }
             }
 
@@ -518,7 +563,7 @@
                 const qtext = document.getElementById("question-text");
                 out.classList.add("empty");
                 out.textContent = "Ответ ассистента появится здесь.";
-                status.textContent = "Загрузка…";
+                setStatusLoading(status, true, "Генерация вопроса…");
                 try {
                     const r = await fetch("/api/interview/random-question");
                     let data = null;
@@ -538,7 +583,7 @@
                     out.classList.add("err");
                     out.textContent = "Не удалось загрузить вопрос: " + String(e);
                 } finally {
-                    status.textContent = "";
+                    setStatusLoading(status, false);
                 }
             }
             document.getElementById("saveBtn").addEventListener("click", saveToWord);
@@ -559,6 +604,8 @@
 
             async function startQuiz() {
                 const level = document.getElementById("quiz-level").value;
+                const startBtn = document.getElementById("start-quiz-btn");
+                setButtonLoading(startBtn, true, "Начинаем…");
                 try {
                     const r = await fetch("/api/quiz/start", {
                         method: "POST",
@@ -577,6 +624,8 @@
                     showQuizQuestion(data);
                 } catch (e) {
                     alert("Ошибка: " + e.message);
+                } finally {
+                    setButtonLoading(startBtn, false);
                 }
             }
 
@@ -624,7 +673,8 @@
 
             async function submitQuizAnswer() {
                 if (selectedOption === null || !quizSessionId) return;
-                document.getElementById("quiz-next-btn").disabled = true;
+                const nextBtn = document.getElementById("quiz-next-btn");
+                setButtonLoading(nextBtn, true, "Проверка…");
                 try {
                     const r = await fetch("/api/quiz/answer", {
                         method: "POST",
@@ -650,7 +700,8 @@
                     }
                 } catch (e) {
                     alert("Ошибка: " + e.message);
-                    document.getElementById("quiz-next-btn").disabled = false;
+                } finally {
+                    setButtonLoading(nextBtn, false);
                 }
             }
 
