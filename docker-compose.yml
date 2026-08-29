@@ -55,14 +55,16 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     volumes:
       - ./frontend/src:/app/src:rw
+      - ./frontend/index.html:/app/index.html:rw
       - ./frontend/public:/app/public:ro
     depends_on:
       - api
+    command: npm run dev -- --host 0.0.0.0
     develop:
       watch:
         - path: ./frontend/src

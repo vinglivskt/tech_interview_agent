@@ -9,6 +9,7 @@ FastAPI-приложение «интервью-ассистент» с RAG (Qdr
 ### Docker (рекомендуется)
 
 ```bash
+# Production сборка
 docker compose up --build
 ```
 
@@ -28,7 +29,25 @@ docker compose up --build
 | `SYSTEM_PROMPT_PATH` | `/app/prompts/chat/system.md` | Системный промпт |
 | `DESIGN_SCENARIOS_PATH` | `/app/prompts/design/scenarios.yaml` | Сценарии дизайна |
 
-**Если Ollama на хосте** (не в Docker):
+### Docker с Hot Reload (разработка)
+
+```bash
+# Запуск с авто-перезагрузкой при изменениях файлов
+docker compose watch
+```
+
+Или вручную:
+```bash
+# Запуск с пересборкой при изменениях
+docker compose up --build --watch
+```
+
+**Что происходит:**
+- **Бэкенд**: изменения в `backend/src` → авто-рестарт uvicorn
+- **Фронтенд**: изменения в `frontend/src` → hot reload через Vite
+- **Промпты**: изменения в `backend/prompts` → синхронизируются в контейнер
+
+### Если Ollama на хосте (не в Docker):
 ```bash
 docker compose up
 ```
@@ -83,6 +102,7 @@ tech_interview_agent/
 │
 ├─ frontend/
 │  ├─ Dockerfile              # multi-stage build (node → nginx)
+│  ├─ Dockerfile.dev          # dev build (Vite dev server)
 │  ├─ nginx.conf             # прокси /api/ → backend:8000
 │  ├─ src/                   # React приложение
 │  │  ├─ components/         # UI компоненты
@@ -104,8 +124,15 @@ tech_interview_agent/
 | Сервис | Порт | Описание |
 |---|---|---|
 | `qdrant` | 6333, 6334 | Векторная БД |
-| `api` | 8000 | FastAPI бэкенд |
-| `frontend` | 3000 | React приложение (nginx) |
+| `api` | 8000 | FastAPI бэкенд (uvicorn с --reload) |
+| `frontend` | 3000 | React приложение (Vite dev server) |
+
+### Режимы работы
+
+| Режим | Команда | Бэкенд | Фронтенд |
+|---|---|---|---|
+| Production | `docker compose up --build` | nginx + uvicorn | nginx (статика) |
+| Development | `docker compose watch` | uvicorn --reload | Vite hot reload |
 
 ---
 
@@ -204,6 +231,10 @@ pytest -q
 ---
 
 ## FAQ
+
+**Q: docker compose watch не работает?**
+- Убедитесь что используете Docker Compose v2.24+:`docker compose version`
+- Если используете Docker Desktop, проверьте что experimental features включены
 
 **Q: Не запускается Ollama или Qdrant?**
 - Проверьте, что сервисы доступны по адресам из `.env`.
