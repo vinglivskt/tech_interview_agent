@@ -4,8 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from app.core.config import Settings
 from app.features.chat.providers.ollama import OllamaClient
-
-from ..domain.models import (
+from app.features.sobesedovanie.domain.models import (
     SobesAnswerRequest,
     SobesAnswerResponse,
     SobesQuestionDTO,
@@ -17,7 +16,7 @@ from ..domain.models import (
     SobesStartRequest,
     SobesStartResponse,
 )
-from ..domain.services import SobesService, SobesSessionStore
+from app.features.sobesedovanie.domain.services import SobesService, SobesSessionStore
 
 router = APIRouter()
 
@@ -135,7 +134,7 @@ async def skip(request: Request, body: SobesSkipRequest):
             level=next_q.level,  # type: ignore[arg-type]
             difficulty_score=next_q.difficulty_score,
             topic_hint=(
-            getattr(settings, "sobes_topic_hints", {}).get(next_q.topic)
+                getattr(settings, "sobes_topic_hints", {}).get(next_q.topic)
                 if getattr(settings, "sobes_show_topic_hint", True)
                 else None
             ),

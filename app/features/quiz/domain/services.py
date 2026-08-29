@@ -12,8 +12,7 @@ from random import Random
 from app.core.config import Settings
 from app.features.chat.domain.interview_docx import InterviewQA, load_interview_qa
 from app.features.chat.providers.ollama import OllamaClient
-
-from .quiz_generator import generate_wrong_answers
+from app.features.quiz.domain.quiz_generator import generate_wrong_answers
 
 logger = logging.getLogger(__name__)
 
@@ -262,9 +261,7 @@ class QuizService:
         rng.shuffle(indexed_options)
 
         # Находим новый индекс правильного ответа
-        correct_index = next(
-            i for i, (_, opt) in enumerate(indexed_options) if opt == correct_answer_normalized
-        )
+        correct_index = next(i for i, (_, opt) in enumerate(indexed_options) if opt == correct_answer_normalized)
         shuffled_options = [opt for _, opt in indexed_options]
 
         return QuizQuestion(

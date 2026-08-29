@@ -5,11 +5,10 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 
 from app.features.chat.api.models.save_qa_request import SaveQARequest
-
-from ..domain.docx_repository import question_exists, save_question_answer
-from ..domain.interview_docx import load_interview_qa
-from ..domain.models import ChatRequest
-from ..domain.services import SessionStore, run_chat
+from app.features.chat.domain.docx_repository import question_exists, save_question_answer
+from app.features.chat.domain.interview_docx import load_interview_qa
+from app.features.chat.domain.models import ChatRequest
+from app.features.chat.domain.services import SessionStore, run_chat
 
 router = APIRouter()
 

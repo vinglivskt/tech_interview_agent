@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
 
-from ..domain.models import (
+from app.features.quiz.domain.models import (
     QuizAnswerRequest,
     QuizAnswerResponse,
     QuizQuestionResponse,
@@ -11,7 +11,7 @@ from ..domain.models import (
     QuizResultsResponse,
     QuizStartRequest,
 )
-from ..domain.services import QuizService, QuizSessionStore
+from app.features.quiz.domain.services import QuizService, QuizSessionStore
 
 router = APIRouter()
 

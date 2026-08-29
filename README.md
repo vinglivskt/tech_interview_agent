@@ -8,7 +8,39 @@
 
 ## Быстрый старт
 
-### 1) Установка зависимостей
+### 1) Docker (рекомендуется)
+
+```bash
+# Клонирование и запуск
+docker compose up --build
+```
+
+Откройте: `http://localhost:8000`
+
+Настройки через переменные окружения (можно задать в `.env`):
+
+| Переменная | По умолчанию | Описание |
+|---|---|---|
+| `OLLAMA_URL` | `http://host.docker.internal:11434` | URL Ollama |
+| `OLLAMA_MODEL` | `qwen2.5:7b` | Модель LLM |
+| `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Модель эмбеддингов |
+| `OLLAMA_TIMEOUT_SEC` | `120` | Таймаут Ollama |
+| `QDRANT_URL` | `http://qdrant:6333` | URL Qdrant |
+| `QDRANT_COLLECTION` | `interview_qa` | Коллекция Qdrant |
+| `INTERVIEW_DOCX_PATH` | `/app/app/interview_questions.docx` | Путь к файлу вопросов |
+
+Если Ollama на хосте (не в Docker), используйте:
+```bash
+docker compose up
+```
+
+Для доступа к Ollama на хосте с MacOS/Windows добавьте `host.docker.internal` в Docker Desktop → Settings → Resources → Network.
+
+---
+
+### 2) Локальная разработка
+
+#### Установка зависимостей
 
 Проект использует `pyproject.toml`.
 
@@ -17,7 +49,7 @@ python3 -m pip install -e .
 python3 -m pip install pytest
 ```
 
-### 2) Запуск приложения
+#### Запуск приложения
 
 ```bash
 uvicorn app.main:app --reload

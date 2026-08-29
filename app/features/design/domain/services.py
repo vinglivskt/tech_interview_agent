@@ -8,9 +8,8 @@ from dataclasses import dataclass, field
 
 from app.core.config import Settings
 from app.features.chat.providers.ollama import OllamaClient
-
-from .models import DesignLevel
-from .scenarios import Scenario, Step, load_scenarios
+from app.features.design.domain.models import DesignLevel
+from app.features.design.domain.scenarios import Scenario, Step, load_scenarios
 
 
 @dataclass
@@ -158,7 +157,11 @@ class DesignService:
     def _parse_score(self, text: str) -> tuple[int, dict[str, int], list[str], list[str], str]:
         data = json.loads(text)
         if not isinstance(data, dict) or set(data) != {
-            "score_percent", "rubric", "covered_points", "missed_points", "techlead_explanation"
+            "score_percent",
+            "rubric",
+            "covered_points",
+            "missed_points",
+            "techlead_explanation",
         }:
             raise ValueError("Неверная JSON-схема оценки")
         if type(data["score_percent"]) is not int or not 0 <= data["score_percent"] <= 100:
@@ -222,11 +225,13 @@ covered_points:[str максимум 6], missed_points:[str максимум 6],
         try:
             last_error: Exception | None = None
             for attempt in range(3):
-                retry = "" if attempt == 0 else " Предыдущий ответ невалиден: верни только JSON строго по указанной схеме."
+                retry = (
+                    "" if attempt == 0 else " Предыдущий ответ невалиден: верни только JSON строго по указанной схеме."
+                )
                 text = await self._llm.generate(
-                [{"role": "system", "content": system}, {"role": "user", "content": user}],
-                temperature=0.2,
-                max_tokens=getattr(self._settings, "design_max_tokens", 800),
+                    [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                    temperature=0.2,
+                    max_tokens=getattr(self._settings, "design_max_tokens", 800),
                 )
                 try:
                     score, rubric, covered, missed, expl = self._parse_score(text)

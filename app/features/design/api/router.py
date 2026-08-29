@@ -4,8 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from app.core.config import Settings
 from app.features.chat.providers.ollama import OllamaClient
-
-from ..domain.models import (
+from app.features.design.domain.models import (
     DesignAnswerRequest,
     DesignAnswerResponse,
     DesignConfigResponse,
@@ -15,8 +14,8 @@ from ..domain.models import (
     DesignStartRequest,
     DesignStartResponse,
 )
-from ..domain.scenarios import load_scenarios
-from ..domain.services import DesignService, DesignSessionStore
+from app.features.design.domain.scenarios import load_scenarios
+from app.features.design.domain.services import DesignService, DesignSessionStore
 
 router = APIRouter()
 
