@@ -663,22 +663,37 @@
                 );
             }
             function renderInlineMarkdown(text) {
+                if (!text) return "";
                 let value = text;
-                // Сначала применяем markdown-преобразования
+
+                // Экранируем HTML-сущности ДО применения markdown, чтобы защитить markdown-разметку
+                // Но сохраняем уже существующие HTML-теги
+                const hasHtmlTags = /<(strong|em|code|pre|blockquote|h[1-6]|ul|ol|li|a|p|br|hr)[^>]*>/i.test(value);
+                const hasHtmlEntities = /&(lt|gt|amp|quot|#[0-9]+|#x[0-9a-f]+);/.test(value);
+
+                // Если контент содержит HTML — вставляем как есть (LLM уже вернул HTML)
+                if (hasHtmlTags || hasHtmlEntities) {
+                    return value;
+                }
+
+                // Markdown-преобразования
+                // Bold: **текст** или __текст__
+                value = value.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+                value = value.replace(/__(.+?)__/g, "<strong>$1</strong>");
+
+                // Курсив: *текст* или _текст_ (но не ** или __)
+                value = value.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, "<em>$1</em>");
+                value = value.replace(/(?<!_) _([^_]+?)_(?!_)/g, "<em>$1</em>");
+
+                // Inline code: `code`
                 value = value.replace(/`([^`]+)`/g, "<code>$1</code>");
-                value = value
-                    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-                    .replace(/__([^_]+)__/g, "<strong>$1</strong>");
-                value = value.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
+
+                // Links: [text](url)
                 value = value.replace(
                     /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
                     '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
                 );
-                // Если контент содержит HTML-сущности — НЕ экранируем (LLM уже вернул отформатированный HTML)
-                // Иначе экранируем оставшийся текст
-                if (!/&(lt|gt|amp|quot|#[0-9]+|#x[0-9a-f]+);/.test(value)) {
-                    value = escapeHtml(value);
-                }
+
                 return value;
             }
             function renderMarkdown(markdown) {
