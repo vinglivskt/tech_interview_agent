@@ -34,6 +34,17 @@ class Scenario:
     acceptance_criteria: list[str]
 
 
+def _parse_dict(value: Any) -> dict[str, float]:
+    """Парсит rubric_weights: если строка '{a: 1}' — распарсивает через yaml.safe_load."""
+    if isinstance(value, dict):
+        return {str(k): float(v) for k, v in value.items()}
+    if isinstance(value, str):
+        parsed = yaml.safe_load(value)
+        if isinstance(parsed, dict):
+            return {str(k): float(v) for k, v in parsed.items()}
+    return {}
+
+
 def _parse_frontmatter(content: str) -> list[dict[str, Any]]:
     """Парсит frontmatter из MD файла (YAML между ---)."""
     parts = content.split("---")
@@ -59,7 +70,7 @@ def load_scenarios(settings: Settings) -> list[Scenario]:
                 title=x["title"],
                 prompt=x["prompt"],
                 expected_points=list(x.get("expected_points", [])),
-                rubric_weights=dict(x.get("rubric_weights", {})),
+                rubric_weights=_parse_dict(x.get("rubric_weights", {})),
                 hint=x.get("hint"),
             )
             for x in s.get("steps", [])
@@ -73,7 +84,7 @@ def load_scenarios(settings: Settings) -> list[Scenario]:
                 requirements=list(s.get("requirements", [])),
                 nfr=list(s.get("nfr", [])),
                 constraints=list(s.get("constraints", [])),
-                baseline_load=dict(s.get("baseline_load", {})),
+                baseline_load=_parse_dict(s.get("baseline_load", {})),
                 topics=list(s.get("topics", [])),
                 steps=steps,
                 acceptance_criteria=list(s.get("acceptance_criteria", [])),

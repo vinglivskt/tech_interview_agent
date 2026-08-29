@@ -17,7 +17,7 @@ def _load_scoring_prompt() -> str:
     except FileNotFoundError:
         raise FileNotFoundError(
             f"Prompt file not found: {_PROMPT_PATH}. Please ensure prompts/sobes/scoring.md exists."
-        )
+        ) from None
 
 
 async def score_free_answer(
@@ -35,7 +35,11 @@ async def score_free_answer(
     При сбое парсинга — безопасный degrade (0%).
     """
     template = _load_scoring_prompt()
-    system = template.format(question=question_text, reference=reference_answer, user_answer=user_answer)
+    system = (
+        template.replace("{question}", question_text)
+        .replace("{reference}", reference_answer)
+        .replace("{user_answer}", user_answer)
+    )
     user = "Верни только JSON. Кратко, по делу."
 
     try:

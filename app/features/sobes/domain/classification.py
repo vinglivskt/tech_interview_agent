@@ -26,11 +26,11 @@ def _load_classification_prompt(topics: list[str]) -> str:
     """Загружает и подставляет темы в промпт классификации."""
     try:
         template = _PROMPT_PATH.read_text(encoding="utf-8")
-        return template.format(topics=", ".join(topics))
+        return template.replace("{topics}", ", ".join(topics))
     except FileNotFoundError:
         raise FileNotFoundError(
             f"Prompt file not found: {_PROMPT_PATH}. Please ensure prompts/sobes/classification.md exists."
-        )
+        ) from None
 
 
 async def classify_batch(

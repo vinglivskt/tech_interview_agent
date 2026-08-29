@@ -20,7 +20,7 @@ def _load_wrong_answers_prompt() -> str:
     except FileNotFoundError:
         raise FileNotFoundError(
             f"Prompt file not found: {_PROMPT_PATH}. Please ensure prompts/quiz/wrong_answers.md exists."
-        )
+        ) from None
 
 
 _WRONG_ANSWERS_SYSTEM_PROMPT = _load_wrong_answers_prompt()

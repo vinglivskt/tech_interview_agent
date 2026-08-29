@@ -21,7 +21,7 @@ from app.features.sobes.domain.services import SobesService, SobesSessionStore
 router = APIRouter()
 
 
-@router.get("/sobes/config")
+@router.get("/sobesedovanie/config")
 async def get_config(request: Request):
     settings: Settings = request.app.state.settings
     return {
@@ -41,7 +41,7 @@ def _store() -> SobesSessionStore:
     return _s_store
 
 
-@router.post("/sobes/start", response_model=SobesStartResponse)
+@router.post("/sobesedovanie/start", response_model=SobesStartResponse)
 async def start(request: Request, body: SobesStartRequest):
     settings: Settings = request.app.state.settings
     llm: OllamaClient = request.app.state.llm
@@ -53,7 +53,7 @@ async def start(request: Request, body: SobesStartRequest):
     return SobesStartResponse(session_id=sess.session_id, question=q, total_planned=sess.planned_total)
 
 
-@router.post("/sobes/answer", response_model=SobesAnswerResponse)
+@router.post("/sobesedovanie/answer", response_model=SobesAnswerResponse)
 async def answer(request: Request, body: SobesAnswerRequest):
     settings: Settings = request.app.state.settings
     llm: OllamaClient = request.app.state.llm
@@ -93,7 +93,7 @@ async def answer(request: Request, body: SobesAnswerRequest):
     )
 
 
-@router.get("/sobes/results/{session_id}", response_model=SobesResultsResponse)
+@router.get("/sobesedovanie/results/{session_id}", response_model=SobesResultsResponse)
 async def results(request: Request, session_id: str):
     settings: Settings = request.app.state.settings
     llm: OllamaClient = request.app.state.llm
@@ -114,7 +114,7 @@ async def results(request: Request, session_id: str):
     )
 
 
-@router.post("/sobes/skip", response_model=SobesSkipResponse)
+@router.post("/sobesedovanie/skip", response_model=SobesSkipResponse)
 async def skip(request: Request, body: SobesSkipRequest):
     settings: Settings = request.app.state.settings
     llm: OllamaClient = request.app.state.llm
@@ -142,7 +142,7 @@ async def skip(request: Request, body: SobesSkipRequest):
     return SobesSkipResponse(next_question=next_q_dto, is_last=is_last)
 
 
-@router.post("/sobes/repeat", response_model=SobesRepeatResponse)
+@router.post("/sobesedovanie/repeat", response_model=SobesRepeatResponse)
 async def repeat(request: Request, body: SobesRepeatRequest):
     settings: Settings = request.app.state.settings
     llm: OllamaClient = request.app.state.llm

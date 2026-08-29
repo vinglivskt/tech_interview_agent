@@ -16,7 +16,12 @@ from app.features.sobes.domain.models import (
     SobesQuestionDTO,
     SobesSession,
 )
-from app.features.sobes.domain.repository import as_plain_dict, load_cached_index, load_qa, save_cached_index
+from app.features.sobes.domain.repository import (
+    as_plain_dict,
+    load_cached_index,
+    load_qa,
+    save_cached_index,
+)
 from app.features.sobes.domain.scoring import score_free_answer
 from app.features.sobes.domain.selection import select_questions
 
