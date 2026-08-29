@@ -102,7 +102,6 @@ tech_interview_agent/
 │
 ├─ frontend/
 │  ├─ Dockerfile              # multi-stage build (node → nginx)
-│  ├─ Dockerfile.dev          # dev build (Vite dev server)
 │  ├─ nginx.conf             # прокси /api/ → backend:8000
 │  ├─ src/                   # React приложение
 │  │  ├─ components/         # UI компоненты
