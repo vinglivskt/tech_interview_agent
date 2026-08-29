@@ -31,6 +31,8 @@ services:
       VECTORIZATION_OVERLAP: ${VECTORIZATION_OVERLAP:-100}
       INTERVIEW_TOP_K: ${INTERVIEW_TOP_K:-5}
       INTERVIEW_DOCX_PATH: /app/app/interview_questions.docx
+      SYSTEM_PROMPT_PATH: /app/prompts/chat/system.md
+      DESIGN_SCENARIOS_PATH: /app/prompts/design/scenarios.yaml
       INGEST_STATE_PATH: ${INGEST_STATE_PATH:-data/interview_ingest_state.json}
       INGEST_INTERVAL_HOURS: ${INGEST_INTERVAL_HOURS:-1}
     depends_on:

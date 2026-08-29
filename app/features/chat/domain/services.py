@@ -18,36 +18,18 @@ _CJK_RE = re.compile(r"[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]")
 def _resolve_system_prompt_path(settings: Any) -> Path:
     """
     Определяет путь к файлу системного промпта.
-    Приоритет: настройка system_prompt_path > переменная окружения SYSTEM_PROMPT_PATH >
-    путь относительно корня проекта (prompts/system_prompt.md).
+    Путь берётся из настройки system_prompt_path.
     :param settings: настройки приложения
     :return: абсолютный путь к файлу промпта
     """
-    import os
-
-    # 1. Явный путь из настроек
+    # Путь из настроек (по умолчанию /app/prompts/chat/system.md)
     prompt_path = getattr(settings, "system_prompt_path", None)
     if prompt_path:
         return Path(prompt_path)
 
-    # 2. Переменная окружения
-    env_path = os.environ.get("SYSTEM_PROMPT_PATH")
-    if env_path:
-        return Path(env_path)
-
-    # 3. Относительно корня проекта
-    # В Docker: /app/prompts/system_prompt.md
-    # Локально: <repo_root>/prompts/system_prompt.md
+    # Fallback: относительно корня проекта
     app_dir = Path(__file__).resolve().parent.parent.parent.parent
-    candidates = [
-        app_dir / "prompts" / "system_prompt.md",  # Docker (/app/prompts/)
-        app_dir.parent / "prompts" / "system_prompt.md",  # локально (<repo>/prompts/)
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    # Если не нашли — возвращаем путь по умолчанию (для сообщения об ошибке)
-    return candidates[0]
+    return app_dir / "prompts" / "chat" / "system.md"
 
 
 def _load_system_prompt(settings: Any) -> str:

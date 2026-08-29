@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from pathlib import Path
 
 from app.features.chat.domain.interview_docx import InterviewQA
 from app.features.chat.providers.ollama import OllamaClient
@@ -17,6 +18,21 @@ class ClassifiedQA:
     difficulty_score: float  # 0..1
 
 
+# Путь к файлу промпта
+_PROMPT_PATH = Path(__file__).resolve().parent.parent.parent.parent / "prompts" / "sobesedovanie" / "classification.md"
+
+
+def _load_classification_prompt(topics: list[str]) -> str:
+    """Загружает и подставляет темы в промпт классификации."""
+    try:
+        template = _PROMPT_PATH.read_text(encoding="utf-8")
+        return template.format(topics=", ".join(topics))
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"Prompt file not found: {_PROMPT_PATH}. Please ensure prompts/sobesedovanie/classification.md exists."
+        )
+
+
 async def classify_batch(
     llm: OllamaClient,
     items: list[InterviewQA],
@@ -29,12 +45,7 @@ async def classify_batch(
     if not items:
         return []
 
-    system = (
-        "Ты классификатор вопросов собеседований. Отвечай строго JSON без пояснений. "
-        "Темы допустимы только из списка: " + ", ".join(topics) + ". "
-        "Для каждого элемента верни объект: {number, topic, level, difficulty_score}. "
-        "level ∈ {junior,middle,senior}, difficulty_score ∈ [0,1] (чем сложнее, тем ближе к 1)."
-    )
+    system = _load_classification_prompt(topics)
 
     # Собираем компактный вход
     examples = [{"number": it.number, "question": it.question, "answer": it.answer[:400]} for it in items]

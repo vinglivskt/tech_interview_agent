@@ -1,9 +1,23 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from app.features.chat.providers.ollama import OllamaClient
+
+# Путь к файлу промпта
+_PROMPT_PATH = Path(__file__).resolve().parent.parent.parent.parent / "prompts" / "sobesedovanie" / "scoring.md"
+
+
+def _load_scoring_prompt() -> str:
+    """Загружает промпт для оценки ответов."""
+    try:
+        return _PROMPT_PATH.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"Prompt file not found: {_PROMPT_PATH}. Please ensure prompts/sobesedovanie/scoring.md exists."
+        )
 
 
 async def score_free_answer(
@@ -20,19 +34,9 @@ async def score_free_answer(
     Возвращает (percent, is_counted, explanation, covered_points, missed_points).
     При сбое парсинга — безопасный degrade (0%).
     """
-    system = (
-        "Ты технический интервьюер. Сравни ответ кандидата с эталоном. Отвечай строго JSON. "
-        "Верни: {score_percent:int 0..100, covered_points:[str], missed_points:[str], techlead_explanation:str}."
-    )
-    user = (
-        "Вопрос: "
-        + question_text
-        + "\nЭталонный ответ: "
-        + reference_answer
-        + "\nОтвет кандидата: "
-        + user_answer
-        + "\nВерни только JSON. Кратко, по делу."
-    )
+    template = _load_scoring_prompt()
+    system = template.format(question=question_text, reference=reference_answer, user_answer=user_answer)
+    user = "Верни только JSON. Кратко, по делу."
 
     try:
         text = await llm.generate(
