@@ -180,20 +180,66 @@
             .out.empty {
                 color: var(--muted);
             }
-            .markdown > :first-child { margin-top: 0; }
-            .markdown > :last-child { margin-bottom: 0; }
-            .markdown p { margin: 0.65rem 0; }
-            .markdown h1, .markdown h2, .markdown h3 { margin: 1rem 0 0.5rem; line-height: 1.25; }
-            .markdown h1 { font-size: 1.25rem; }
-            .markdown h2 { font-size: 1.1rem; }
-            .markdown h3 { font-size: 1rem; }
-            .markdown ul, .markdown ol { margin: 0.6rem 0; padding-left: 1.35rem; }
-            .markdown li + li { margin-top: 0.25rem; }
-            .markdown blockquote { margin: 0.75rem 0; padding: 0.25rem 0.8rem; border-left: 3px solid var(--accent); color: var(--muted); }
-            .markdown pre { overflow-x: auto; margin: 0.75rem 0; padding: 0.85rem; border-radius: 8px; background: #0b1018; border: 1px solid var(--border); }
-            .markdown code { padding: 0.1rem 0.3rem; border-radius: 4px; background: rgba(255,255,255,0.08); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; }
-            .markdown pre code { padding: 0; background: transparent; }
-            .markdown a { color: #7db3ff; }
+            .markdown > :first-child {
+                margin-top: 0;
+            }
+            .markdown > :last-child {
+                margin-bottom: 0;
+            }
+            .markdown p {
+                margin: 0.65rem 0;
+            }
+            .markdown h1,
+            .markdown h2,
+            .markdown h3 {
+                margin: 1rem 0 0.5rem;
+                line-height: 1.25;
+            }
+            .markdown h1 {
+                font-size: 1.25rem;
+            }
+            .markdown h2 {
+                font-size: 1.1rem;
+            }
+            .markdown h3 {
+                font-size: 1rem;
+            }
+            .markdown ul,
+            .markdown ol {
+                margin: 0.6rem 0;
+                padding-left: 1.35rem;
+            }
+            .markdown li + li {
+                margin-top: 0.25rem;
+            }
+            .markdown blockquote {
+                margin: 0.75rem 0;
+                padding: 0.25rem 0.8rem;
+                border-left: 3px solid var(--accent);
+                color: var(--muted);
+            }
+            .markdown pre {
+                overflow-x: auto;
+                margin: 0.75rem 0;
+                padding: 0.85rem;
+                border-radius: 8px;
+                background: #0b1018;
+                border: 1px solid var(--border);
+            }
+            .markdown code {
+                padding: 0.1rem 0.3rem;
+                border-radius: 4px;
+                background: rgba(255, 255, 255, 0.08);
+                font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                font-size: 0.88em;
+            }
+            .markdown pre code {
+                padding: 0;
+                background: transparent;
+            }
+            .markdown a {
+                color: #7db3ff;
+            }
             .meta {
                 margin-top: 0.6rem;
                 font-size: 0.78rem;
@@ -444,7 +490,10 @@
                 <h1 style="margin-top: 1rem">Собеседование</h1>
 
                 <div id="sobes-setup">
-                    <p class="sub">Выберите уровень и темы. Система подберёт вопросы по темам и будет двигаться от простого к сложному.</p>
+                    <p class="sub">
+                        Выберите уровень и темы. Система подберёт вопросы по темам и будет двигаться от простого к
+                        сложному.
+                    </p>
                     <label for="sobes-level">Уровень</label>
                     <select id="sobes-level">
                         <option value="junior">Junior</option>
@@ -472,7 +521,11 @@
                         <div class="meta" id="sobes-topic-meta">Тема: — · Уровень: —</div>
                     </div>
 
-                    <div class="out" id="sobes-hint" style="border-color:#3b82f6; background:rgba(59,130,246,0.06); display:none"></div>
+                    <div
+                        class="out"
+                        id="sobes-hint"
+                        style="border-color: #3b82f6; background: rgba(59, 130, 246, 0.06); display: none"
+                    ></div>
 
                     <label for="sobes-answer" style="margin-top: 1rem; display: block">Ваш ответ</label>
                     <textarea id="sobes-answer" placeholder="Ваш ответ… (Ctrl/Cmd+Enter — отправить)"></textarea>
@@ -485,13 +538,13 @@
 
                     <div class="out" id="sobes-expl">Здесь появится оценка и объяснение.</div>
                     <div class="row" id="sobes-points" style="align-items: flex-start">
-                        <div style="flex:1">
-                            <h2 style="font-size:0.95rem;margin:0.8rem 0 0.4rem">Покрыто</h2>
-                            <ul id="sobes-covered" style="margin:0.2rem 0 0.8rem 1rem"></ul>
+                        <div style="flex: 1">
+                            <h2 style="font-size: 0.95rem; margin: 0.8rem 0 0.4rem">Покрыто</h2>
+                            <ul id="sobes-covered" style="margin: 0.2rem 0 0.8rem 1rem"></ul>
                         </div>
-                        <div style="flex:1">
-                            <h2 style="font-size:0.95rem;margin:0.8rem 0 0.4rem">Упущено</h2>
-                            <ul id="sobes-missed" style="margin:0.2rem 0 0.8rem 1rem"></ul>
+                        <div style="flex: 1">
+                            <h2 style="font-size: 0.95rem; margin: 0.8rem 0 0.4rem">Упущено</h2>
+                            <ul id="sobes-missed" style="margin: 0.2rem 0 0.8rem 1rem"></ul>
                         </div>
                     </div>
                 </div>
@@ -503,9 +556,11 @@
                     </div>
                     <h2>Сильные и слабые стороны</h2>
                     <div class="result-item"><strong>Сильные:</strong> <span id="sobes-strengths">—</span></div>
-                    <div class="result-item" style="margin-top:0.5rem"><strong>Слабые:</strong> <span id="sobes-weaknesses">—</span></div>
+                    <div class="result-item" style="margin-top: 0.5rem">
+                        <strong>Слабые:</strong> <span id="sobes-weaknesses">—</span>
+                    </div>
 
-                    <h2 style="margin-top:1rem">Детали</h2>
+                    <h2 style="margin-top: 1rem">Детали</h2>
                     <div id="sobes-details"></div>
 
                     <div class="row" style="margin-top: 1.5rem">
@@ -523,30 +578,57 @@
                     <p class="sub">Выберите уровень и сценарий. Можно оставить автоматический выбор.</p>
                     <label for="design-level">Уровень</label>
                     <select id="design-level"></select>
-                    <label for="design-scenario" style="margin-top:0.9rem">Сценарий</label>
+                    <label for="design-scenario" style="margin-top: 0.9rem">Сценарий</label>
                     <select id="design-scenario"></select>
                     <div class="meta" id="design-config-hint"></div>
-                    <div class="row"><button type="button" class="btn-green" id="design-start-btn">Начать проектирование</button></div>
+                    <div class="row">
+                        <button type="button" class="btn-green" id="design-start-btn">Начать проектирование</button>
+                    </div>
                 </div>
                 <div id="design-interview" class="hidden">
                     <div class="meta" id="design-progress-text">Шаг 1</div>
                     <div class="quiz-progress"><div class="quiz-progress-bar" id="design-progress-bar"></div></div>
-                    <div class="question-card"><div class="q-badge" id="design-step-title">Шаг</div><div class="q-text" id="design-step-prompt"></div></div>
-                    <div class="row"><button type="button" class="secondary" id="design-hint-btn">Подсказка (−10%)</button></div>
+                    <div class="question-card">
+                        <div class="q-badge" id="design-step-title">Шаг</div>
+                        <div class="q-text" id="design-step-prompt"></div>
+                    </div>
+                    <div class="row">
+                        <button type="button" class="secondary" id="design-hint-btn">Подсказка (−10%)</button>
+                    </div>
                     <div class="out hidden" id="design-hint"></div>
-                    <label for="design-answer" style="margin-top: 1rem; display:block">Ваше решение</label>
+                    <label for="design-answer" style="margin-top: 1rem; display: block">Ваше решение</label>
                     <textarea id="design-answer" placeholder="Опишите решение… (Ctrl/Cmd+Enter — отправить)"></textarea>
-                    <div class="row"><button type="button" id="design-submit-btn" disabled>Ответить</button><span id="design-status"></span></div>
+                    <div class="row">
+                        <button type="button" id="design-submit-btn" disabled>Ответить</button
+                        ><span id="design-status"></span>
+                    </div>
                     <div class="out" id="design-expl">Здесь появится оценка и комментарий техлида.</div>
-                    <div class="row" style="align-items:flex-start"><div style="flex:1"><h2 style="font-size:.95rem">Покрыто</h2><ul id="design-covered"></ul></div><div style="flex:1"><h2 style="font-size:.95rem">Упущено</h2><ul id="design-missed"></ul></div></div>
+                    <div class="row" style="align-items: flex-start">
+                        <div style="flex: 1">
+                            <h2 style="font-size: 0.95rem">Покрыто</h2>
+                            <ul id="design-covered"></ul>
+                        </div>
+                        <div style="flex: 1">
+                            <h2 style="font-size: 0.95rem">Упущено</h2>
+                            <ul id="design-missed"></ul>
+                        </div>
+                    </div>
                 </div>
                 <div id="design-results" class="hidden">
-                    <div class="results-score"><div class="big" id="design-summary">0%</div><div class="level" id="design-verdict">Вердикт: —</div></div>
+                    <div class="results-score">
+                        <div class="big" id="design-summary">0%</div>
+                        <div class="level" id="design-verdict">Вердикт: —</div>
+                    </div>
                     <div class="result-item"><strong>Сильные:</strong> <span id="design-strengths">—</span></div>
                     <div class="result-item"><strong>Слабые:</strong> <span id="design-weaknesses">—</span></div>
-                    <h2 style="margin-top:1rem">Рубрика</h2><div id="design-rubric" class="out"></div>
-                    <h2 style="margin-top:1rem">Детали</h2><div id="design-details"></div>
-                    <div class="row"><button type="button" onclick="showHome()">На главную</button><button type="button" class="secondary" onclick="startMode('design')">Пройти ещё раз</button></div>
+                    <h2 style="margin-top: 1rem">Рубрика</h2>
+                    <div id="design-rubric" class="out"></div>
+                    <h2 style="margin-top: 1rem">Детали</h2>
+                    <div id="design-details"></div>
+                    <div class="row">
+                        <button type="button" onclick="showHome()">На главную</button
+                        ><button type="button" class="secondary" onclick="startMode('design')">Пройти ещё раз</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -575,39 +657,92 @@
             }
 
             function escapeHtml(value) {
-                return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
+                return String(value ?? "").replace(
+                    /[&<>'"]/g,
+                    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char],
+                );
             }
             function renderInlineMarkdown(text) {
-                let value = escapeHtml(text);
+                let value = text;
+                // Сначала применяем markdown-преобразования, потом экранируем HTML
                 value = value.replace(/`([^`]+)`/g, "<code>$1</code>");
-                value = value.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<strong>$1</strong>");
+                value = value
+                    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+                    .replace(/__([^_]+)__/g, "<strong>$1</strong>");
                 value = value.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
-                return value.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+                value = value.replace(
+                    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+                    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
+                );
+                // Теперь экранируем оставшийся текст
+                value = escapeHtml(value);
+                return value;
             }
             function renderMarkdown(markdown) {
-                const lines = String(markdown ?? "").replace(/\r\n?/g, "\n").split("\n");
+                const lines = String(markdown ?? "")
+                    .replace(/\r\n?/g, "\n")
+                    .split("\n");
                 const html = [];
                 let index = 0;
                 while (index < lines.length) {
                     const line = lines[index];
                     if (line.startsWith("```")) {
-                        const language = escapeHtml(line.slice(3).trim()); const code = []; index += 1;
+                        const language = escapeHtml(line.slice(3).trim());
+                        const code = [];
+                        index += 1;
                         while (index < lines.length && !lines[index].startsWith("```")) code.push(lines[index++]);
                         if (index < lines.length) index += 1;
-                        html.push(`<pre><code class="language-${language}">${escapeHtml(code.join("\n"))}</code></pre>`); continue;
+                        html.push(
+                            `<pre><code class="language-${language}">${escapeHtml(code.join("\n"))}</code></pre>`,
+                        );
+                        continue;
                     }
-                    const heading = line.match(/^(#{1,3})\s+(.+)$/);
-                    if (heading) { const level = heading[1].length; html.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`); index += 1; continue; }
+                    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+                    if (heading) {
+                        const level = heading[1].length;
+                        html.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
+                        index += 1;
+                        continue;
+                    }
                     if (/^\s*[-*+]\s+/.test(line) || /^\s*\d+\.\s+/.test(line)) {
-                        const ordered = /^\s*\d+\.\s+/.test(line); const tag = ordered ? "ol" : "ul"; const pattern = ordered ? /^\s*\d+\.\s+(.+)$/ : /^\s*[-*+]\s+(.+)$/; const items = [];
-                        while (index < lines.length) { const match = lines[index].match(pattern); if (!match) break; items.push(`<li>${renderInlineMarkdown(match[1])}</li>`); index += 1; }
-                        html.push(`<${tag}>${items.join("")}</${tag}>`); continue;
+                        const ordered = /^\s*\d+\.\s+/.test(line);
+                        const tag = ordered ? "ol" : "ul";
+                        const pattern = ordered ? /^\s*\d+\.\s+(.+)$/ : /^\s*[-*+]\s+(.+)$/;
+                        const items = [];
+                        while (index < lines.length) {
+                            const match = lines[index].match(pattern);
+                            if (!match) break;
+                            items.push(`<li>${renderInlineMarkdown(match[1])}</li>`);
+                            index += 1;
+                        }
+                        html.push(`<${tag}>${items.join("")}</${tag}>`);
+                        continue;
                     }
-                    if (line.startsWith("> ")) { html.push(`<blockquote>${renderInlineMarkdown(line.slice(2))}</blockquote>`); index += 1; continue; }
-                    if (/^\s*---+\s*$/.test(line)) { html.push("<hr>"); index += 1; continue; }
-                    if (!line.trim()) { index += 1; continue; }
-                    const paragraph = [line]; index += 1;
-                    while (index < lines.length && lines[index].trim() && !lines[index].startsWith("```") && !/^(#{1,3})\s+/.test(lines[index]) && !/^\s*[-*+]\s+/.test(lines[index]) && !/^\s*\d+\.\s+/.test(lines[index])) paragraph.push(lines[index++]);
+                    if (line.startsWith("> ")) {
+                        html.push(`<blockquote>${renderInlineMarkdown(line.slice(2))}</blockquote>`);
+                        index += 1;
+                        continue;
+                    }
+                    if (/^\s*---+\s*$/.test(line)) {
+                        html.push("<hr>");
+                        index += 1;
+                        continue;
+                    }
+                    if (!line.trim()) {
+                        index += 1;
+                        continue;
+                    }
+                    const paragraph = [line];
+                    index += 1;
+                    while (
+                        index < lines.length &&
+                        lines[index].trim() &&
+                        !lines[index].startsWith("```") &&
+                        !/^(#{1,3})\s+/.test(lines[index]) &&
+                        !/^\s*[-*+]\s+/.test(lines[index]) &&
+                        !/^\s*\d+\.\s+/.test(lines[index])
+                    )
+                        paragraph.push(lines[index++]);
                     html.push(`<p>${renderInlineMarkdown(paragraph.join("\n")).replace(/\n/g, "<br>")}</p>`);
                 }
                 return html.join("") || "<p>—</p>";
@@ -698,7 +833,6 @@
                     setMarkdown("out", data.answer || "(пустой ответ)");
                     lastAnswer = data.answer || "";
                     if (data.meta) {
-                        document.getElementById("meta").textContent = JSON.stringify(data.meta);
                         if (data.meta.suggest_save) document.getElementById("saveBtn").classList.add("visible");
                     }
                 } catch (e) {
@@ -938,8 +1072,12 @@
                     let html = "<h4>Вопрос " + (idx + 1) + ": " + escapeHtml(r.question_text) + "</h4>";
                     html += '<p><span class="label">Ваш ответ:</span> ' + escapeHtml(r.user_answer) + "</p>";
                     if (!r.is_correct) {
-                        html += '<p><span class="label">Правильный ответ:</span> ' + escapeHtml(r.correct_answer) + "</p>";
-                        html += '<div class="markdown"><span class="label">Объяснение:</span> ' + renderMarkdown(r.explanation) + "</div>";
+                        html +=
+                            '<p><span class="label">Правильный ответ:</span> ' + escapeHtml(r.correct_answer) + "</p>";
+                        html +=
+                            '<div class="markdown"><span class="label">Объяснение:</span> ' +
+                            renderMarkdown(r.explanation) +
+                            "</div>";
                     }
                     div.innerHTML = html;
                     listEl.appendChild(div);
@@ -961,23 +1099,23 @@
                 const hint = document.getElementById("sobes-config-hint");
                 topicsEl.innerHTML = '<span class="spinner"></span> Загружаем темы…';
                 try {
-                    const r = await fetch('/api/sobesedovanie/config');
+                    const r = await fetch("/api/sobesedovanie/config");
                     const data = await r.json();
-                    if (!r.ok) throw new Error((data && data.detail) || ("HTTP " + r.status));
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
                     const topics = data.topics || [];
-                    topicsEl.innerHTML = '';
+                    topicsEl.innerHTML = "";
                     topics.forEach((t, i) => {
                         const id = `sobt-${i}`;
-                        const wrap = document.createElement('label');
-                        wrap.style.display = 'inline-flex';
-                        wrap.style.alignItems = 'center';
-                        wrap.style.gap = '6px';
+                        const wrap = document.createElement("label");
+                        wrap.style.display = "inline-flex";
+                        wrap.style.alignItems = "center";
+                        wrap.style.gap = "6px";
                         wrap.innerHTML = `<input type="checkbox" id="${id}" value="${t}" checked> ${t}`;
                         topicsEl.appendChild(wrap);
                     });
                     const cfg = data.counts_by_level || {};
-                    const rng = (l) => cfg[l] ? `${cfg[l][0]}–${cfg[l][1]}` : '?';
-                    hint.textContent = `Вопросов: junior ${rng('junior')}, middle ${rng('middle')}, senior ${rng('senior')}. Порог засчёта: ${data.pass_threshold}%`;
+                    const rng = (l) => (cfg[l] ? `${cfg[l][0]}–${cfg[l][1]}` : "?");
+                    hint.textContent = `Вопросов: junior ${rng("junior")}, middle ${rng("middle")}, senior ${rng("senior")}. Порог засчёта: ${data.pass_threshold}%`;
                 } catch (e) {
                     topicsEl.innerHTML = '<span class="err">Не удалось загрузить темы</span>';
                     console.error(e);
@@ -985,7 +1123,9 @@
             }
 
             function getSelectedSobesTopics() {
-                return Array.from(document.querySelectorAll('#sobes-topics input[type="checkbox"]:checked')).map(el => el.value);
+                return Array.from(document.querySelectorAll('#sobes-topics input[type="checkbox"]:checked')).map(
+                    (el) => el.value,
+                );
             }
 
             function showSobesSetup() {
@@ -1013,8 +1153,12 @@
                         body: JSON.stringify({ level, topics }),
                     });
                     let data = null;
-                    try { data = await r.json(); } catch(_) { throw new Error("HTTP " + r.status); }
-                    if (!r.ok) throw new Error((data && data.detail) || ("HTTP " + r.status));
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        throw new Error("HTTP " + r.status);
+                    }
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
                     sobesSessionId = data.session_id;
                     sobesTotalPlanned = data.total_planned || 0;
                     sobesCurrentIndex = 1;
@@ -1046,7 +1190,7 @@
                 document.getElementById("sobes-results").classList.add("hidden");
                 sobesCurrentQuestion = q;
                 document.getElementById("sobes-progress-text").textContent = `Вопрос ${idx} из ${total}`;
-                const pct = total ? Math.max(0, Math.min(100, Math.round(((idx-1) / total) * 100))) : 0;
+                const pct = total ? Math.max(0, Math.min(100, Math.round(((idx - 1) / total) * 100))) : 0;
                 document.getElementById("sobes-progress-bar").style.width = pct + "%";
                 document.getElementById("sobes-q-badge").textContent = `Вопрос №${q.number}`;
                 setMarkdown("sobes-q-text", q.text);
@@ -1076,23 +1220,42 @@
                     const r = await fetch("/api/sobesedovanie/answer", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ session_id: sobesSessionId, question_id: sobesCurrentQuestion.id, user_answer: ans }),
+                        body: JSON.stringify({
+                            session_id: sobesSessionId,
+                            question_id: sobesCurrentQuestion.id,
+                            user_answer: ans,
+                        }),
                     });
                     let data = null;
-                    try { data = await r.json(); } catch(_) { throw new Error("HTTP " + r.status); }
-                    if (!r.ok) throw new Error((data && data.detail) || ("HTTP " + r.status));
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        throw new Error("HTTP " + r.status);
+                    }
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
 
                     sobesAnsweredCount += 1;
                     setMarkdown("sobes-expl", `## Оценка: ${data.score_percent}%\n\n${data.techlead_explanation}`);
 
                     const cov = document.getElementById("sobes-covered");
                     const mis = document.getElementById("sobes-missed");
-                    cov.innerHTML = ""; mis.innerHTML = "";
-                    (data.covered_points || []).forEach(p => { const li = document.createElement('li'); li.textContent = p; cov.appendChild(li); });
-                    (data.missed_points || []).forEach(p => { const li = document.createElement('li'); li.textContent = p; mis.appendChild(li); });
+                    cov.innerHTML = "";
+                    mis.innerHTML = "";
+                    (data.covered_points || []).forEach((p) => {
+                        const li = document.createElement("li");
+                        li.textContent = p;
+                        cov.appendChild(li);
+                    });
+                    (data.missed_points || []).forEach((p) => {
+                        const li = document.createElement("li");
+                        li.textContent = p;
+                        mis.appendChild(li);
+                    });
 
                     // Обновить прогресс (ответили на текущий вопрос)
-                    const pct = sobesTotalPlanned ? Math.max(0, Math.min(100, Math.round((sobesAnsweredCount / sobesTotalPlanned) * 100))) : 0;
+                    const pct = sobesTotalPlanned
+                        ? Math.max(0, Math.min(100, Math.round((sobesAnsweredCount / sobesTotalPlanned) * 100)))
+                        : 0;
                     document.getElementById("sobes-progress-bar").style.width = pct + "%";
 
                     if (data.is_last || !data.next_question) {
@@ -1102,7 +1265,7 @@
                         showSobesQuestion(data.next_question, sobesTotalPlanned, sobesCurrentIndex);
                     }
                 } catch (e) {
-                    document.getElementById("sobes-expl").classList.add('err');
+                    document.getElementById("sobes-expl").classList.add("err");
                     document.getElementById("sobes-expl").textContent = "Ошибка: " + (e.message || String(e));
                 } finally {
                     setButtonLoading(btn, false);
@@ -1115,8 +1278,13 @@
             async function loadSobesResults() {
                 try {
                     const r = await fetch(`/api/sobesedovanie/results/${sobesSessionId}`);
-                    let data = null; try { data = await r.json(); } catch(_) { throw new Error("HTTP " + r.status); }
-                    if (!r.ok) throw new Error((data && data.detail) || ("HTTP " + r.status));
+                    let data = null;
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        throw new Error("HTTP " + r.status);
+                    }
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
                     showSobesResults(data);
                 } catch (e) {
                     alert("Ошибка: " + e.message);
@@ -1127,7 +1295,8 @@
                 document.getElementById("sobes-setup").classList.add("hidden");
                 document.getElementById("sobes-interview").classList.add("hidden");
                 document.getElementById("sobes-results").classList.remove("hidden");
-                document.getElementById("sobes-summary").textContent = `${data.summary.counted}/${data.summary.total} — ${data.summary.avg_percent}%`;
+                document.getElementById("sobes-summary").textContent =
+                    `${data.summary.counted}/${data.summary.total} — ${data.summary.avg_percent}%`;
                 document.getElementById("sobes-verdict").textContent = `Вердикт: ${data.verdict_level}`;
                 document.getElementById("sobes-strengths").textContent = (data.strengths || []).join(", ") || "—";
                 document.getElementById("sobes-weaknesses").textContent = (data.weaknesses || []).join(", ") || "—";
@@ -1136,7 +1305,8 @@
                 (data.details || []).forEach((d, idx) => {
                     const div = document.createElement("div");
                     div.className = "result-item";
-                    div.innerHTML = `<h4>Вопрос ${idx + 1}: ${escapeHtml(d.question_text)}</h4>` +
+                    div.innerHTML =
+                        `<h4>Вопрос ${idx + 1}: ${escapeHtml(d.question_text)}</h4>` +
                         `<p><span class="label">Тема:</span> ${escapeHtml(d.topic)}</p>` +
                         `<p><span class="label">Процент:</span> ${d.score_percent}%</p>` +
                         `<div class="markdown"><span class="label">Комментарий:</span> ${renderMarkdown(d.explanation)}</div>`;
@@ -1159,36 +1329,38 @@
             async function repeatSobesQuestion() {
                 if (!sobesSessionId) return;
                 try {
-                    const r = await fetch('/api/sobesedovanie/repeat', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ session_id: sobesSessionId })
+                    const r = await fetch("/api/sobesedovanie/repeat", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ session_id: sobesSessionId }),
                     });
                     const data = await r.json();
-                    if (!r.ok) throw new Error((data && data.detail) || ("HTTP " + r.status));
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
                     showSobesQuestion(data.question, sobesTotalPlanned, sobesCurrentIndex);
-                } catch(e) {
+                } catch (e) {
                     alert("Ошибка: " + e.message);
                 }
             }
 
             async function skipSobesQuestion() {
                 if (!sobesSessionId) return;
-                const btn = document.getElementById('sobes-skip-btn');
-                setButtonLoading(btn, true, 'Пропускаем…');
+                const btn = document.getElementById("sobes-skip-btn");
+                setButtonLoading(btn, true, "Пропускаем…");
                 try {
-                    const r = await fetch('/api/sobesedovanie/skip', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ session_id: sobesSessionId })
+                    const r = await fetch("/api/sobesedovanie/skip", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ session_id: sobesSessionId }),
                     });
                     const data = await r.json();
-                    if (!r.ok) throw new Error((data && data.detail) || ("HTTP " + r.status));
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
                     if (data.is_last || !data.next_question) {
                         await loadSobesResults();
                     } else {
                         sobesCurrentIndex += 1;
                         showSobesQuestion(data.next_question, sobesTotalPlanned, sobesCurrentIndex);
                     }
-                } catch(e) {
+                } catch (e) {
                     alert("Ошибка: " + e.message);
                 } finally {
                     setButtonLoading(btn, false);
@@ -1212,61 +1384,170 @@
                     if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
                     designConfig = data;
                     const levels = document.getElementById("design-level");
-                    levels.innerHTML = (data.levels || []).map(level => `<option value="${level}" ${level === "middle" ? "selected" : ""}>${level}</option>`).join("");
+                    levels.innerHTML = (data.levels || [])
+                        .map(
+                            (level) =>
+                                `<option value="${level}" ${level === "middle" ? "selected" : ""}>${level}</option>`,
+                        )
+                        .join("");
                     updateDesignScenarios();
-                    document.getElementById("design-config-hint").textContent = `Подсказка снижает балл шага на ${data.hint_penalty_percent}%.`;
-                } catch (e) { alert("Не удалось загрузить сценарии: " + e.message); }
+                    document.getElementById("design-config-hint").textContent =
+                        `Подсказка снижает балл шага на ${data.hint_penalty_percent}%.`;
+                } catch (e) {
+                    alert("Не удалось загрузить сценарии: " + e.message);
+                }
             }
             function updateDesignScenarios() {
                 const level = document.getElementById("design-level").value;
-                const scenarios = (designConfig?.scenarios || []).filter(s => s.level === level);
-                document.getElementById("design-scenario").innerHTML = '<option value="">Любой подходящий</option>' + scenarios.map(s => `<option value="${s.id}">${s.title}</option>`).join("");
+                const scenarios = (designConfig?.scenarios || []).filter((s) => s.level === level);
+                document.getElementById("design-scenario").innerHTML =
+                    '<option value="">Любой подходящий</option>' +
+                    scenarios.map((s) => `<option value="${s.id}">${s.title}</option>`).join("");
             }
             async function startDesign() {
-                const btn = document.getElementById("design-start-btn"); setButtonLoading(btn, true, "Готовим сценарий…");
+                const btn = document.getElementById("design-start-btn");
+                setButtonLoading(btn, true, "Готовим сценарий…");
                 try {
-                    const r = await fetch("/api/design/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ level: document.getElementById("design-level").value, scenario_id: document.getElementById("design-scenario").value || null }) });
-                    const data = await r.json(); if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
-                    designSessionId = data.session_id; designTotalSteps = data.total_steps; designStepIndex = 0; showDesignStep(data.step);
-                } catch (e) { alert("Ошибка: " + e.message); } finally { setButtonLoading(btn, false); }
+                    const r = await fetch("/api/design/start", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            level: document.getElementById("design-level").value,
+                            scenario_id: document.getElementById("design-scenario").value || null,
+                        }),
+                    });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+                    designSessionId = data.session_id;
+                    designTotalSteps = data.total_steps;
+                    designStepIndex = 0;
+                    showDesignStep(data.step);
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                } finally {
+                    setButtonLoading(btn, false);
+                }
             }
-            function renderList(id, items) { const el = document.getElementById(id); el.innerHTML = ""; (items || []).forEach(item => { const li = document.createElement("li"); li.textContent = item; el.appendChild(li); }); }
+            function renderList(id, items) {
+                const el = document.getElementById(id);
+                el.innerHTML = "";
+                (items || []).forEach((item) => {
+                    const li = document.createElement("li");
+                    li.textContent = item;
+                    el.appendChild(li);
+                });
+            }
             function showDesignStep(step) {
-                designStep = step; designStepIndex += 1;
-                document.getElementById("design-setup").classList.add("hidden"); document.getElementById("design-interview").classList.remove("hidden");
-                document.getElementById("design-progress-text").textContent = `Шаг ${designStepIndex} из ${designTotalSteps}`;
-                document.getElementById("design-progress-bar").style.width = `${Math.round(((designStepIndex - 1) / designTotalSteps) * 100)}%`;
-                document.getElementById("design-step-title").textContent = step.title; setMarkdown("design-step-prompt", step.prompt);
-                document.getElementById("design-answer").value = ""; document.getElementById("design-submit-btn").disabled = true;
+                designStep = step;
+                designStepIndex += 1;
+                document.getElementById("design-setup").classList.add("hidden");
+                document.getElementById("design-interview").classList.remove("hidden");
+                document.getElementById("design-progress-text").textContent =
+                    `Шаг ${designStepIndex} из ${designTotalSteps}`;
+                document.getElementById("design-progress-bar").style.width =
+                    `${Math.round(((designStepIndex - 1) / designTotalSteps) * 100)}%`;
+                document.getElementById("design-step-title").textContent = step.title;
+                setMarkdown("design-step-prompt", step.prompt);
+                document.getElementById("design-answer").value = "";
+                document.getElementById("design-submit-btn").disabled = true;
                 document.getElementById("design-hint-btn").disabled = false;
-                document.getElementById("design-hint").classList.add("hidden"); document.getElementById("design-hint").textContent = "";
-                document.getElementById("design-expl").textContent = "Здесь появится оценка и комментарий техлида."; renderList("design-covered", []); renderList("design-missed", []);
+                document.getElementById("design-hint").classList.add("hidden");
+                document.getElementById("design-hint").textContent = "";
+                document.getElementById("design-expl").textContent = "Здесь появится оценка и комментарий техлида.";
+                renderList("design-covered", []);
+                renderList("design-missed", []);
                 document.getElementById("design-answer").focus();
             }
             async function showDesignHint() {
                 if (!designSessionId || !designStep) return;
-                const btn = document.getElementById("design-hint-btn"); setButtonLoading(btn, true, "Загружаем…");
-                try { const r = await fetch("/api/design/hint", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: designSessionId, step_id: designStep.id }) }); const data = await r.json(); if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`); const out = document.getElementById("design-hint"); setMarkdown(out, `**Подсказка (штраф ${data.penalty_applied_percent}%):** ${data.hint}`); out.classList.remove("hidden"); btn.disabled = true; } catch (e) { alert("Ошибка: " + e.message); } finally { setButtonLoading(btn, false); }
+                const btn = document.getElementById("design-hint-btn");
+                setButtonLoading(btn, true, "Загружаем…");
+                try {
+                    const r = await fetch("/api/design/hint", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ session_id: designSessionId, step_id: designStep.id }),
+                    });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+                    const out = document.getElementById("design-hint");
+                    setMarkdown(out, `**Подсказка (штраф ${data.penalty_applied_percent}%):** ${data.hint}`);
+                    out.classList.remove("hidden");
+                    btn.disabled = true;
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                } finally {
+                    setButtonLoading(btn, false);
+                }
             }
             async function submitDesignAnswer() {
-                if (!designSessionId || !designStep) return; const answer = document.getElementById("design-answer").value.trim(); if (!answer) return;
-                const btn = document.getElementById("design-submit-btn"); setButtonLoading(btn, true, "Оценка…");
-                try { const r = await fetch("/api/design/answer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: designSessionId, step_id: designStep.id, user_answer: answer }) }); const data = await r.json(); if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`); setMarkdown("design-expl", `## Оценка: ${data.score_percent}%\n\n${data.techlead_explanation}`); renderList("design-covered", data.covered_points); renderList("design-missed", data.missed_points); if (data.is_last) await loadDesignResults(); else showDesignStep(data.next_step); } catch (e) { document.getElementById("design-expl").textContent = "Ошибка: " + e.message; } finally { setButtonLoading(btn, false); }
+                if (!designSessionId || !designStep) return;
+                const answer = document.getElementById("design-answer").value.trim();
+                if (!answer) return;
+                const btn = document.getElementById("design-submit-btn");
+                setButtonLoading(btn, true, "Оценка…");
+                try {
+                    const r = await fetch("/api/design/answer", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            session_id: designSessionId,
+                            step_id: designStep.id,
+                            user_answer: answer,
+                        }),
+                    });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+                    setMarkdown("design-expl", `## Оценка: ${data.score_percent}%\n\n${data.techlead_explanation}`);
+                    renderList("design-covered", data.covered_points);
+                    renderList("design-missed", data.missed_points);
+                    if (data.is_last) await loadDesignResults();
+                    else showDesignStep(data.next_step);
+                } catch (e) {
+                    document.getElementById("design-expl").textContent = "Ошибка: " + e.message;
+                } finally {
+                    setButtonLoading(btn, false);
+                }
             }
-            async function loadDesignResults() { const r = await fetch(`/api/design/results/${designSessionId}`); const data = await r.json(); if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`); showDesignResults(data); }
+            async function loadDesignResults() {
+                const r = await fetch(`/api/design/results/${designSessionId}`);
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+                showDesignResults(data);
+            }
             function showDesignResults(data) {
-                document.getElementById("design-interview").classList.add("hidden"); document.getElementById("design-results").classList.remove("hidden");
-                document.getElementById("design-summary").textContent = `${data.summary.passed}/${data.summary.steps} — ${data.summary.avg_percent}%`; document.getElementById("design-verdict").textContent = `Вердикт: ${data.verdict_level}`;
-                document.getElementById("design-strengths").textContent = (data.strengths || []).join(", ") || "—"; document.getElementById("design-weaknesses").textContent = (data.weaknesses || []).join(", ") || "—";
-                document.getElementById("design-rubric").textContent = Object.entries(data.by_rubric || {}).map(([k, v]) => `${k}: ${v}%`).join(" · ");
-                const list = document.getElementById("design-details"); list.innerHTML = ""; (data.details || []).forEach(d => { const div = document.createElement("div"); div.className = "result-item markdown"; div.innerHTML = `<h4>${escapeHtml(d.title)} — ${d.score_percent}%</h4>${renderMarkdown(d.explanation)}`; list.appendChild(div); });
+                document.getElementById("design-interview").classList.add("hidden");
+                document.getElementById("design-results").classList.remove("hidden");
+                document.getElementById("design-summary").textContent =
+                    `${data.summary.passed}/${data.summary.steps} — ${data.summary.avg_percent}%`;
+                document.getElementById("design-verdict").textContent = `Вердикт: ${data.verdict_level}`;
+                document.getElementById("design-strengths").textContent = (data.strengths || []).join(", ") || "—";
+                document.getElementById("design-weaknesses").textContent = (data.weaknesses || []).join(", ") || "—";
+                document.getElementById("design-rubric").textContent = Object.entries(data.by_rubric || {})
+                    .map(([k, v]) => `${k}: ${v}%`)
+                    .join(" · ");
+                const list = document.getElementById("design-details");
+                list.innerHTML = "";
+                (data.details || []).forEach((d) => {
+                    const div = document.createElement("div");
+                    div.className = "result-item markdown";
+                    div.innerHTML = `<h4>${escapeHtml(d.title)} — ${d.score_percent}%</h4>${renderMarkdown(d.explanation)}`;
+                    list.appendChild(div);
+                });
             }
             document.getElementById("design-level").addEventListener("change", updateDesignScenarios);
             document.getElementById("design-start-btn").addEventListener("click", startDesign);
             document.getElementById("design-hint-btn").addEventListener("click", showDesignHint);
             document.getElementById("design-submit-btn").addEventListener("click", submitDesignAnswer);
-            document.getElementById("design-answer").addEventListener("input", e => document.getElementById("design-submit-btn").disabled = !e.target.value.trim());
-            document.getElementById("design-answer").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submitDesignAnswer(); });
+            document
+                .getElementById("design-answer")
+                .addEventListener(
+                    "input",
+                    (e) => (document.getElementById("design-submit-btn").disabled = !e.target.value.trim()),
+                );
+            document.getElementById("design-answer").addEventListener("keydown", (e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submitDesignAnswer();
+            });
         </script>
     </body>
 </html>
