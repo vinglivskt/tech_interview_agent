@@ -10,12 +10,9 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 
 from src.core.config import get_settings
 from src.core.logger import configure_logging
@@ -112,23 +109,5 @@ app.include_router(quiz_router, prefix="/api")
 app.include_router(sobes_router, prefix="/api")
 app.include_router(design_router, prefix="/api")
 
-# Static files (frontend build)
-static_dir = Path(__file__).resolve().parent.parent / "static"
-
-
-if static_dir.exists():
-    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-
-    # SPA fallback — все не-API маршруты отдают index.html
-    @app.get("/{path:path}", include_in_schema=False)
-    async def spa_fallback(path: str):
-        if not path.startswith("api"):
-            return FileResponse(static_dir / "index.html")
-        from fastapi.responses import JSONResponse
-
-        return JSONResponse({"detail": "Not Found"}, status_code=404)
-
-
-@app.get("/", include_in_schema=False)
-async def index() -> FileResponse:
-    return FileResponse(static_dir / "index.html")
+# Frontend is served by a separate service (see docker-compose.yml)
+# CORS allows the frontend at http://localhost:3000 to call /api/*

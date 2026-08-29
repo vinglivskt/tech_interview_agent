@@ -1,28 +1,20 @@
-# ---- Frontend build stage ----
-FROM node:20-alpine AS frontend-builder
-
-WORKDIR /frontend
-COPY frontend/package*.json ./
-RUN npm install
-COPY frontend/ ./
-RUN npm run build
-
-# ---- Backend + static ----
 FROM python:3.12-slim-bookworm
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 ENV UV_LINK_MODE=copy \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
 WORKDIR /app
 
+# Python deps first (better layer caching)
 COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-dev
+
+# App code and prompts
 COPY backend/src ./src
 COPY backend/prompts ./prompts
-COPY --from=frontend-builder /frontend/dist /app/static
-
-RUN uv sync --frozen --no-dev
 
 EXPOSE 8000
 

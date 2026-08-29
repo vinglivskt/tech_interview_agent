@@ -1,50 +1,73 @@
 # tech_interview_agent
 
-FastAPI-приложение «интервью-ассистент» с RAG (Qdrant) и генерацией ответов через LLM (Ollama). Фронтенд на React.
+FastAPI-приложение «интервью-ассистент» с RAG (Qdrant) и генерацией ответов через LLM (Ollama). Фронтенд на React (Vite).
 
 ---
 
 ## Быстрый старт
 
-### Production (один контейнер)
+### Docker (рекомендуется)
 
 ```bash
-docker compose --profile prod up --build
+docker compose up --build
 ```
 
-Откройте: `http://localhost:8000`
+Откройте `http://localhost:3000` — фронтенд с hot reload.
 
-Multi-stage build собирает фронтенд (Node) и укладывает его в Python-образ — UI отдается FastAPI напрямую.
-
-### Development с hot reload
+### Только бэкенд (без dev-фронта)
 
 ```bash
-# Бэкенд с --reload + фронтенд (Vite dev server) с hot reload
-docker compose --profile dev up
-# или
-docker compose --profile dev watch
+docker compose up api qdrant --build
 ```
 
-- **Бэкенд** на `http://localhost:8000` (volume mount → авто-рестарт при изменении `backend/src`)
-- **Фронтенд** на `http://localhost:3000` (Vite → HMR при изменении `frontend/src`)
-- Vite проксирует `/api/*` на `api-dev:8000` через `VITE_API_URL`
+API будет на `http://localhost:8000`.
 
 ### Локальная разработка (без Docker)
 
 ```bash
-# Терминал 1
-make dev-backend         # http://localhost:8000
+# Терминал 1 — бэкенд
+make dev-backend            # http://localhost:8000
 
-# Терминал 2
-make dev-frontend        # http://localhost:3000
+# Терминал 2 — фронтенд
+make dev-frontend           # http://localhost:3000
 ```
 
-Vite проксирует `/api/*` на `http://localhost:8000`.
+Vite проксирует `/api/*` на `http://localhost:8000` (см. `VITE_API_URL` в `frontend/vite.config.ts`).
 
-### Если Ollama на хосте (не в Docker):
-Для доступа к Ollama на хосте с MacOS/Windows: Docker Desktop → Settings → Resources → Network → добавьте `host.docker.internal`. По умолчанию `OLLAMA_URL=http://host.docker.internal:11434`.
+### Hot reload через Docker
 
-**Настройки через переменные окружения (`.env`):**
+```bash
+docker compose watch
+```
+
+- **Бэкенд**: изменения в `backend/src` → авто-рестарт uvicorn
+- **Фронтенд**: изменения в `frontend/src` → HMR через Vite
+- **Промпты**: изменения в `backend/prompts` → синхронизируются в контейнер
+
+---
+
+## Сервисы Docker Compose
+
+| Сервис | Порт | Описание |
+|---|---|---|
+| `qdrant` | 6333, 6334 | Векторная БД |
+| `api` | 8000 | FastAPI бэкенд (uvicorn) |
+| `frontend` | 3000 | Vite dev server (проксирует `/api` на `api:8000`) |
+
+### Схема запросов
+
+```
+Браузер → localhost:3000 (frontend)
+                │
+                └─ /api/* → api:8000 (Vite proxy в dev)
+                              │
+                              └─ /api/* → qdrant:6333 (vector search)
+                              └─ POST /api/embeddings → Ollama (host.docker.internal:11434)
+```
+
+---
+
+## Настройки через `.env`
 
 | Переменная | По умолчанию | Описание |
 |---|---|---|
@@ -58,6 +81,8 @@ Vite проксирует `/api/*` на `http://localhost:8000`.
 | `SYSTEM_PROMPT_PATH` | `/app/prompts/chat/system.md` | Системный промпт |
 | `DESIGN_SCENARIOS_PATH` | `/app/prompts/design/scenarios.yaml` | Сценарии дизайна |
 
+> Для Ollama на хосте с macOS/Windows: Docker Desktop → Settings → Resources → Network → включите `host.docker.internal`.
+
 ---
 
 ## Структура проекта
@@ -65,93 +90,78 @@ Vite проксирует `/api/*` на `http://localhost:8000`.
 ```
 tech_interview_agent/
 ├─ backend/
-│  ├─ Dockerfile
-│  ├─ src/                    # Python код (FastAPI)
-│  │  ├─ main.py              # точка входа, lifespan
-│  │  ├─ config.py            # настройки (Settings)
-│  │  ├─ core/               # базовые интерфейсы, исключения
-│  │  └─ features/           # фичи (chat, quiz, sobes, design)
-│  │     ├─ chat/            # RAG-чат
-│  │     ├─ quiz/             # Тестирование
-│  │     ├─ sobes/            # Устное собеседование
-│  │     └─ design/          # Системный дизайн
-│  └─ prompts/                # промпты для LLM
+│  ├─ Dockerfile            # Python + uv, только API
+│  ├─ src/                  # Python код (FastAPI)
+│  │  ├─ main.py            # точка входа, lifespan
+│  │  ├─ config.py          # настройки (Settings)
+│  │  ├─ core/              # базовые интерфейсы, исключения
+│  │  └─ features/          # фичи (chat, quiz, sobes, design)
+│  │     ├─ chat/           # RAG-чат
+│  │     ├─ quiz/           # Тестирование
+│  │     ├─ sobes/          # Устное собеседование
+│  │     └─ design/         # Системный дизайн
+│  └─ prompts/              # промпты для LLM
 │     ├─ chat/system.md
 │     ├─ quiz/wrong_answers.md
 │     ├─ sobes/
+│     │  ├─ classification.md
+│     │  └─ scoring.md
 │     └─ design/scenarios.yaml
 │
 ├─ frontend/
-│  ├─ Dockerfile              # multi-stage build (node → nginx)
-│  ├─ nginx.conf             # прокси /api/ → backend:8000
-│  ├─ src/                   # React приложение
-│  │  ├─ components/         # UI компоненты
-│  │  │  ├─ features/        # chat, quiz, sobes, design
-│  │  │  └─ ui/             # Button, Card, Markdown, Spinner
-│  │  ├─ services/api.ts      # API клиент
-│  │  └─ styles/            # глобальные стили
-│  └─ dist/                  # собранное приложение
+│  ├─ Dockerfile            # multi-stage (node build → nginx prod)
+│  ├─ nginx.conf            # прокси /api/ → backend
+│  ├─ vite.config.ts        # dev proxy /api → localhost:8000
+│  └─ src/                  # React приложение
+│     ├─ components/
+│     │  ├─ features/       # chat, quiz, sobes, design
+│     │  └─ ui/             # Button, Card, Markdown, Spinner
+│     ├─ services/api.ts    # API клиент
+│     └─ styles/
 │
+├─ tests/                   # 37 тестов
 ├─ docker-compose.yml
-└─ tests/                    # 37 тестов
+├─ Makefile                 # удобные команды для разработки
+└─ pyproject.toml
 ```
 
 ---
 
-## Сервисы Docker Compose
+## Makefile
 
-| Сервис | Порт | Описание |
-|---|---|---|
-| `qdrant` | 6333, 6334 | Векторная БД |
-| `api` | 8000 | FastAPI бэкенд (uvicorn с --reload) |
-| `frontend` | 3000 | React приложение (Vite dev server) |
-
-### Режимы работы
-
-| Режим | Команда | Бэкенд | Фронтенд |
-|---|---|---|---|
-| Production | `docker compose up --build` | nginx + uvicorn | nginx (статика) |
-| Development | `docker compose watch` | uvicorn --reload | Vite hot reload |
+```bash
+make help               # список доступных команд
+make install            # установить Python + Node зависимости
+make dev-backend        # запустить бэкенд (uvicorn --reload)
+make dev-frontend       # запустить фронтенд (vite dev)
+make build-frontend     # собрать frontend → backend/static/
+make test               # запустить все тесты
+make lint               # ruff + tsc
+make clean              # удалить артефакты сборки
+```
 
 ---
 
 ## Промпты и конфигурация
 
-LLM-промпты хранятся в `backend/prompts/` в формате Markdown (MD). Конфигурации сценариев — в YAML.
+LLM-промпты хранятся в `backend/prompts/` в формате Markdown. Конфигурации сценариев — в YAML.
 
-### Структура промптов
-
-```
-backend/prompts/
-├── chat/
-│   └── system.md           # системный промпт для RAG-чата
-├── quiz/
-│   └── wrong_answers.md   # промпт для генерации неправильных вариантов
-├── sobes/
-│   ├── classification.md  # промпт для классификации вопросов
-│   └── scoring.md        # промпт для оценки ответов
-└── design/
-    └── scenarios.yaml    # конфигурация сценариев (YAML)
-```
-
-### Редактирование промптов
-
-- **Системный промпт чата**: `backend/prompts/chat/system.md`
-- **Генерация неправильных ответов**: `backend/prompts/quiz/wrong_answers.md`
-- **Классификация вопросов**: `backend/prompts/sobes/classification.md`
-- **Оценка ответов**: `backend/prompts/sobes/scoring.md`
-- **Сценарии дизайна**: `backend/prompts/design/scenarios.yaml`
+| Файл | Назначение |
+|---|---|
+| `chat/system.md` | Системный промпт RAG-чата |
+| `quiz/wrong_answers.md` | Генерация неправильных вариантов |
+| `sobes/classification.md` | Классификация вопросов |
+| `sobes/scoring.md` | Оценка ответов |
+| `design/scenarios.yaml` | Сценарии системного дизайна |
 
 ---
 
 ## API эндпоинты
 
-### Проверка здоровья
-```bash
-curl http://localhost:8000/api/health
-```
+Все эндпоинты под префиксом `/api`.
 
-### Чат с ассистентом
+### Чат
+
 ```bash
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
@@ -159,6 +169,7 @@ curl -X POST http://localhost:8000/api/chat \
 ```
 
 ### Квиз
+
 ```bash
 # Старт
 curl -X POST http://localhost:8000/api/quiz/start \
@@ -171,30 +182,26 @@ curl -X POST http://localhost:8000/api/quiz/answer \
   -d '{"session_id": "...", "question_id": "...", "selected_index": 0}'
 ```
 
-### Собеседование
+### Собеседование (свободные ответы)
+
 ```bash
-# Старт сессии
-curl -X POST http://localhost:8000/api/sobes/start \
+# Старт
+curl -X POST http://localhost:8000/api/sobesedovanie/start \
   -H "Content-Type: application/json" \
   -d '{"level": "middle", "topics": ["python", "db"]}'
 
 # Ответ
-curl -X POST http://localhost:8000/api/sobes/answer \
+curl -X POST http://localhost:8000/api/sobesedovanie/answer \
   -H "Content-Type: application/json" \
   -d '{"session_id": "...", "question_id": "...", "user_answer": "..."}'
 ```
 
 ### Системный дизайн
+
 ```bash
-# Старт
 curl -X POST http://localhost:8000/api/design/start \
   -H "Content-Type: application/json" \
-  -d '{"level": "middle"}'
-
-# Ответ на шаг
-curl -X POST http://localhost:8000/api/design/answer \
-  -H "Content-Type: application/json" \
-  -d '{"session_id": "...", "step_id": "...", "user_answer": "..."}'
+  -d '{"level": "middle", "scenario_id": "url-shortener"}'
 ```
 
 ---
@@ -202,31 +209,30 @@ curl -X POST http://localhost:8000/api/design/answer \
 ## Тесты
 
 ```bash
-pytest -q
+make test
+# или
+uv run pytest tests/ -v
 ```
 
-Всего 37 тестов (интеграционные + unit).
+**37 тестов**: unit + интеграционные.
 
 ---
 
 ## FAQ
 
-**Q: docker compose watch не работает?**
-- Убедитесь что используете Docker Compose v2.24+:`docker compose version`
-- Если используете Docker Desktop, проверьте что experimental features включены
+**Q: `docker compose watch` не работает?**
+- Требуется Docker Compose v2.24+: `docker compose version`
+- В Docker Desktop включите experimental features
 
-**Q: Не запускается Ollama или Qdrant?**
-- Проверьте, что сервисы доступны по адресам из `.env`.
+**Q: Фронт не подключается к API?**
+- Vite проксирует `/api/*` на `api:8000` через `VITE_API_URL` (см. `docker-compose.yml`)
+- В локальной разработке (без Docker) — на `localhost:8000`
 
 **Q: Как обновить базу вопросов?**
-- Замените `interview_questions.docx` и перезапустите приложение (автоматический ingest).
+- Замените `interview_questions.docx` и перезапустите приложение (авто-ingest).
 
 **Q: Как изменить промпт?**
-- Отредактируйте соответствующий файл в `backend/prompts/`.
+- Отредактируйте файл в `backend/prompts/`. В `docker compose watch` изменения подхватятся автоматически.
 
 **Q: Как добавить новый сценарий дизайна?**
-- Добавьте новый элемент в массив `scenarios` в `backend/prompts/design/scenarios.yaml`.
-
-**Q: Фронтенд не подключается к API?**
-- Проверьте что docker-compose запущен и `frontend` зависит от `api`.
-- API доступен внутри контейнера как `http://api:8000`.
+- Добавьте элемент в массив `scenarios` в `backend/prompts/design/scenarios.yaml`.
