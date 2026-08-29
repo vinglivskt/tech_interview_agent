@@ -39,7 +39,7 @@ def client():
                 "design_pass_threshold_percent": 50,
                 "design_max_explanation_len": 600,
                 "design_max_tokens": 800,
-                "design_scenarios_path": "app/prompts/design/scenarios.yaml",
+                "design_scenarios_path": "app/prompts/design/scenarios.md",
             },
         )()
         application.state.llm = DummyLLM()

@@ -34,11 +34,23 @@ class Scenario:
     acceptance_criteria: list[str]
 
 
+def _parse_frontmatter(content: str) -> list[dict[str, Any]]:
+    """Парсит frontmatter из MD файла (YAML между ---)."""
+    parts = content.split("---")
+    if len(parts) < 3:
+        # Нет frontmatter, пробуем распарсить как чистый YAML
+        return yaml.safe_load(content) or []
+    # parts[0] - пусто или текст до первого ---, parts[1] - frontmatter, parts[2] - контент
+    frontmatter = parts[1].strip()
+    data = yaml.safe_load(frontmatter)
+    return data.get("scenarios", []) if isinstance(data, dict) else data or []
+
+
 def load_scenarios(settings: Settings) -> list[Scenario]:
-    path = Path(getattr(settings, "design_scenarios_path", "app/prompts/design/scenarios.yaml"))
+    path = Path(getattr(settings, "design_scenarios_path", "app/prompts/design/scenarios.md"))
     if not path.exists():
         return []
-    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or []
+    raw = _parse_frontmatter(path.read_text(encoding="utf-8"))
     out: list[Scenario] = []
     for s in raw:
         steps = [
