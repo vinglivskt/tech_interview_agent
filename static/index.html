@@ -751,7 +751,13 @@
                 const element = typeof target === "string" ? document.getElementById(target) : target;
                 if (!element) return;
                 element.classList.add("markdown");
-                element.innerHTML = renderMarkdown(markdown);
+                // Если контент содержит HTML-теги — вставляем напрямую (LLM возвращает HTML)
+                // Иначе рендерим как markdown
+                if (/<(strong|em|code|pre|blockquote|h[1-6]|ul|ol|li|a|p|br|hr)[^>]*>/i.test(markdown)) {
+                    element.innerHTML = markdown;
+                } else {
+                    element.innerHTML = renderMarkdown(markdown);
+                }
             }
 
             // Навигация
@@ -806,7 +812,6 @@
                 const sendBtn = document.getElementById("send");
                 const statusEl = document.getElementById("status");
                 setButtonLoading(sendBtn, true, "Отправка…");
-                setStatusLoading(statusEl, true, "Генерация ответа…");
                 document.getElementById("out").classList.remove("empty", "err");
                 document.getElementById("out").textContent = "";
                 document.getElementById("meta").textContent = "";
@@ -840,7 +845,6 @@
                     document.getElementById("out").textContent = String(e);
                 } finally {
                     setButtonLoading(sendBtn, false);
-                    setStatusLoading(statusEl, false);
                     document.getElementById("msg").value = "";
                 }
             }
