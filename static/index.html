@@ -537,6 +537,12 @@
                     </div>
 
                     <div class="out" id="sobes-expl">Здесь появится оценка и объяснение.</div>
+                    <div class="row" id="sobes-next-btn-row" style="margin-top: 1rem; display: none">
+                        <button type="button" class="btn-green" id="sobes-next-btn">Следующий вопрос →</button>
+                    </div>
+                    <div class="row" id="sobes-finish-btn-row" style="margin-top: 1rem; display: none">
+                        <button type="button" class="btn-green" id="sobes-finish-btn">Посмотреть результаты →</button>
+                    </div>
                     <div class="row" id="sobes-points" style="align-items: flex-start">
                         <div style="flex: 1">
                             <h2 style="font-size: 0.95rem; margin: 0.8rem 0 0.4rem">Покрыто</h2>
@@ -1222,12 +1228,23 @@
                 setMarkdown("sobes-q-text", q.text);
                 renderTopicMeta(q);
                 document.getElementById("sobes-expl").textContent = "Здесь появится оценка и объяснение.";
+                document.getElementById("sobes-expl").classList.remove("err");
                 document.getElementById("sobes-covered").innerHTML = "";
                 document.getElementById("sobes-missed").innerHTML = "";
                 document.getElementById("sobes-status").textContent = "";
+
+                // Сбрасываем кнопки
                 const ansEl = document.getElementById("sobes-answer");
                 ansEl.value = "";
+                ansEl.disabled = false;
                 document.getElementById("sobes-submit-btn").disabled = true;
+                document.getElementById("sobes-submit-btn").textContent = "Отправить ответ";
+                document.getElementById("sobes-repeat-btn").disabled = false;
+                document.getElementById("sobes-skip-btn").disabled = false;
+                document.getElementById("sobes-next-btn-row").style.display = "none";
+                document.getElementById("sobes-finish-btn-row").style.display = "none";
+                window._sobesNextQuestion = null;
+
                 ansEl.focus();
             }
 
@@ -1284,20 +1301,35 @@
                         : 0;
                     document.getElementById("sobes-progress-bar").style.width = pct + "%";
 
+                    // Скрываем форму ответа и показываем кнопку "Следующий вопрос"
+                    document.getElementById("sobes-answer").disabled = true;
+                    document.getElementById("sobes-submit-btn").disabled = true;
+                    document.getElementById("sobes-repeat-btn").disabled = true;
+                    document.getElementById("sobes-skip-btn").disabled = true;
+
                     if (data.is_last || !data.next_question) {
-                        await loadSobesResults();
+                        // Показываем кнопку перехода к результатам
+                        document.getElementById("sobes-next-btn-row").style.display = "none";
+                        document.getElementById("sobes-finish-btn-row").style.display = "flex";
                     } else {
-                        sobesCurrentIndex += 1;
-                        showSobesQuestion(data.next_question, sobesTotalPlanned, sobesCurrentIndex);
+                        // Сохраняем следующий вопрос и показываем кнопку
+                        window._sobesNextQuestion = data.next_question;
+                        document.getElementById("sobes-next-btn-row").style.display = "flex";
+                        document.getElementById("sobes-finish-btn-row").style.display = "none";
                     }
                 } catch (e) {
                     document.getElementById("sobes-expl").classList.add("err");
                     document.getElementById("sobes-expl").textContent = "Ошибка: " + (e.message || String(e));
+                    // При ошибке оставляем форму доступной для повторной отправки
+                    ansEl.disabled = false;
+                    document.getElementById("sobes-submit-btn").disabled = false;
+                    document.getElementById("sobes-repeat-btn").disabled = false;
+                    document.getElementById("sobes-skip-btn").disabled = false;
+                    document.getElementById("sobes-next-btn-row").style.display = "none";
+                    document.getElementById("sobes-finish-btn-row").style.display = "none";
                 } finally {
                     setButtonLoading(btn, false);
                     setStatusLoading(status, false);
-                    btn.disabled = false;
-                    ansEl.disabled = false;
                 }
             }
 
@@ -1344,6 +1376,16 @@
             document.getElementById("sobes-submit-btn").addEventListener("click", submitSobesAnswer);
             document.getElementById("sobes-repeat-btn").addEventListener("click", repeatSobesQuestion);
             document.getElementById("sobes-skip-btn").addEventListener("click", skipSobesQuestion);
+            document.getElementById("sobes-next-btn").addEventListener("click", () => {
+                const nextQ = window._sobesNextQuestion;
+                if (nextQ) {
+                    sobesCurrentIndex += 1;
+                    showSobesQuestion(nextQ, sobesTotalPlanned, sobesCurrentIndex);
+                    document.getElementById("sobes-next-btn-row").style.display = "none";
+                    window._sobesNextQuestion = null;
+                }
+            });
+            document.getElementById("sobes-finish-btn").addEventListener("click", loadSobesResults);
             const sobesAnsEl = document.getElementById("sobes-answer");
             sobesAnsEl.addEventListener("keydown", (e) => {
                 if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submitSobesAnswer();
