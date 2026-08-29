@@ -664,7 +664,7 @@
             }
             function renderInlineMarkdown(text) {
                 let value = text;
-                // Сначала применяем markdown-преобразования, потом экранируем HTML
+                // Сначала применяем markdown-преобразования
                 value = value.replace(/`([^`]+)`/g, "<code>$1</code>");
                 value = value
                     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
@@ -674,8 +674,11 @@
                     /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
                     '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
                 );
-                // Теперь экранируем оставшийся текст
-                value = escapeHtml(value);
+                // Если контент содержит HTML-сущности — НЕ экранируем (LLM уже вернул отформатированный HTML)
+                // Иначе экранируем оставшийся текст
+                if (!/&(lt|gt|amp|quot|#[0-9]+|#x[0-9a-f]+);/.test(value)) {
+                    value = escapeHtml(value);
+                }
                 return value;
             }
             function renderMarkdown(markdown) {
@@ -751,9 +754,13 @@
                 const element = typeof target === "string" ? document.getElementById(target) : target;
                 if (!element) return;
                 element.classList.add("markdown");
-                // Если контент содержит HTML-теги — вставляем напрямую (LLM возвращает HTML)
-                // Иначе рендерим как markdown
-                if (/<(strong|em|code|pre|blockquote|h[1-6]|ul|ol|li|a|p|br|hr)[^>]*>/i.test(markdown)) {
+                // Если контент содержит HTML-теги или HTML-сущности (&lt;, &gt;, &amp;) — вставляем напрямую
+                // Это означает, что LLM уже вернул отформатированный HTML
+                if (
+                    /&(lt|gt|amp|quot|#[0-9]+|#x[0-9a-f]+);|<(strong|em|code|pre|blockquote|h[1-6]|ul|ol|li|a|p|br|hr)[^>]*>/i.test(
+                        markdown,
+                    )
+                ) {
                     element.innerHTML = markdown;
                 } else {
                     element.innerHTML = renderMarkdown(markdown);
