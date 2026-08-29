@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { chatApi } from "@/services/api";
 
 const SESSION_KEY = "interview_session_id";
@@ -43,36 +43,45 @@ export function useChat() {
     lastAnswer: "",
   });
 
+  // Use ref to track if question was loaded - avoids stale closure issues
+  const hasLoadedQuestion = useRef(false);
+
   const loadRandomQuestion = useCallback(async () => {
+    // Don't reload if we already have a question pending
+    if (hasLoadedQuestion.current && state.questionText) return;
+
     setState((prev) => ({
       ...prev,
       answer: "",
       isAnswerEmpty: true,
-      statusText: "",
+      statusText: "Генерация вопроса…",
       saveStatus: "",
       error: null,
     }));
 
     try {
       const data = await chatApi.getRandomQuestion();
+      hasLoadedQuestion.current = true;
       setState((prev) => ({
         ...prev,
         questionNumber: String(data.number),
         questionText: data.question,
         lastQuestion: data.question,
+        statusText: "",
       }));
     } catch (err) {
       setState((prev) => ({
         ...prev,
         questionText: "",
+        statusText: "",
         error: err instanceof Error ? err.message : "Не удалось загрузить вопрос",
       }));
     }
-  }, []);
+  }, [state.questionText]);
 
   useEffect(() => {
     loadRandomQuestion();
-  }, [loadRandomQuestion]);
+  }, []); // Only on mount
 
   const setUserAnswer = useCallback((userAnswer: string) => {
     setState((prev) => ({ ...prev, userAnswer }));
@@ -87,17 +96,19 @@ export function useChat() {
       isLoading: true,
       statusText: "Отправка…",
       error: null,
-      answer: "",
-      isAnswerEmpty: true,
-      saveStatus: "",
     }));
 
-    // If no question was loaded, treat the first message as the question
-    const question = lastQuestion || userAnswer;
-    const message = lastQuestion ? userAnswer : userAnswer;
+    // If lastQuestion is empty, this is a NEW question (user types their own question)
+    // Otherwise, this is an ANSWER to the previously loaded question
+    const isNewQuestion = !lastQuestion;
+    const message = isNewQuestion ? userAnswer : userAnswer;
 
     try {
       const data = await chatApi.send(message, sessionId);
+
+      // After response:
+      // - If was a new question, lastQuestion becomes that question
+      // - If was an answer, lastQuestion stays the same (the question we're answering)
       setState((prev) => ({
         ...prev,
         isLoading: false,
@@ -105,7 +116,8 @@ export function useChat() {
         answer: data.answer,
         isAnswerEmpty: false,
         lastAnswer: data.answer,
-        lastQuestion: question,
+        lastQuestion: isNewQuestion ? userAnswer : prev.lastQuestion,
+        // Keep userAnswer so user can type follow-up
       }));
     } catch (err) {
       setState((prev) => ({
@@ -147,11 +159,31 @@ export function useChat() {
     }
   }, [state]);
 
+  const resetConversation = useCallback(() => {
+    hasLoadedQuestion.current = false;
+    setState((prev) => ({
+      ...prev,
+      questionNumber: "—",
+      questionText: "",
+      answer: "",
+      isAnswerEmpty: true,
+      userAnswer: "",
+      statusText: "",
+      saveStatus: "",
+      error: null,
+      lastQuestion: "",
+      lastAnswer: "",
+    }));
+    // Load new random question
+    loadRandomQuestion();
+  }, [loadRandomQuestion]);
+
   return {
     ...state,
     setUserAnswer,
     sendAnswer,
     saveToWord,
     loadRandomQuestion,
+    resetConversation,
   };
 }

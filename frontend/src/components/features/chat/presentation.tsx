@@ -17,6 +17,7 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
   onSend,
   onSave,
   onBack,
+  onReset,
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -69,9 +70,21 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
         {answer || "Ответ ассистента появится здесь."}
       </div>
 
-      <Button className={`${styles.saveBtn} ${saveStatus ? styles.visible : ""}`} variant="success" onClick={onSave}>
-        💾 Сохранить в Word
-      </Button>
+      <div className={styles.row}>
+        <Button
+          className={`${styles.saveBtn} ${saveStatus ? styles.visible : ""}`}
+          variant="success"
+          onClick={onSave}
+          disabled={isLoading || !answer}
+        >
+          💾 Сохранить в Word
+        </Button>
+        {onReset && !isAnswerEmpty && (
+          <Button variant="secondary" onClick={onReset} disabled={isLoading}>
+            Новый вопрос
+          </Button>
+        )}
+      </div>
 
       {saveStatus && (
         <div className={`${styles.saveStatus} ${saveStatus.startsWith("❌") ? styles.error : ""}`}>{saveStatus}</div>

@@ -6,10 +6,9 @@ import shutil
 from pathlib import Path
 
 import pytest
-from src.features.chat.domain.docx_repository import (
-    question_exists,
-    save_question_answer,
-)
+
+from backend.src.features.chat.domain.docx_repository import question_exists, save_question_answer
+
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 SRC_FIXTURE = FIXTURES_DIR / "test_interview_questions.docx"

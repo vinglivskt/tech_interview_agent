@@ -92,8 +92,6 @@ tech_interview_agent/
 │  │     ├─ quiz/             # Тестирование
 │  │     ├─ sobes/            # Устное собеседование
 │  │     └─ design/          # Системный дизайн
-│  ├─ static/
-│  │  └─ index.html          # резервная копия оригинального UI
 │  └─ prompts/                # промпты для LLM
 │     ├─ chat/system.md
 │     ├─ quiz/wrong_answers.md
@@ -111,7 +109,6 @@ tech_interview_agent/
 │  │  └─ styles/            # глобальные стили
 │  └─ dist/                  # собранное приложение
 │
-├─ prompts → backend/prompts  # symlink для удобства
 ├─ docker-compose.yml
 └─ tests/                    # 37 тестов
 ```

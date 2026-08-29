@@ -20,6 +20,7 @@ export const ChatContainer: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       onSend={chat.sendAnswer}
       onSave={chat.saveToWord}
       onBack={onBack}
+      onReset={chat.resetConversation}
     />
   );
 };

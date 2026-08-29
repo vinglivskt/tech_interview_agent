@@ -12,6 +12,7 @@ export interface ChatViewProps {
   onSend: () => void;
   onSave: () => void;
   onBack: () => void;
+  onReset?: () => void;
 }
 
 export interface ChatContainerProps {

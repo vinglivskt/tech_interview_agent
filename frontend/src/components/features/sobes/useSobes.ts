@@ -87,6 +87,8 @@ export function useSobes() {
         try {
           const data = await sobesApi.getResults(sessionId);
           setResults(data);
+          setLastAnswer(null);
+          setNextQuestion(null);
           setView("results");
         } catch (err) {
           alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
@@ -115,6 +117,8 @@ export function useSobes() {
         if (sessionId) {
           const resultsData = await sobesApi.getResults(sessionId);
           setResults(resultsData);
+          setLastAnswer(null);
+          setNextQuestion(null);
           setView("results");
         }
       } else {

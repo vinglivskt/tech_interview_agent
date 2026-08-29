@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from src.main import app
+from backend.src.main import app
 
 
 class DummyLLM:
