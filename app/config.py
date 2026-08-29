@@ -120,8 +120,8 @@ class Settings(BaseSettings):
     design_pass_threshold_percent: int = Field(default=50, ge=0, le=100)
     design_max_explanation_len: int = Field(default=600, ge=50)
     design_scenarios_path: str = Field(
-        default="prompts/design/scenarios.md",
-        description="Путь к MD-файлу со сценариями системного дизайна (frontmatter YAML)",
+        default="prompts/design/scenarios.yaml",
+        description="Путь к YAML-файлу со сценариями системного дизайна",
     )
     design_max_tokens: int = Field(default=800, ge=1)
 

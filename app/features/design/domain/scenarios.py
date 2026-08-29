@@ -34,34 +34,15 @@ class Scenario:
     acceptance_criteria: list[str]
 
 
-def _parse_dict(value: Any) -> dict[str, float]:
-    """Парсит rubric_weights: если строка '{a: 1}' — распарсивает через yaml.safe_load."""
-    if isinstance(value, dict):
-        return {str(k): float(v) for k, v in value.items()}
-    if isinstance(value, str):
-        parsed = yaml.safe_load(value)
-        if isinstance(parsed, dict):
-            return {str(k): float(v) for k, v in parsed.items()}
-    return {}
-
-
-def _parse_frontmatter(content: str) -> list[dict[str, Any]]:
-    """Парсит frontmatter из MD файла (YAML между ---)."""
-    parts = content.split("---")
-    if len(parts) < 3:
-        # Нет frontmatter, пробуем распарсить как чистый YAML
-        return yaml.safe_load(content) or []
-    # parts[0] - пусто или текст до первого ---, parts[1] - frontmatter, parts[2] - контент
-    frontmatter = parts[1].strip()
-    data = yaml.safe_load(frontmatter)
-    return data.get("scenarios", []) if isinstance(data, dict) else data or []
-
-
 def load_scenarios(settings: Settings) -> list[Scenario]:
-    path = Path(getattr(settings, "design_scenarios_path", "prompts/design/scenarios.md"))
+    path = Path(getattr(settings, "design_scenarios_path", "prompts/design/scenarios.yaml"))
     if not path.exists():
         return []
-    raw = _parse_frontmatter(path.read_text(encoding="utf-8"))
+    raw_data = yaml.safe_load(path.read_text(encoding="utf-8")) or []
+    if isinstance(raw_data, dict):
+        raw = raw_data.get("scenarios", [])
+    else:
+        raw = raw_data if isinstance(raw_data, list) else []
     out: list[Scenario] = []
     for s in raw:
         steps = [
@@ -70,7 +51,7 @@ def load_scenarios(settings: Settings) -> list[Scenario]:
                 title=x["title"],
                 prompt=x["prompt"],
                 expected_points=list(x.get("expected_points", [])),
-                rubric_weights=_parse_dict(x.get("rubric_weights", {})),
+                rubric_weights=dict(x.get("rubric_weights", {})),
                 hint=x.get("hint"),
             )
             for x in s.get("steps", [])
@@ -84,7 +65,7 @@ def load_scenarios(settings: Settings) -> list[Scenario]:
                 requirements=list(s.get("requirements", [])),
                 nfr=list(s.get("nfr", [])),
                 constraints=list(s.get("constraints", [])),
-                baseline_load=_parse_dict(s.get("baseline_load", {})),
+                baseline_load=dict(s.get("baseline_load", {})),
                 topics=list(s.get("topics", [])),
                 steps=steps,
                 acceptance_criteria=list(s.get("acceptance_criteria", [])),

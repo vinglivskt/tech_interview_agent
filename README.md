@@ -136,12 +136,12 @@ prompts/
 ├── chat/
 │   └── system.md           # системный промпт для RAG-чата
 ├── quiz/
-│   └── wrong_answers.md    # промпт для генерации неправильных вариантов
+│   └── wrong_answers.md   # промпт для генерации неправильных вариантов
 ├── sobes/
-│   ├── classification.md   # промпт для классификации вопросов по темам/уровню
+│   ├── classification.md  # промпт для классификации вопросов
 │   └── scoring.md         # промпт для оценки ответа кандидата
 └── design/
-    └── scenarios.md       # сценарии системного дизайна (frontmatter YAML)
+    └── scenarios.yaml     # конфигурация сценариев (YAML, не LLM-промпт)
 ```
 
 ### Редактирование промптов
@@ -152,22 +152,7 @@ prompts/
 - **Генерация неправильных ответов**: `prompts/quiz/wrong_answers.md`
 - **Классификация вопросов**: `prompts/sobes/classification.md`
 - **Оценка ответов**: `prompts/sobes/scoring.md`
-- **Сценарии дизайна**: `prompts/design/scenarios.md`
-
-### Формат scenarios.md
-
-Сценарии хранятся в MD с YAML frontmatter:
-
-```yaml
----
-scenarios:
-  - id: url-shortener
-    title: URL Shortener
-    level: junior
-    ...
----
-# Человекочитаемое описание (не парсится)
-```
+- **Сценарии дизайна**: `prompts/design/scenarios.yaml` (конфиг, не промпт)
 
 ---
 
