@@ -1,19 +1,16 @@
-const API_BASE = '/api';
+const API_BASE = "/api";
 
-async function request<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options.headers,
     },
     ...options,
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+    const error = await response.json().catch(() => ({ detail: "Unknown error" }));
     throw new Error(error.detail || `HTTP ${response.status}`);
   }
 
@@ -22,96 +19,247 @@ async function request<T>(
 
 // Chat API
 export const chatApi = {
-  health: () => request<{ status: string; qdrant: boolean; ollama_available: boolean }>('/chat/health'),
+  health: () => request<{ status: string; qdrant: boolean; ollama_available: boolean }>("/chat/health"),
 
   send: (message: string, sessionId?: string) =>
-    request<{ answer: string; meta: Record<string, unknown> }>('/chat', {
-      method: 'POST',
+    request<{ answer: string; meta: Record<string, unknown> }>("/chat", {
+      method: "POST",
       body: JSON.stringify({ message, session_id: sessionId }),
     }),
 
   saveQA: (question: string, correctAnswer: string, sessionId?: string) =>
-    request<{ status: string }>('/interview/save-qa', {
-      method: 'POST',
+    request<{ status: "saved" | "skipped"; number?: number }>("/interview/save-qa", {
+      method: "POST",
       body: JSON.stringify({ question, correct_answer: correctAnswer, session_id: sessionId }),
     }),
 
-  getRandomQuestion: () =>
-    request<{ number: number; question: string; total: number }>('/interview/random-question'),
+  getRandomQuestion: () => request<{ number: number; question: string; total: number }>("/interview/random-question"),
 };
 
 // Quiz API
 export const quizApi = {
-  start: (level: 'junior' | 'middle' | 'senior') =>
-    request<import('@/types').QuizQuestion>('/quiz/start', {
-      method: 'POST',
+  start: (level: "junior" | "middle" | "senior") =>
+    request<{
+      session_id: string;
+      question_id: string;
+      question_text: string;
+      options: { index: number; text: string }[];
+      question_number: number;
+      total_questions: number;
+    }>("/quiz/start", {
+      method: "POST",
       body: JSON.stringify({ level }),
     }),
 
   answer: (sessionId: string, questionId: string, selectedIndex: number) =>
-    request<import('@/types').QuizAnswerResponse>('/quiz/answer', {
-      method: 'POST',
-      body: JSON.stringify({ session_id: sessionId, question_id: questionId, selected_index: selectedIndex }),
+    request<{
+      is_correct: boolean;
+      correct_index: number;
+      explanation: string;
+      next_question: {
+        session_id: string;
+        question_id: string;
+        question_text: string;
+        options: { index: number; text: string }[];
+        question_number: number;
+        total_questions: number;
+      } | null;
+      is_last: boolean;
+    }>("/quiz/answer", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sessionId,
+        question_id: questionId,
+        selected_index: selectedIndex,
+      }),
     }),
 
   getResults: (sessionId: string) =>
-    request<import('@/types').QuizResultsResponse>(`/quiz/results/${sessionId}`),
+    request<{
+      total_score: number;
+      total_questions: number;
+      level: string;
+      results: {
+        question_text: string;
+        user_answer: string;
+        correct_answer: string;
+        is_correct: boolean;
+        explanation: string;
+      }[];
+    }>(`/quiz/results/${sessionId}`),
 };
 
 // Sobes API
 export const sobesApi = {
-  getConfig: () => request<import('@/types').SobesConfigResponse>('/sobesedovanie/config'),
+  getConfig: () =>
+    request<{
+      topics: string[];
+      counts_by_level: Record<string, [number, number]>;
+      pass_threshold: number;
+    }>("/sobesedovanie/config"),
 
-  start: (level: 'junior' | 'middle' | 'senior', topics: string[]) =>
-    request<import('@/types').SobesStartResponse>('/sobesedovanie/start', {
-      method: 'POST',
+  start: (level: "junior" | "middle" | "senior", topics: string[]) =>
+    request<{
+      session_id: string;
+      question: {
+        id: string;
+        number: number;
+        text: string;
+        topic: string;
+        level: string;
+        difficulty_score: number;
+        topic_hint?: string;
+      };
+      total_planned: number;
+    }>("/sobesedovanie/start", {
+      method: "POST",
       body: JSON.stringify({ level, topics }),
     }),
 
   answer: (sessionId: string, questionId: string, userAnswer: string) =>
-    request<import('@/types').SobesAnswerResponse>('/sobesedovanie/answer', {
-      method: 'POST',
-      body: JSON.stringify({ session_id: sessionId, question_id: questionId, user_answer: userAnswer }),
+    request<{
+      score_percent: number;
+      is_counted: boolean;
+      techlead_explanation: string;
+      covered_points: string[];
+      missed_points: string[];
+      next_question: {
+        id: string;
+        number: number;
+        text: string;
+        topic: string;
+        level: string;
+        difficulty_score: number;
+        topic_hint?: string;
+      } | null;
+      is_last: boolean;
+    }>("/sobesedovanie/answer", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sessionId,
+        question_id: questionId,
+        user_answer: userAnswer,
+      }),
     }),
 
   getResults: (sessionId: string) =>
-    request<import('@/types').SobesResultsResponse>(`/sobesedovanie/results/${sessionId}`),
+    request<{
+      level_requested: string;
+      verdict_level: string;
+      summary: string;
+      summary_detail?: { counted: number; total: number; avg_percent: number };
+      strengths: string[];
+      weaknesses: string[];
+      details: {
+        question_text: string;
+        topic: string;
+        score_percent: number;
+        explanation: string;
+      }[];
+    }>(`/sobesedovanie/results/${sessionId}`),
 
   skip: (sessionId: string) =>
-    request<import('@/types').SobesSkipResponse>('/sobesedovanie/skip', {
-      method: 'POST',
+    request<{
+      next_question: {
+        id: string;
+        number: number;
+        text: string;
+        topic: string;
+        level: string;
+        difficulty_score: number;
+        topic_hint?: string;
+      } | null;
+      is_last: boolean;
+    }>("/sobesedovanie/skip", {
+      method: "POST",
       body: JSON.stringify({ session_id: sessionId }),
     }),
 
   repeat: (sessionId: string) =>
-    request<import('@/types').SobesRepeatResponse>('/sobesedovanie/repeat', {
-      method: 'POST',
+    request<{
+      question: {
+        id: string;
+        number: number;
+        text: string;
+        topic: string;
+        level: string;
+        difficulty_score: number;
+        topic_hint?: string;
+      };
+    }>("/sobesedovanie/repeat", {
+      method: "POST",
       body: JSON.stringify({ session_id: sessionId }),
     }),
 };
 
 // Design API
 export const designApi = {
-  getConfig: () => request<import('@/types').DesignConfigResponse>('/design/config'),
+  getConfig: () =>
+    request<{
+      levels: string[];
+      scenarios: { id: string; title: string; level: string }[];
+      hint_penalty_percent: number;
+    }>("/design/config"),
 
   start: (level: string, scenarioId: string) =>
-    request<import('@/types').DesignStartResponse>('/design/start', {
-      method: 'POST',
+    request<{
+      session_id: string;
+      total_steps: number;
+      scenario: { id: string; title: string; level: string };
+      step: {
+        id: string;
+        title: string;
+        prompt: string;
+      };
+    }>("/design/start", {
+      method: "POST",
       body: JSON.stringify({ level, scenario_id: scenarioId }),
     }),
 
   answer: (sessionId: string, stepId: string, userAnswer: string) =>
-    request<import('@/types').DesignAnswerResponse>('/design/answer', {
-      method: 'POST',
-      body: JSON.stringify({ session_id: sessionId, step_id: stepId, user_answer: userAnswer }),
+    request<{
+      score_percent: number;
+      rubric: string[];
+      covered_points: string[];
+      missed_points: string[];
+      techlead_explanation: string;
+      next_step: {
+        id: string;
+        title: string;
+        prompt: string;
+      } | null;
+      is_last: boolean;
+    }>("/design/answer", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sessionId,
+        step_id: stepId,
+        user_answer: userAnswer,
+      }),
     }),
 
   getHint: (sessionId: string, stepId: string) =>
-    request<import('@/types').DesignHintResponse>('/design/hint', {
-      method: 'POST',
+    request<{
+      hint: string;
+      penalty_applied_percent: number;
+    }>("/design/hint", {
+      method: "POST",
       body: JSON.stringify({ session_id: sessionId, step_id: stepId }),
     }),
 
   getResults: (sessionId: string) =>
-    request<import('@/types').DesignResultsResponse>(`/design/results/${sessionId}`),
+    request<{
+      summary: string;
+      summary_detail?: { passed: number; steps: number; avg_percent: number };
+      by_rubric: Record<string, number>;
+      strengths: string[];
+      weaknesses: string[];
+      verdict_level: string;
+      details: {
+        title: string;
+        user_answer: string;
+        score_percent: number;
+        explanation: string;
+      }[];
+    }>(`/design/results/${sessionId}`),
 };

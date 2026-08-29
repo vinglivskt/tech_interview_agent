@@ -1,70 +1,44 @@
-import type {
-  DesignConfigResponse,
-  DesignStep,
-  DesignScenarioInfo,
-  DesignAnswerResponse,
-  DesignResultsResponse,
-} from '@/types';
+export interface DesignConfig {
+  levels: string[];
+  scenarios: { id: string; title: string; level: string }[];
+  hint_penalty_percent: number;
+}
 
-export type DesignView = 'setup' | 'question' | 'answer' | 'results';
+export interface DesignStep {
+  id: string;
+  title: string;
+  prompt: string;
+}
 
-export interface DesignState {
-  view: DesignView;
-  config: DesignConfigResponse | null;
+export interface DesignScenario {
+  id: string;
+  title: string;
   level: string;
-  selectedScenarioId: string | null;
-  sessionId: string | null;
-  scenario: DesignScenarioInfo | null;
-  currentStep: DesignStep | null;
-  stepIndex: number;
-  totalSteps: number;
-  userAnswer: string;
-  lastAnswer: DesignAnswerResponse | null;
-  hint: string | null;
-  results: DesignResultsResponse | null;
-  isLoading: boolean;
-  error: string | null;
 }
 
-export interface DesignSetupViewProps {
-  config: DesignConfigResponse | null;
-  level: string;
-  selectedScenarioId: string | null;
-  onLevelChange: (level: string) => void;
-  onScenarioSelect: (scenarioId: string) => void;
-  onStart: () => void;
-  onBack: () => void;
-  isLoading: boolean;
-  error: string | null;
+export interface DesignAnswer {
+  score_percent: number;
+  rubric: string[];
+  covered_points: string[];
+  missed_points: string[];
+  techlead_explanation: string;
+  next_step: DesignStep | null;
+  is_last: boolean;
 }
 
-export interface DesignQuestionViewProps {
-  scenario: DesignScenarioInfo;
-  step: DesignStep;
-  stepIndex: number;
-  totalSteps: number;
-  userAnswer: string;
-  hint: string | null;
-  onAnswerChange: (answer: string) => void;
-  onSubmit: () => void;
-  onGetHint: () => void;
-  onBack: () => void;
-  isLoading: boolean;
+export interface DesignResults {
+  summary: string;
+  summary_detail?: { passed: number; steps: number; avg_percent: number };
+  by_rubric: Record<string, number>;
+  strengths: string[];
+  weaknesses: string[];
+  verdict_level: string;
+  details: {
+    title: string;
+    user_answer: string;
+    score_percent: number;
+    explanation: string;
+  }[];
 }
 
-export interface DesignAnswerViewProps {
-  scenario: DesignScenarioInfo;
-  step: DesignStep;
-  stepIndex: number;
-  totalSteps: number;
-  userAnswer: string;
-  answer: DesignAnswerResponse;
-  onNext: () => void;
-  onBack: () => void;
-}
-
-export interface DesignResultsViewProps {
-  results: DesignResultsResponse;
-  onRestart: () => void;
-  onBack: () => void;
-}
+export type DesignView = "setup" | "question" | "answer" | "results";

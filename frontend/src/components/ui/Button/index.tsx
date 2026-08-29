@@ -1,26 +1,23 @@
-import React from 'react';
-import styles from './Button.module.scss';
+import React from "react";
+import styles from "./Button.module.css";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'success' | 'danger';
+  variant?: "primary" | "secondary" | "success" | "danger";
   loading?: boolean;
   children: React.ReactNode;
 }
 
 export const Button: React.FC<ButtonProps> = ({
-  variant = 'primary',
+  variant = "primary",
   loading = false,
   children,
   disabled,
-  className = '',
+  className = "",
   ...props
 }) => {
+  const variantClass = variant !== "primary" ? styles[variant] : "";
   return (
-    <button
-      className={`${styles.button} ${styles[variant]} ${className}`}
-      disabled={disabled || loading}
-      {...props}
-    >
+    <button className={`${styles.button} ${variantClass} ${className}`} disabled={disabled || loading} {...props}>
       {loading && <span className={styles.spinner} />}
       {children}
     </button>

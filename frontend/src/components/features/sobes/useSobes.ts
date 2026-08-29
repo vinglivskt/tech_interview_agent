@@ -1,222 +1,191 @@
-import { useState, useCallback, useEffect } from 'react';
-import { sobesApi } from '@/services/api';
-import type { SobesState } from './types';
+import { useState, useCallback, useEffect } from "react";
+import { sobesApi } from "@/services/api";
+import type { SobesConfig, SobesQuestion, SobesAnswer, SobesResults, SobesView } from "./types";
 
 export function useSobes() {
-  const [state, setState] = useState<SobesState>({
-    view: 'setup',
-    config: null,
-    level: 'junior',
-    selectedTopics: [],
-    sessionId: null,
-    currentQuestion: null,
-    userAnswer: '',
-    lastAnswer: null,
-    results: null,
-    isLoading: false,
-    error: null,
-  });
-
-  useEffect(() => {
-    loadConfig();
-  }, []);
+  const [view, setView] = useState<SobesView>("setup");
+  const [config, setConfig] = useState<SobesConfig | null>(null);
+  const [level, setLevel] = useState<"junior" | "middle" | "senior">("middle");
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [question, setQuestion] = useState<SobesQuestion | null>(null);
+  const [questionIndex, setQuestionIndex] = useState(1);
+  const [totalPlanned, setTotalPlanned] = useState(0);
+  const [userAnswer, setUserAnswer] = useState("");
+  const [lastAnswer, setLastAnswer] = useState<SobesAnswer | null>(null);
+  const [results, setResults] = useState<SobesResults | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [nextQuestion, setNextQuestion] = useState<SobesQuestion | null>(null);
 
   const loadConfig = useCallback(async () => {
     try {
-      const config = await sobesApi.getConfig();
-      setState((prev) => ({
-        ...prev,
-        config,
-        selectedTopics: config.topics.map((t) => t.id),
-      }));
+      const data = await sobesApi.getConfig();
+      setConfig(data);
+      setSelectedTopics(data.topics);
     } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        error: err instanceof Error ? err.message : 'Ошибка загрузки конфигурации',
-      }));
+      setError("Не удалось загрузить темы");
     }
   }, []);
 
-  const setLevel = useCallback((level: 'junior' | 'middle' | 'senior') => {
-    setState((prev) => ({ ...prev, level }));
-  }, []);
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
-  const toggleTopic = useCallback((topicId: string) => {
-    setState((prev) => ({
-      ...prev,
-      selectedTopics: prev.selectedTopics.includes(topicId)
-        ? prev.selectedTopics.filter((t) => t !== topicId)
-        : [...prev.selectedTopics, topicId],
-    }));
+  const toggleTopic = useCallback((topic: string) => {
+    setSelectedTopics((prev) => (prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic]));
   }, []);
 
   const startSobes = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
-    try {
-      const response = await sobesApi.start(state.level, state.selectedTopics);
-      setState((prev) => ({
-        ...prev,
-        view: 'question',
-        isLoading: false,
-        sessionId: response.session_id,
-        currentQuestion: response.question,
-        userAnswer: '',
-        lastAnswer: null,
-      }));
-    } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Ошибка запуска сессии',
-      }));
-    }
-  }, [state.level, state.selectedTopics]);
+    if (selectedTopics.length === 0) return;
 
-  const setUserAnswer = useCallback((answer: string) => {
-    setState((prev) => ({ ...prev, userAnswer: answer }));
-  }, []);
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await sobesApi.start(level, selectedTopics);
+      setSessionId(data.session_id);
+      setQuestion(data.question);
+      setTotalPlanned(data.total_planned);
+      setQuestionIndex(1);
+      setUserAnswer("");
+      setLastAnswer(null);
+      setNextQuestion(null);
+      setView("question");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка запуска");
+      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [level, selectedTopics]);
 
   const submitAnswer = useCallback(async () => {
-    if (!state.currentQuestion || !state.sessionId || !state.userAnswer.trim()) return;
+    if (!sessionId || !question || !userAnswer.trim()) return;
 
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    setIsLoading(true);
     try {
-      const answer = await sobesApi.answer(
-        state.sessionId,
-        state.currentQuestion.id,
-        state.userAnswer
-      );
-      setState((prev) => ({
-        ...prev,
-        view: 'answer',
-        isLoading: false,
-        lastAnswer: answer,
-      }));
+      const data = await sobesApi.answer(sessionId, question.id, userAnswer);
+      setLastAnswer(data);
+      setView("answer");
+
+      if (data.is_last || !data.next_question) {
+        // Will show results button
+      } else {
+        setNextQuestion(data.next_question);
+      }
     } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Ошибка отправки ответа',
-      }));
+      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+    } finally {
+      setIsLoading(false);
     }
-  }, [state.currentQuestion, state.sessionId, state.userAnswer]);
+  }, [sessionId, question, userAnswer]);
 
-  const nextQuestion = useCallback(async () => {
-    if (!state.sessionId) return;
-
-    const nextQ = state.lastAnswer?.next_question;
-    if (state.lastAnswer?.is_last || !nextQ) {
-      await loadResults();
+  const nextQuestionHandler = useCallback(async () => {
+    if (lastAnswer?.is_last || !lastAnswer?.next_question) {
+      // Load results
+      if (sessionId) {
+        try {
+          const data = await sobesApi.getResults(sessionId);
+          setResults(data);
+          setView("results");
+        } catch (err) {
+          alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+        }
+      }
       return;
     }
 
-    setState((prev) => ({
-      ...prev,
-      view: 'question',
-      currentQuestion: nextQ,
-      userAnswer: '',
-      lastAnswer: null,
-    }));
-  }, [state.lastAnswer, state.sessionId]);
+    if (nextQuestion) {
+      setQuestion(nextQuestion);
+      setQuestionIndex((prev) => prev + 1);
+      setUserAnswer("");
+      setLastAnswer(null);
+      setNextQuestion(null);
+      setView("question");
+    }
+  }, [lastAnswer, nextQuestion, sessionId]);
 
   const skipQuestion = useCallback(async () => {
-    if (!state.sessionId) return;
+    if (!sessionId) return;
 
-    setState((prev) => ({ ...prev, isLoading: true }));
+    setIsLoading(true);
     try {
-      const response = await sobesApi.skip(state.sessionId);
-      if (response.is_last || !response.next_question) {
-        await loadResults();
+      const data = await sobesApi.skip(sessionId);
+      if (data.is_last || !data.next_question) {
+        if (sessionId) {
+          const resultsData = await sobesApi.getResults(sessionId);
+          setResults(resultsData);
+          setView("results");
+        }
       } else {
-        setState((prev) => ({
-          ...prev,
-          view: 'question',
-          currentQuestion: response.next_question,
-          userAnswer: '',
-          lastAnswer: null,
-          isLoading: false,
-        }));
+        setQuestion(data.next_question);
+        setQuestionIndex((prev) => prev + 1);
+        setUserAnswer("");
+        setLastAnswer(null);
+        setNextQuestion(null);
+        setView("question");
       }
     } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Ошибка пропуска вопроса',
-      }));
+      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+    } finally {
+      setIsLoading(false);
     }
-  }, [state.sessionId]);
+  }, [sessionId]);
 
   const repeatQuestion = useCallback(async () => {
-    if (!state.sessionId) return;
+    if (!sessionId) return;
 
-    setState((prev) => ({ ...prev, isLoading: true }));
     try {
-      const response = await sobesApi.repeat(state.sessionId);
-      setState((prev) => ({
-        ...prev,
-        view: 'question',
-        currentQuestion: response.question,
-        userAnswer: '',
-        lastAnswer: null,
-        isLoading: false,
-      }));
+      const data = await sobesApi.repeat(sessionId);
+      setQuestion(data.question);
+      setUserAnswer("");
+      setLastAnswer(null);
+      setNextQuestion(null);
+      setView("question");
     } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Ошибка повтора вопроса',
-      }));
+      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
     }
-  }, [state.sessionId]);
-
-  const loadResults = useCallback(async () => {
-    if (!state.sessionId) return;
-    setState((prev) => ({ ...prev, isLoading: true }));
-    try {
-      const results = await sobesApi.getResults(state.sessionId);
-      setState((prev) => ({
-        ...prev,
-        view: 'results',
-        isLoading: false,
-        results,
-      }));
-    } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Ошибка загрузки результатов',
-      }));
-    }
-  }, [state.sessionId]);
-
-  const restart = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      view: 'setup',
-      sessionId: null,
-      currentQuestion: null,
-      userAnswer: '',
-      lastAnswer: null,
-      results: null,
-      error: null,
-    }));
-  }, []);
+  }, [sessionId]);
 
   const goBack = useCallback(() => {
-    restart();
-  }, [restart]);
+    setView("setup");
+    setQuestion(null);
+    setUserAnswer("");
+    setLastAnswer(null);
+    setResults(null);
+  }, []);
+
+  const restart = useCallback(() => {
+    setView("setup");
+    setQuestion(null);
+    setUserAnswer("");
+    setLastAnswer(null);
+    setResults(null);
+    setSessionId(null);
+  }, []);
 
   return {
-    ...state,
+    view,
+    config,
+    level,
     setLevel,
+    selectedTopics,
     toggleTopic,
     startSobes,
+    question,
+    questionIndex,
+    totalPlanned,
+    userAnswer,
     setUserAnswer,
+    lastAnswer,
+    results,
+    isLoading,
+    error,
     submitAnswer,
-    nextQuestion,
+    nextQuestion: nextQuestionHandler,
     skipQuestion,
     repeatQuestion,
-    restart,
     goBack,
+    restart,
   };
 }

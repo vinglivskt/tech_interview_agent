@@ -1,29 +1,24 @@
-import React from 'react';
-import {
-  QuizSetupPresentation,
-  QuizQuestionPresentation,
-  QuizAnswerPresentation,
-  QuizResultsPresentation,
-} from './presentation';
-import { useQuiz } from './useQuiz';
+import React from "react";
+import { QuizSetupView, QuizQuestionView, QuizResultsView } from "./presentation";
+import { useQuiz } from "./useQuiz";
 
 export const QuizContainer: React.FC = () => {
   const quiz = useQuiz();
 
   switch (quiz.view) {
-    case 'setup':
+    case "setup":
       return (
-        <QuizSetupPresentation
+        <QuizSetupView
           level={quiz.level}
           onLevelChange={quiz.setLevel}
           onStart={quiz.startQuiz}
           isLoading={quiz.isLoading}
         />
       );
-    case 'question':
-      return quiz.currentQuestion ? (
-        <QuizQuestionPresentation
-          question={quiz.currentQuestion}
+    case "question":
+      return quiz.question ? (
+        <QuizQuestionView
+          question={quiz.question}
           selectedOption={quiz.selectedOption}
           onSelectOption={quiz.selectOption}
           onSubmit={quiz.submitAnswer}
@@ -31,23 +26,9 @@ export const QuizContainer: React.FC = () => {
           isLoading={quiz.isLoading}
         />
       ) : null;
-    case 'answer':
-      return quiz.currentQuestion && quiz.lastAnswer ? (
-        <QuizAnswerPresentation
-          question={quiz.currentQuestion}
-          selectedOption={quiz.selectedOption}
-          answer={quiz.lastAnswer}
-          onNext={quiz.nextQuestion}
-          onBack={quiz.goBack}
-        />
-      ) : null;
-    case 'results':
+    case "results":
       return quiz.results ? (
-        <QuizResultsPresentation
-          results={quiz.results}
-          onRestart={quiz.restart}
-          onBack={quiz.goBack}
-        />
+        <QuizResultsView results={quiz.results} onRestart={quiz.restart} onBack={quiz.goBack} />
       ) : null;
     default:
       return null;

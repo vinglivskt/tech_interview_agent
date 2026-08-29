@@ -1,7 +1,7 @@
 import React from "react";
-import { Button, Card, Markdown } from "@/components/ui";
-import type { QuizSetupViewProps, QuizQuestionViewProps, QuizAnswerViewProps, QuizResultsViewProps } from "./types";
-import styles from "./quiz.module.scss";
+import { Button } from "@/components/ui";
+import type { QuizViewProps } from "./types";
+import styles from "./quiz.module.css";
 
 const LEVEL_NAMES: Record<string, string> = {
   junior: "Junior",
@@ -9,130 +9,124 @@ const LEVEL_NAMES: Record<string, string> = {
   senior: "Senior",
 };
 
-export const QuizSetupPresentation: React.FC<QuizSetupViewProps> = ({ level, onLevelChange, onStart, isLoading }) => (
-  <Card className={styles.setupCard}>
-    <h2 className={styles.title}>Настройка квиза</h2>
-    <p className={styles.subtitle}>Выберите уровень сложности</p>
+export const QuizSetupView: React.FC<QuizViewProps> = ({ level, onLevelChange, onStart, isLoading }) => {
+  return (
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <Button variant="secondary" onClick={onStart === undefined ? () => {} : () => {}}>
+          ← На главную
+        </Button>
+        <h1 className={styles.title}>Тестирование</h1>
+      </header>
 
-    <div className={styles.levelGrid}>
-      {(["junior", "middle", "senior"] as const).map((l) => (
-        <div
-          key={l}
-          className={`${styles.levelCard} ${level === l ? styles.selected : ""}`}
-          onClick={() => onLevelChange(l)}
+      <div className={styles.setupCard}>
+        <p className={styles.subtitle}>Выберите уровень сложности и начните тест из 20 вопросов</p>
+
+        <label className={styles.label} htmlFor="quiz-level">
+          Уровень
+        </label>
+        <select
+          id="quiz-level"
+          className={styles.select}
+          value={level}
+          onChange={(e) => onLevelChange(e.target.value as "junior" | "middle" | "senior")}
         >
-          <h3>{LEVEL_NAMES[l]}</h3>
-          <p>
-            {l === "junior" && "Базовые вопросы для начинающих"}
-            {l === "middle" && "Вопросы для разработчика с опытом"}
-            {l === "senior" && "Глубокие вопросы для senior"}
-          </p>
+          <option value="junior">Junior (лёгкие вопросы)</option>
+          <option value="middle">Middle (средние вопросы)</option>
+          <option value="senior">Senior (сложные вопросы)</option>
+        </select>
+
+        <div className={styles.row} style={{ marginTop: "1rem" }}>
+          <Button variant="success" onClick={onStart} disabled={isLoading} loading={isLoading}>
+            {isLoading ? "Начинаем…" : "Начать тест"}
+          </Button>
         </div>
-      ))}
+      </div>
     </div>
+  );
+};
 
-    <Button onClick={onStart} loading={isLoading} disabled={isLoading}>
-      Начать квиз
-    </Button>
-  </Card>
-);
+export const QuizQuestionView: React.FC<{
+  question: {
+    question_text: string;
+    question_number: number;
+    total_questions: number;
+    options: { index: number; text: string }[];
+  };
+  selectedOption: number | null;
+  onSelectOption: (index: number) => void;
+  onSubmit: () => void;
+  onBack: () => void;
+  isLoading: boolean;
+}> = ({ question, selectedOption, onSelectOption, onSubmit, onBack, isLoading }) => {
+  const progressPercent = (question.question_number / question.total_questions) * 100;
 
-export const QuizQuestionPresentation: React.FC<QuizQuestionViewProps> = ({
-  question,
-  selectedOption,
-  onSelectOption,
-  onSubmit,
-  onBack,
-  isLoading,
-}) => (
-  <div className={styles.container}>
-    <header className={styles.header}>
-      <Button variant="secondary" onClick={onBack}>
-        ← На главную
-      </Button>
-      <div className={styles.progress}>
-        {question.question_number} / {question.total_questions}
-      </div>
-    </header>
-
-    <Card className={styles.questionCard}>
-      <div className={styles.questionBadge}>Вопрос {question.question_number}</div>
-      <p className={styles.questionText}>{question.question_text}</p>
-
-      <div className={styles.options}>
-        {question.options.map((opt) => (
-          <div
-            key={opt.index}
-            className={`${styles.option} ${selectedOption === opt.index ? styles.selected : ""}`}
-            onClick={() => onSelectOption(opt.index)}
-          >
-            <input
-              type="radio"
-              name="quiz-option"
-              checked={selectedOption === opt.index}
-              onChange={() => onSelectOption(opt.index)}
-            />
-            <label>{opt.text}</label>
-          </div>
-        ))}
-      </div>
-
-      <Button onClick={onSubmit} disabled={selectedOption === null} loading={isLoading}>
-        Ответить
-      </Button>
-    </Card>
-  </div>
-);
-
-export const QuizAnswerPresentation: React.FC<QuizAnswerViewProps> = ({
-  question,
-  selectedOption,
-  answer,
-  onNext,
-  onBack,
-}) => (
-  <div className={styles.container}>
-    <header className={styles.header}>
-      <Button variant="secondary" onClick={onBack}>
-        ← На главную
-      </Button>
-    </header>
-
-    <Card className={styles.answerCard}>
-      <div className={`${styles.resultBadge} ${answer.is_correct ? styles.correct : styles.wrong}`}>
-        {answer.is_correct ? "✓ Правильно!" : "✗ Неправильно"}
-      </div>
-
-      <p className={styles.questionText}>{question.question_text}</p>
-
-      <div className={styles.answerSection}>
-        <strong>Ваш ответ:</strong>
-        <span className={answer.is_correct ? styles.correctText : styles.wrongText}>
-          {question.options.find((o) => o.index === selectedOption)?.text}
-        </span>
-      </div>
-
-      {!answer.is_correct && (
-        <div className={styles.answerSection}>
-          <strong>Правильный ответ:</strong>
-          <span className={styles.correctText}>
-            {question.options.find((o) => o.index === answer.correct_index)?.text}
-          </span>
+  return (
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <Button variant="secondary" onClick={onBack}>
+          ← На главную
+        </Button>
+        <div className={styles.progress}>
+          Вопрос {question.question_number} из {question.total_questions}
         </div>
-      )}
+      </header>
 
-      <div className={styles.explanation}>
-        <strong>Пояснение:</strong>
-        <Markdown content={answer.explanation} />
+      <div className={styles.progressBar}>
+        <div className={styles.progressBarFill} style={{ width: `${progressPercent}%` }} />
       </div>
 
-      <Button onClick={onNext}>{answer.is_last ? "Посмотреть результаты" : "Следующий вопрос →"}</Button>
-    </Card>
-  </div>
-);
+      <div className={styles.questionCard}>
+        <div className={styles.questionBadge}>Вопрос {question.question_number}</div>
+        <p className={styles.questionText}>{question.question_text}</p>
 
-export const QuizResultsPresentation: React.FC<QuizResultsViewProps> = ({ results, onRestart, onBack }) => {
-  const percentage = Math.round((results.total_score / results.total_questions) * 100);
+        <div className={styles.options}>
+          {question.options.map((opt) => (
+            <div
+              key={opt.index}
+              className={`${styles.option} ${selectedOption === opt.index ? styles.selected : ""}`}
+              onClick={() => onSelectOption(opt.index)}
+            >
+              <input
+                type="radio"
+                name="quiz-option"
+                checked={selectedOption === opt.index}
+                onChange={() => onSelectOption(opt.index)}
+              />
+              <label>{opt.text}</label>
+            </div>
+          ))}
+        </div>
+
+        <div className={styles.row} style={{ marginTop: "1rem" }}>
+          <Button onClick={onSubmit} disabled={selectedOption === null || isLoading} loading={isLoading}>
+            Далее →
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const QuizResultsView: React.FC<{
+  results: {
+    total_score: number;
+    total_questions: number;
+    level: string;
+    results: {
+      question_text: string;
+      user_answer: string;
+      correct_answer: string;
+      is_correct: boolean;
+      explanation: string;
+    }[];
+  };
+  onRestart: () => void;
+  onBack: () => void;
+}> = ({ results, onRestart, onBack }) => {
+  const escapeHtml = (text: string) => {
+    return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  };
 
   return (
     <div className={styles.container}>
@@ -142,34 +136,48 @@ export const QuizResultsPresentation: React.FC<QuizResultsViewProps> = ({ result
         </Button>
       </header>
 
-      <Card className={styles.resultsCard}>
-        <h2 className={styles.resultsTitle}>Результаты квиза</h2>
-
-        <div className={styles.scoreSection}>
-          <div className={styles.bigScore}>{percentage}%</div>
-          <div className={styles.scoreDetails}>
-            {results.total_score} из {results.total_questions} правильно
+      <div className={styles.resultsCard}>
+        <div className={styles.resultsScore}>
+          <div className={styles.bigScore}>
+            {results.total_score}/{results.total_questions}
           </div>
-          <div className={styles.levelBadge}>{LEVEL_NAMES[results.level]}</div>
+          <div className={styles.levelBadge}>Уровень: {LEVEL_NAMES[results.level] || results.level}</div>
         </div>
 
+        <h2 style={{ margin: "1.5rem 0 1rem", fontSize: "1.1rem" }}>Подробные результаты</h2>
+
         <div className={styles.resultsList}>
-          {results.results.map((result, i) => (
-            <div key={i} className={`${styles.resultItem} ${result.is_correct ? styles.correct : styles.wrong}`}>
-              <h4>{result.question_text}</h4>
-              <p>Ваш ответ: {result.user_answer}</p>
-              {!result.is_correct && <p>Правильный: {result.correct_answer}</p>}
-              <p className={styles.explanationText}>{result.explanation}</p>
+          {results.results.map((r, idx) => (
+            <div key={idx} className={`${styles.resultItem} ${r.is_correct ? styles.correct : styles.wrong}`}>
+              <h4>
+                Вопрос {idx + 1}: {escapeHtml(r.question_text)}
+              </h4>
+              <p>
+                <span className={styles.label}>Ваш ответ:</span> {escapeHtml(r.user_answer)}
+              </p>
+              {!r.is_correct && (
+                <>
+                  <p>
+                    <span className={styles.label}>Правильный ответ:</span> {escapeHtml(r.correct_answer)}
+                  </p>
+                  <p>
+                    <span className={styles.label}>Объяснение:</span> {r.explanation}
+                  </p>
+                </>
+              )}
             </div>
           ))}
         </div>
 
         <div className={styles.resultsActions}>
-          <Button onClick={onRestart}>Пройти ещё раз</Button>
+          <Button onClick={onBack}>На главную</Button>
+          <Button variant="secondary" onClick={onRestart}>
+            Пройти ещё раз
+          </Button>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };
 
-export default QuizSetupPresentation;
+export default QuizSetupView;

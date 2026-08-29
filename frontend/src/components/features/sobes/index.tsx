@@ -1,19 +1,14 @@
-import React from 'react';
-import {
-  SobesSetupPresentation,
-  SobesQuestionPresentation,
-  SobesAnswerPresentation,
-  SobesResultsPresentation,
-} from './presentation';
-import { useSobes } from './useSobes';
+import React from "react";
+import { SobesSetupView, SobesQuestionView, SobesAnswerView, SobesResultsView } from "./presentation";
+import { useSobes } from "./useSobes";
 
 export const SobesContainer: React.FC = () => {
   const sobes = useSobes();
 
   switch (sobes.view) {
-    case 'setup':
+    case "setup":
       return (
-        <SobesSetupPresentation
+        <SobesSetupView
           config={sobes.config}
           level={sobes.level}
           selectedTopics={sobes.selectedTopics}
@@ -25,38 +20,34 @@ export const SobesContainer: React.FC = () => {
           error={sobes.error}
         />
       );
-    case 'question':
-      return sobes.currentQuestion ? (
-        <SobesQuestionPresentation
-          question={sobes.currentQuestion}
+    case "question":
+      return sobes.question ? (
+        <SobesQuestionView
+          question={sobes.question}
+          questionIndex={sobes.questionIndex}
+          totalPlanned={sobes.totalPlanned}
           userAnswer={sobes.userAnswer}
+          isLoading={sobes.isLoading}
           onAnswerChange={sobes.setUserAnswer}
           onSubmit={sobes.submitAnswer}
           onSkip={sobes.skipQuestion}
           onRepeat={sobes.repeatQuestion}
           onBack={sobes.goBack}
-          isLoading={sobes.isLoading}
-          questionNumber={sobes.currentQuestion.number}
-          totalPlanned={10}
         />
       ) : null;
-    case 'answer':
-      return sobes.currentQuestion && sobes.lastAnswer ? (
-        <SobesAnswerPresentation
-          question={sobes.currentQuestion}
+    case "answer":
+      return sobes.question && sobes.lastAnswer ? (
+        <SobesAnswerView
+          question={sobes.question}
           userAnswer={sobes.userAnswer}
           answer={sobes.lastAnswer}
           onNext={sobes.nextQuestion}
           onBack={sobes.goBack}
         />
       ) : null;
-    case 'results':
+    case "results":
       return sobes.results ? (
-        <SobesResultsPresentation
-          results={sobes.results}
-          onRestart={sobes.restart}
-          onBack={sobes.goBack}
-        />
+        <SobesResultsView results={sobes.results} onRestart={sobes.restart} onBack={sobes.goBack} />
       ) : null;
     default:
       return null;

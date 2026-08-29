@@ -1,40 +1,40 @@
-import React from 'react';
-import { Button, Card, Markdown, Spinner } from '@/components/ui';
-import type {
-  SobesSetupViewProps,
-  SobesQuestionViewProps,
-  SobesAnswerViewProps,
-  SobesResultsViewProps,
-} from './types';
-import styles from './sobes.module.scss';
+import React from "react";
+import { Button, Markdown } from "@/components/ui";
+import styles from "./sobes.module.css";
 
-const LEVEL_NAMES: Record<string, string> = {
-  junior: 'Junior',
-  middle: 'Middle',
-  senior: 'Senior',
-};
-
-export const SobesSetupPresentation: React.FC<SobesSetupViewProps> = ({
-  config,
-  level,
-  selectedTopics,
-  onLevelChange,
-  onTopicToggle,
-  onStart,
-  onBack,
-  isLoading,
-  error,
-}) => {
+export const SobesSetupView: React.FC<{
+  config: {
+    topics: string[];
+    counts_by_level: Record<string, [number, number]>;
+    pass_threshold: number;
+  } | null;
+  level: "junior" | "middle" | "senior";
+  selectedTopics: string[];
+  onLevelChange: (level: "junior" | "middle" | "senior") => void;
+  onTopicToggle: (topic: string) => void;
+  onStart: () => void;
+  onBack: () => void;
+  isLoading: boolean;
+  error: string | null;
+}> = ({ config, level, selectedTopics, onLevelChange, onTopicToggle, onStart, onBack, isLoading, error }) => {
   if (!config) {
     return (
-      <div className={styles.loadingContainer}>
-        <Spinner size="large" />
-        <p>Загрузка конфигурации...</p>
+      <div className={styles.container}>
+        <header className={styles.header}>
+          <Button variant="secondary" onClick={onBack}>
+            ← На главную
+          </Button>
+        </header>
+        <div className={styles.loadingContainer}>Загрузка конфигурации...</div>
       </div>
     );
   }
 
   const countsByLevel = config.counts_by_level || {};
+  const rng = (l: string) => {
+    const range = countsByLevel[l];
+    return range ? `${range[0]}–${range[1]}` : "?";
+  };
 
   return (
     <div className={styles.container}>
@@ -42,205 +42,243 @@ export const SobesSetupPresentation: React.FC<SobesSetupViewProps> = ({
         <Button variant="secondary" onClick={onBack}>
           ← На главную
         </Button>
+        <h1 className={styles.title}>Собеседование</h1>
       </header>
 
-      <Card className={styles.setupCard}>
-        <h2 className={styles.title}>Подготовка к собеседованию</h2>
+      <div className={styles.setupCard}>
         <p className={styles.subtitle}>
-          Порог прохождения: {config.pass_threshold}%
+          Выберите уровень и темы. Система подберёт вопросы по темам и будет двигаться от простого к сложному.
         </p>
 
-        <div className={styles.section}>
-          <h3>Уровень сложности</h3>
-          <div className={styles.levelGrid}>
-            {(['junior', 'middle', 'senior'] as const).map((l) => (
-              <div
-                key={l}
-                className={`${styles.levelCard} ${level === l ? styles.selected : ''}`}
-                onClick={() => onLevelChange(l)}
-              >
-                <h4>{LEVEL_NAMES[l]}</h4>
-                <p>{countsByLevel[l] || 0} вопросов</p>
-              </div>
-            ))}
-          </div>
-        </div>
+        <label className={styles.label} htmlFor="sobes-level">
+          Уровень
+        </label>
+        <select
+          id="sobes-level"
+          className={styles.select}
+          value={level}
+          onChange={(e) => onLevelChange(e.target.value as "junior" | "middle" | "senior")}
+        >
+          <option value="junior">Junior</option>
+          <option value="middle">Middle</option>
+          <option value="senior">Senior</option>
+        </select>
 
-        <div className={styles.section}>
-          <h3>Темы</h3>
+        <div className={styles.section} style={{ marginTop: "0.9rem" }}>
+          <label>Темы</label>
           <div className={styles.topicsGrid}>
             {config.topics.map((topic) => (
               <div
-                key={topic.id}
-                className={`${styles.topicCard} ${
-                  selectedTopics.includes(topic.id) ? styles.selected : ''
-                }`}
-                onClick={() => onTopicToggle(topic.id)}
+                key={topic}
+                className={`${styles.topicCard} ${selectedTopics.includes(topic) ? styles.selected : ""}`}
+                onClick={() => onTopicToggle(topic)}
               >
-                <span className={styles.topicCheck}>
-                  {selectedTopics.includes(topic.id) ? '✓' : ''}
-                </span>
-                <span>{topic.name}</span>
+                <span className={styles.topicCheck}>{selectedTopics.includes(topic) ? "✓" : ""}</span>
+                <span>{topic}</span>
               </div>
             ))}
+          </div>
+          <div className={styles.meta}>
+            Вопросов: junior {rng("junior")}, middle {rng("middle")}, senior {rng("senior")}. Порог засчёта:{" "}
+            {config.pass_threshold}%
           </div>
         </div>
 
         {error && <div className={styles.error}>{error}</div>}
 
-        <Button
-          onClick={onStart}
-          loading={isLoading}
-          disabled={isLoading || selectedTopics.length === 0}
-        >
-          Начать подготовку
-        </Button>
-      </Card>
+        <div className={styles.row} style={{ marginTop: "1rem" }}>
+          <Button
+            variant="success"
+            onClick={onStart}
+            disabled={isLoading || selectedTopics.length === 0}
+            loading={isLoading}
+          >
+            {isLoading ? "Готовим вопросы…" : "Начать собеседование"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };
 
-export const SobesQuestionPresentation: React.FC<SobesQuestionViewProps> = ({
+export const SobesQuestionView: React.FC<{
+  question: {
+    id: string;
+    number: number;
+    text: string;
+    topic: string;
+    level: string;
+    topic_hint?: string;
+  };
+  questionIndex: number;
+  totalPlanned: number;
+  userAnswer: string;
+  isLoading: boolean;
+  onAnswerChange: (value: string) => void;
+  onSubmit: () => void;
+  onSkip: () => void;
+  onRepeat: () => void;
+  onBack: () => void;
+}> = ({
   question,
+  questionIndex,
+  totalPlanned,
   userAnswer,
+  isLoading,
   onAnswerChange,
   onSubmit,
   onSkip,
   onRepeat,
   onBack,
-  isLoading,
-  questionNumber,
-  totalPlanned,
-}) => (
-  <div className={styles.container}>
-    <header className={styles.header}>
-      <Button variant="secondary" onClick={onBack}>
-        ← На главную
-      </Button>
-      <div className={styles.progress}>
-        {questionNumber} / {totalPlanned}
-      </div>
-    </header>
+}) => {
+  const progressPercent = totalPlanned
+    ? Math.max(0, Math.min(100, Math.round(((questionIndex - 1) / totalPlanned) * 100)))
+    : 0;
+  const levelNames: Record<string, string> = { junior: "Junior", middle: "Middle", senior: "Senior" };
 
-    <Card className={styles.questionCard}>
-      {question.topic_hint && (
-        <div className={styles.topicHint}>
-          <strong>Тема:</strong> {question.topic_hint}
+  return (
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <Button variant="secondary" onClick={onBack}>
+          ← На главную
+        </Button>
+        <div className={styles.progress}>
+          Вопрос {questionIndex} из {totalPlanned}
         </div>
-      )}
+      </header>
 
-      <div className={styles.questionMeta}>
-        <span className={styles.questionNumber}>Вопрос {question.number}</span>
-        <span className={styles.questionTopic}>{question.topic}</span>
+      <div className={styles.progressBar}>
+        <div className={styles.progressBarFill} style={{ width: `${progressPercent}%` }} />
       </div>
 
-      <p className={styles.questionText}>{question.text}</p>
+      <div className={styles.questionCard}>
+        <div className={styles.questionMeta}>
+          <span className={styles.questionNumber}>Вопрос №{question.number}</span>
+          <span>
+            Тема: {question.topic} · Уровень: {levelNames[question.level] || question.level}
+          </span>
+        </div>
 
-      <div className={styles.answerArea}>
-        <label>Ваш ответ:</label>
+        {question.topic_hint && (
+          <div className={styles.topicHint}>
+            <strong>Подсказка:</strong> {question.topic_hint}
+          </div>
+        )}
+
+        <p className={styles.questionText}>{question.text}</p>
+
+        <label className={styles.label} htmlFor="sobes-answer">
+          Ваш ответ
+        </label>
         <textarea
+          id="sobes-answer"
+          className={styles.textarea}
           value={userAnswer}
           onChange={(e) => onAnswerChange(e.target.value)}
-          placeholder="Введите ваш ответ..."
-          rows={6}
+          placeholder="Ваш ответ… (Ctrl/Cmd+Enter — отправить)"
           disabled={isLoading}
         />
-      </div>
 
-      <div className={styles.actions}>
-        <Button
-          variant="secondary"
-          onClick={onSubmit}
-          disabled={!userAnswer.trim() || isLoading}
-          loading={isLoading}
-        >
-          Проверить
-        </Button>
-        <Button variant="secondary" onClick={onSkip} disabled={isLoading}>
-          Пропустить
-        </Button>
-        <Button variant="secondary" onClick={onRepeat} disabled={isLoading}>
-          Повторить
-        </Button>
-      </div>
-    </Card>
-  </div>
-);
-
-export const SobesAnswerPresentation: React.FC<SobesAnswerViewProps> = ({
-  question,
-  userAnswer,
-  answer,
-  onNext,
-  onBack,
-}) => (
-  <div className={styles.container}>
-    <header className={styles.header}>
-      <Button variant="secondary" onClick={onBack}>
-        ← На главную
-      </Button>
-    </header>
-
-    <Card className={styles.answerCard}>
-      <div className={styles.scoreBar}>
-        <div
-          className={styles.scoreFill}
-          style={{ width: `${answer.score_percent}%` }}
-        />
-        <span className={styles.scoreText}>
-          {answer.score_percent}% покрыто
-        </span>
-      </div>
-
-      <h3 className={styles.questionTitle}>{question.text}</h3>
-
-      <div className={styles.answerSection}>
-        <strong>Ваш ответ:</strong>
-        <p className={styles.userAnswer}>{userAnswer}</p>
-      </div>
-
-      <div className={styles.explanation}>
-        <strong>Разбор от HR:</strong>
-        <Markdown content={answer.techlead_explanation} />
-      </div>
-
-      {answer.covered_points.length > 0 && (
-        <div className={styles.pointsSection}>
-          <h4>✓ Раскрыто:</h4>
-          <ul>
-            {answer.covered_points.map((point, i) => (
-              <li key={i}>{point}</li>
-            ))}
-          </ul>
+        <div className={styles.actions}>
+          <Button variant="secondary" onClick={onRepeat} disabled={isLoading}>
+            Повторить вопрос
+          </Button>
+          <Button variant="secondary" onClick={onSkip} disabled={isLoading}>
+            Пропустить
+          </Button>
+          <Button onClick={onSubmit} disabled={!userAnswer.trim() || isLoading} loading={isLoading}>
+            Отправить ответ
+          </Button>
         </div>
-      )}
+      </div>
+    </div>
+  );
+};
 
-      {answer.missed_points.length > 0 && (
-        <div className={styles.pointsSection + ' ' + styles.missed}>
-          <h4>✗ Пропущено:</h4>
-          <ul>
-            {answer.missed_points.map((point, i) => (
-              <li key={i}>{point}</li>
-            ))}
-          </ul>
+export const SobesAnswerView: React.FC<{
+  question: { text: string };
+  userAnswer: string;
+  answer: {
+    score_percent: number;
+    techlead_explanation: string;
+    covered_points: string[];
+    missed_points: string[];
+    is_last: boolean;
+  };
+  onNext: () => void;
+  onBack: () => void;
+}> = ({ question, userAnswer, answer, onNext, onBack }) => {
+  return (
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <Button variant="secondary" onClick={onBack}>
+          ← На главную
+        </Button>
+      </header>
+
+      <div className={styles.answerCard}>
+        <div className={styles.scoreBar}>
+          <div className={styles.scoreFill} style={{ width: `${answer.score_percent}%` }} />
         </div>
-      )}
+        <span className={styles.scoreText}>Оценка: {answer.score_percent}%</span>
 
-      <Button onClick={onNext}>
-        {answer.is_last ? 'Посмотреть результаты' : 'Следующий вопрос →'}
-      </Button>
-    </Card>
-  </div>
-);
+        <h3 className={styles.questionText}>{question.text}</h3>
 
-export const SobesResultsPresentation: React.FC<SobesResultsViewProps> = ({
-  results,
-  onRestart,
-  onBack,
-}) => {
-  const levelBadge = results.verdict_level
-    ? LEVEL_NAMES[results.verdict_level] || results.verdict_level
-    : 'N/A';
+        <div className={styles.answerSection}>
+          <strong>Ваш ответ:</strong>
+          <p className={styles.userAnswer}>{userAnswer}</p>
+        </div>
+
+        <div className={styles.explanation}>
+          <strong>Разбор:</strong>
+          <Markdown content={`## Оценка: ${answer.score_percent}%\n\n${answer.techlead_explanation}`} />
+        </div>
+
+        {answer.covered_points.length > 0 && (
+          <div className={styles.pointsSection}>
+            <h4>✓ Раскрыто:</h4>
+            <ul>
+              {answer.covered_points.map((p, i) => (
+                <li key={i}>{p}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {answer.missed_points.length > 0 && (
+          <div className={`${styles.pointsSection} ${styles.missed}`}>
+            <h4>✗ Упущено:</h4>
+            <ul>
+              {answer.missed_points.map((p, i) => (
+                <li key={i}>{p}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className={styles.row} style={{ marginTop: "1.5rem" }}>
+          <Button onClick={onNext}>{answer.is_last ? "Посмотреть результаты →" : "Следующий вопрос →"}</Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const SobesResultsView: React.FC<{
+  results: {
+    verdict_level: string;
+    summary: string;
+    summary_detail?: { counted: number; total: number; avg_percent: number };
+    strengths: string[];
+    weaknesses: string[];
+    details: { question_text: string; topic: string; score_percent: number; explanation: string }[];
+  };
+  onRestart: () => void;
+  onBack: () => void;
+}> = ({ results, onRestart, onBack }) => {
+  const summaryText = results.summary_detail
+    ? `${results.summary_detail.counted}/${results.summary_detail.total} — ${results.summary_detail.avg_percent}%`
+    : results.summary;
 
   return (
     <div className={styles.container}>
@@ -250,68 +288,42 @@ export const SobesResultsPresentation: React.FC<SobesResultsViewProps> = ({
         </Button>
       </header>
 
-      <Card className={styles.resultsCard}>
-        <h2 className={styles.resultsTitle}>Результаты собеседования</h2>
-
-        <div className={styles.verdictBadge}>{levelBadge}</div>
-
-        <div className={styles.summary}>
-          <Markdown content={results.summary} />
+      <div className={styles.resultsCard}>
+        <div className={styles.verdictBadge}>
+          {summaryText} — Вердикт: {results.verdict_level}
         </div>
 
-        {results.strengths.length > 0 && (
-          <div className={styles.feedbackSection}>
-            <h4>Сильные стороны:</h4>
-            <ul>
-              {results.strengths.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <h2 style={{ marginTop: "1rem", fontSize: "1.1rem" }}>Сильные и слабые стороны</h2>
+        <div className={styles.feedbackSection}>
+          <strong>Сильные:</strong> {results.strengths.join(", ") || "—"}
+        </div>
+        <div className={`${styles.feedbackSection} ${styles.weaknesses}`}>
+          <strong>Слабые:</strong> {results.weaknesses.join(", ") || "—"}
+        </div>
 
-        {results.weaknesses.length > 0 && (
-          <div className={styles.feedbackSection + ' ' + styles.weaknesses}>
-            <h4>Области для улучшения:</h4>
-            <ul>
-              {results.weaknesses.map((w, i) => (
-                <li key={i}>{w}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <h3 className={styles.detailsTitle}>Детализация по вопросам</h3>
+        <h2 style={{ marginTop: "1rem", fontSize: "1.1rem" }}>Детали</h2>
         <div className={styles.resultsList}>
-          {results.details.map((detail, i) => (
-            <div
-              key={i}
-              className={`${styles.resultItem} ${
-                detail.is_correct ? styles.correct : styles.wrong
-              }`}
-            >
-              <p className={styles.detailQuestion}>{detail.question}</p>
-              <p>Ваш ответ: {detail.user_answer}</p>
-              {!detail.is_correct && (
-                <>
-                  <p className={styles.correctAnswer}>
-                    Ожидалось: {detail.correct_answer}
-                  </p>
-                  <p className={styles.detailExplanation}>
-                    {detail.explanation}
-                  </p>
-                </>
-              )}
+          {results.details.map((d, idx) => (
+            <div key={idx} className={styles.resultItem}>
+              <h4>
+                Вопрос {idx + 1}: {d.question_text}
+              </h4>
+              <p>Тема: {d.topic}</p>
+              <p>Процент: {d.score_percent}%</p>
+              <p>Комментарий: {d.explanation}</p>
             </div>
           ))}
         </div>
 
         <div className={styles.resultsActions}>
-          <Button onClick={onRestart}>Начать заново</Button>
+          <Button onClick={onBack}>На главную</Button>
+          <Button variant="secondary" onClick={onRestart}>
+            Пройти ещё раз
+          </Button>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };
 
-export default SobesSetupPresentation;
+export default SobesSetupView;

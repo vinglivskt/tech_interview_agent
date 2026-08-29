@@ -1,19 +1,25 @@
-import React from 'react';
-import { Button, Markdown, Spinner } from '@/components/ui';
-import type { ChatViewProps } from './types';
-import styles from './chat.module.scss';
+import React from "react";
+import { Button, Markdown } from "@/components/ui";
+import type { ChatViewProps } from "./types";
+import styles from "./chat.module.css";
 
 export const ChatPresentation: React.FC<ChatViewProps> = ({
-  messages,
-  input,
+  questionNumber,
+  questionText,
+  answer,
+  isAnswerEmpty,
+  userAnswer,
+  statusText,
+  saveStatus,
   isLoading,
   error,
-  onInputChange,
+  onAnswerChange,
   onSend,
+  onSave,
   onBack,
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       onSend();
     }
@@ -25,50 +31,51 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
         <Button variant="secondary" onClick={onBack}>
           ← На главную
         </Button>
-        <h1 className={styles.title}>Чат с ассистентом</h1>
+        <h1 className={styles.title}>Интервью</h1>
       </header>
 
-      <div className={styles.messages}>
-        {messages.length === 0 && (
-          <div className={styles.empty}>
-            <p>Задайте вопрос по Python или подготовке к собеседованию</p>
-          </div>
-        )}
-        {messages.map((msg, i) => (
-          <div key={i} className={`${styles.message} ${styles[msg.role]}`}>
-            <div className={styles.messageContent}>
-              <Markdown content={msg.content} />
-            </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className={`${styles.message} ${styles.assistant}`}>
-            <div className={styles.messageContent}>
-              <Spinner />
-              <span className={styles.loadingText}>Думаю...</span>
-            </div>
-          </div>
-        )}
-        {error && (
-          <div className={styles.error}>
-            <span>{error}</span>
-          </div>
-        )}
+      <p className={styles.subtitle} style={{ color: "var(--muted)", marginBottom: "1rem" }}>
+        Вверху — текущий вопрос. Ниже — поле для вашего ответа и результаты проверки.
+      </p>
+
+      <div className={styles.questionCard}>
+        <div className={styles.questionBadge}>Вопрос №{questionNumber}</div>
+        <div className={styles.questionText}>
+          {questionText ? <Markdown content={questionText} /> : "Здесь появится вопрос."}
+        </div>
       </div>
 
-      <div className={styles.inputArea}>
-        <textarea
-          value={input}
-          onChange={(e) => onInputChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Введите ваш вопрос..."
-          rows={3}
-          disabled={isLoading}
-        />
-        <Button onClick={onSend} loading={isLoading} disabled={!input.trim()}>
+      <label className={styles.label} htmlFor="msg">
+        Ваш ответ
+      </label>
+      <textarea
+        id="msg"
+        className={styles.textarea}
+        value={userAnswer}
+        onChange={(e) => onAnswerChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Ваш ответ… (Ctrl/Cmd+Enter — отправить)"
+        disabled={isLoading}
+      />
+
+      <div className={styles.row}>
+        <Button onClick={onSend} disabled={isLoading || !userAnswer.trim()} loading={isLoading}>
           Отправить
         </Button>
+        <span className={styles.status}>{statusText}</span>
       </div>
+
+      <div className={`${styles.output} ${isAnswerEmpty ? styles.empty : ""} ${error ? styles.error : ""}`}>
+        {answer || "Ответ ассистента появится здесь."}
+      </div>
+
+      <Button className={`${styles.saveBtn} ${saveStatus ? styles.visible : ""}`} variant="success" onClick={onSave}>
+        💾 Сохранить в Word
+      </Button>
+
+      {saveStatus && (
+        <div className={`${styles.saveStatus} ${saveStatus.startsWith("❌") ? styles.error : ""}`}>{saveStatus}</div>
+      )}
     </div>
   );
 };

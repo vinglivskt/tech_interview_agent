@@ -19,6 +19,9 @@ services:
       dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend/src:/app/src:rw
+      - ./backend/prompts:/app/prompts:ro
     environment:
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
@@ -40,15 +43,34 @@ services:
       INGEST_INTERVAL_HOURS: ${INGEST_INTERVAL_HOURS:-1}
     depends_on:
       - qdrant
+    develop:
+      watch:
+        - path: ./backend/src
+          target: /app/src
+          action: sync+restart
+        - path: ./backend/prompts
+          target: /app/prompts
+          action: sync
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
-      - "3000:80"
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src:rw
+      - ./frontend/public:/app/public:ro
     depends_on:
       - api
+    develop:
+      watch:
+        - path: ./frontend/src
+          target: /app/src
+          action: sync+restart
+        - path: ./frontend/index.html
+          target: /app/index.html
+          action: sync
 
 volumes:
   qdrant_storage:

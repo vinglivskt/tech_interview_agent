@@ -1,0 +1,1627 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>RAG — Python интервью ассистент</title>
+        <style>
+            :root {
+                --bg: #0f1419;
+                --panel: #1a2332;
+                --text: #e7eef7;
+                --muted: #8b9bb4;
+                --accent: #3b82f6;
+                --accent-dim: #2563eb;
+                --border: #2a3a52;
+                --err: #f87171;
+                --success: #34d399;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                min-height: 100vh;
+                font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+                background: radial-gradient(1200px 600px at 20% -10%, #1e3a5f 0%, transparent 55%), var(--bg);
+                color: var(--text);
+                line-height: 1.5;
+            }
+            .wrap {
+                max-width: 720px;
+                margin: 0 auto;
+                padding: 2rem 1.25rem 3rem;
+            }
+            h1 {
+                font-size: 1.35rem;
+                font-weight: 600;
+                margin: 0 0 0.35rem;
+                letter-spacing: -0.02em;
+            }
+            h2 {
+                font-size: 1.1rem;
+                font-weight: 600;
+                margin: 0 0 0.5rem;
+            }
+            .sub {
+                color: var(--muted);
+                font-size: 0.9rem;
+                margin-bottom: 1.5rem;
+            }
+            label {
+                display: block;
+                font-size: 0.8rem;
+                color: var(--muted);
+                margin-bottom: 0.4rem;
+            }
+
+            .mode-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+                margin-top: 1.5rem;
+            }
+            .mode-card {
+                background: var(--panel);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 1.5rem 1.25rem;
+                cursor: pointer;
+                transition:
+                    border-color 0.2s,
+                    transform 0.1s;
+            }
+            .mode-card:hover {
+                border-color: var(--accent);
+                transform: translateY(-2px);
+            }
+            .mode-card:active {
+                transform: translateY(0);
+            }
+            .mode-card .icon {
+                font-size: 2rem;
+                margin-bottom: 0.75rem;
+            }
+            .mode-card h3 {
+                margin: 0 0 0.4rem;
+                font-size: 1rem;
+            }
+            .mode-card p {
+                margin: 0;
+                font-size: 0.82rem;
+                color: var(--muted);
+            }
+
+            button {
+                appearance: none;
+                border: none;
+                border-radius: 10px;
+                padding: 0.65rem 1.1rem;
+                font-size: 0.95rem;
+                font-weight: 600;
+                cursor: pointer;
+                color: #fff;
+                background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+            }
+            button:disabled {
+                opacity: 0.55;
+                cursor: not-allowed;
+            }
+            button.secondary {
+                background: var(--panel);
+                border: 1px solid var(--border);
+                color: var(--text);
+            }
+            button.secondary:hover {
+                border-color: var(--accent);
+            }
+            .btn-green {
+                background: linear-gradient(180deg, #10b981, #059669);
+            }
+            .btn-next {
+                background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+                color: white;
+                border: 2px solid #1d4ed8;
+                font-weight: bold;
+            }
+
+            textarea,
+            select {
+                width: 100%;
+                padding: 0.75rem 0.85rem;
+                border-radius: 10px;
+                border: 1px solid var(--border);
+                background: var(--panel);
+                color: var(--text);
+                font-size: 0.95rem;
+                resize: vertical;
+            }
+            textarea:focus,
+            select:focus {
+                outline: none;
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+            }
+            .row {
+                display: flex;
+                gap: 0.75rem;
+                align-items: center;
+                margin-top: 0.85rem;
+                flex-wrap: wrap;
+            }
+
+            .question-card {
+                margin-top: 1rem;
+                padding: 1rem 1.1rem;
+                border-radius: 10px;
+                border: 1px solid var(--accent);
+                background: rgba(59, 130, 246, 0.08);
+            }
+            .question-card .q-badge {
+                display: inline-block;
+                font-weight: 700;
+                font-size: 0.85rem;
+                padding: 0.25rem 0.5rem;
+                border-radius: 6px;
+                border: 1px solid var(--accent);
+                color: var(--accent);
+                background: rgba(59, 130, 246, 0.12);
+                margin-bottom: 0.5rem;
+            }
+            .question-card .q-text {
+                font-size: 1rem;
+                line-height: 1.6;
+            }
+
+            .out {
+                margin-top: 1.25rem;
+                padding: 1rem 1.1rem;
+                border-radius: 10px;
+                border: 1px solid var(--border);
+                background: var(--panel);
+                min-height: 4rem;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+            .out.empty {
+                color: var(--muted);
+            }
+            .markdown > :first-child {
+                margin-top: 0;
+            }
+            .markdown > :last-child {
+                margin-bottom: 0;
+            }
+            .markdown p {
+                margin: 0.65rem 0;
+            }
+            .markdown h1,
+            .markdown h2,
+            .markdown h3 {
+                margin: 1rem 0 0.5rem;
+                line-height: 1.25;
+            }
+            .markdown h1 {
+                font-size: 1.25rem;
+            }
+            .markdown h2 {
+                font-size: 1.1rem;
+            }
+            .markdown h3 {
+                font-size: 1rem;
+            }
+            .markdown ul,
+            .markdown ol {
+                margin: 0.6rem 0;
+                padding-left: 1.35rem;
+            }
+            .markdown li + li {
+                margin-top: 0.25rem;
+            }
+            .markdown blockquote {
+                margin: 0.75rem 0;
+                padding: 0.25rem 0.8rem;
+                border-left: 3px solid var(--accent);
+                color: var(--muted);
+            }
+            .markdown pre {
+                overflow-x: auto;
+                margin: 0.75rem 0;
+                padding: 0.85rem;
+                border-radius: 8px;
+                background: #0b1018;
+                border: 1px solid var(--border);
+            }
+            .markdown code {
+                padding: 0.1rem 0.3rem;
+                border-radius: 4px;
+                background: rgba(255, 255, 255, 0.08);
+                font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                font-size: 0.88em;
+            }
+            .markdown pre code {
+                padding: 0;
+                background: transparent;
+            }
+            .markdown a {
+                color: #7db3ff;
+            }
+            .meta {
+                margin-top: 0.6rem;
+                font-size: 0.78rem;
+                color: var(--muted);
+                font-family: ui-monospace, monospace;
+            }
+            .err {
+                color: var(--err);
+            }
+
+            .save-btn {
+                margin-top: 0.75rem;
+                display: none;
+                background: linear-gradient(180deg, #10b981, #059669);
+            }
+            .save-btn.visible {
+                display: inline-block;
+            }
+            .save-status {
+                margin-top: 0.5rem;
+                font-size: 0.82rem;
+                color: var(--success);
+                display: none;
+            }
+            .save-status.visible {
+                display: block;
+            }
+            .save-status.error {
+                color: var(--err);
+            }
+
+            .quiz-progress {
+                margin-top: 1rem;
+                height: 6px;
+                background: var(--border);
+                border-radius: 3px;
+                overflow: hidden;
+            }
+            .quiz-progress-bar {
+                height: 100%;
+                background: var(--accent);
+                transition: width 0.3s ease;
+            }
+            .quiz-question {
+                margin-top: 1.5rem;
+                font-size: 1.05rem;
+                font-weight: 500;
+            }
+            .quiz-options {
+                margin-top: 1rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.6rem;
+            }
+            .quiz-option {
+                display: flex;
+                align-items: flex-start;
+                gap: 0.6rem;
+                padding: 0.75rem 1rem;
+                border-radius: 10px;
+                border: 1px solid var(--border);
+                background: var(--panel);
+                cursor: pointer;
+                transition: border-color 0.15s;
+            }
+            .quiz-option:hover {
+                border-color: var(--accent);
+            }
+            .quiz-option.selected {
+                border-color: var(--accent);
+                background: rgba(59, 130, 246, 0.1);
+            }
+            .quiz-option input {
+                margin-top: 0.2rem;
+            }
+            .quiz-option label {
+                margin: 0;
+                font-size: 0.9rem;
+                color: var(--text);
+                cursor: pointer;
+            }
+
+            .results-score {
+                text-align: center;
+                padding: 2rem 1rem;
+            }
+            .results-score .big {
+                font-size: 3rem;
+                font-weight: 700;
+            }
+            .results-score .level {
+                font-size: 1.2rem;
+                margin-top: 0.5rem;
+            }
+            .result-item {
+                margin-top: 1rem;
+                padding: 1rem;
+                border-radius: 10px;
+                border: 1px solid var(--border);
+                background: var(--panel);
+            }
+            .result-item.correct {
+                border-left: 4px solid var(--success);
+            }
+            .result-item.wrong {
+                border-left: 4px solid var(--err);
+            }
+            .result-item h4 {
+                margin: 0 0 0.5rem;
+                font-size: 0.95rem;
+            }
+            .result-item p {
+                margin: 0.3rem 0;
+                font-size: 0.85rem;
+            }
+            .result-item .label {
+                color: var(--muted);
+            }
+
+            .hidden {
+                display: none !important;
+            }
+
+            /* Спиннер загрузки */
+            .spinner {
+                width: 14px;
+                height: 14px;
+                border: 2px solid var(--border);
+                border-top-color: var(--accent);
+                border-radius: 50%;
+                display: inline-block;
+                vertical-align: -2px;
+                margin-right: 6px;
+                animation: spin 0.8s linear infinite;
+            }
+            button .spinner {
+                border-color: rgba(255, 255, 255, 0.35);
+                border-top-color: #fff;
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="wrap">
+            <!-- Главная -->
+            <div id="home-screen">
+                <h1>Python Interview Assistant</h1>
+                <p class="sub">Выберите режим работы</p>
+                <div class="mode-grid">
+                    <div class="mode-card" onclick="startMode('chat')">
+                        <div class="icon">💬</div>
+                        <h3>Интервью</h3>
+                        <p>
+                            Свободный диалог с ассистентом. Задавайте вопросы, получайте ответы с ссылками на базу
+                            знаний.
+                        </p>
+                    </div>
+                    <div class="mode-card" onclick="startMode('quiz')">
+                        <div class="icon">📝</div>
+                        <h3>Тестирование</h3>
+                        <p>20 вопросов с вариантами ответов. Проверьте свои знания и узнайте свой уровень.</p>
+                    </div>
+                    <div class="mode-card" onclick="startMode('sobes')">
+                        <div class="icon">🎯</div>
+                        <h3>Собеседование</h3>
+                        <p>15–25 вопросов по темам, свободные ответы, оценка в процентах и финальный вердикт.</p>
+                    </div>
+                    <div class="mode-card" onclick="startMode('design')">
+                        <div class="icon">🏗️</div>
+                        <h3>Системный дизайн</h3>
+                        <p>Проектируйте систему пошагово и получите оценку по архитектурной рубрике.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Интервью -->
+            <div id="chat-screen" class="hidden">
+                <button class="secondary" onclick="showHome()">← Назад</button>
+                <h1 style="margin-top: 1rem">Интервью</h1>
+                <p class="sub">Вверху — текущий вопрос. Ниже — поле для вашего ответа и результаты проверки.</p>
+
+                <div class="question-card" id="question-card">
+                    <div class="q-badge" id="question-badge">Вопрос №—</div>
+                    <div class="q-text" id="question-text">Здесь появится вопрос.</div>
+                </div>
+
+                <label for="msg" style="margin-top: 1rem; display: block">Ваш ответ</label>
+                <textarea id="msg" placeholder="Ваш ответ… (введите и нажмите Отправить)"></textarea>
+                <div class="row">
+                    <button type="button" id="send">Отправить</button>
+                    <span class="muted" id="status"></span>
+                </div>
+                <div class="out empty" id="out">Ответ ассистента появится здесь.</div>
+                <button type="button" class="save-btn" id="saveBtn">💾 Сохранить в Word</button>
+                <div class="save-status" id="saveStatus"></div>
+                <div class="meta" id="meta"></div>
+            </div>
+
+            <!-- Тестирование -->
+            <div id="quiz-screen" class="hidden">
+                <button class="secondary" onclick="showHome()">← Назад</button>
+                <h1 style="margin-top: 1rem">Тестирование</h1>
+
+                <div id="quiz-setup">
+                    <p class="sub">Выберите уровень сложности и начните тест из 20 вопросов</p>
+                    <label for="quiz-level">Уровень</label>
+                    <select id="quiz-level">
+                        <option value="junior">Junior (лёгкие вопросы)</option>
+                        <option value="middle" selected>Middle (средние вопросы)</option>
+                        <option value="senior">Senior (сложные вопросы)</option>
+                    </select>
+                    <div class="row">
+                        <button type="button" class="btn-green" id="start-quiz-btn">Начать тест</button>
+                    </div>
+                </div>
+
+                <div id="quiz-question" class="hidden">
+                    <div class="meta" id="quiz-progress-text">Вопрос 1 из 20</div>
+                    <div class="quiz-progress"><div class="quiz-progress-bar" id="quiz-progress-bar"></div></div>
+                    <div class="quiz-question" id="quiz-question-text"></div>
+                    <div class="quiz-options" id="quiz-options"></div>
+                    <div class="row">
+                        <button type="button" id="quiz-next-btn" disabled>Далее →</button>
+                    </div>
+                </div>
+
+                <div id="quiz-results" class="hidden">
+                    <div class="results-score">
+                        <div class="big" id="results-score-value">0/20</div>
+                        <div class="level" id="results-level">Уровень: —</div>
+                    </div>
+                    <h2>Подробные результаты</h2>
+                    <div id="results-list"></div>
+                    <div class="row" style="margin-top: 1.5rem">
+                        <button type="button" onclick="showHome()">На главную</button>
+                        <button type="button" class="secondary" onclick="startMode('quiz')">Пройти ещё раз</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Собеседование -->
+            <div id="sobes-screen" class="hidden">
+                <button class="secondary" onclick="showHome()">← Назад</button>
+                <h1 style="margin-top: 1rem">Собеседование</h1>
+
+                <div id="sobes-setup">
+                    <p class="sub">
+                        Выберите уровень и темы. Система подберёт вопросы по темам и будет двигаться от простого к
+                        сложному.
+                    </p>
+                    <label for="sobes-level">Уровень</label>
+                    <select id="sobes-level">
+                        <option value="junior">Junior</option>
+                        <option value="middle" selected>Middle</option>
+                        <option value="senior">Senior</option>
+                    </select>
+
+                    <div style="margin-top: 0.9rem">
+                        <label>Темы</label>
+                        <div id="sobes-topics" class="row"></div>
+                        <div class="meta" id="sobes-config-hint"></div>
+                    </div>
+
+                    <div class="row">
+                        <button type="button" class="btn-green" id="sobes-start-btn">Начать собеседование</button>
+                    </div>
+                </div>
+
+                <div id="sobes-interview" class="hidden">
+                    <div class="meta" id="sobes-progress-text">Вопрос 1</div>
+                    <div class="quiz-progress"><div class="quiz-progress-bar" id="sobes-progress-bar"></div></div>
+                    <div class="question-card" id="sobes-q-card">
+                        <div class="q-badge" id="sobes-q-badge">Вопрос №—</div>
+                        <div class="q-text" id="sobes-q-text">Здесь появится вопрос.</div>
+                        <div class="meta" id="sobes-topic-meta">Тема: — · Уровень: —</div>
+                    </div>
+
+                    <div
+                        class="out"
+                        id="sobes-hint"
+                        style="border-color: #3b82f6; background: rgba(59, 130, 246, 0.06); display: none"
+                    ></div>
+
+                    <label for="sobes-answer" style="margin-top: 1rem; display: block">Ваш ответ</label>
+                    <textarea id="sobes-answer" placeholder="Ваш ответ… (Ctrl/Cmd+Enter — отправить)"></textarea>
+                    <div class="row">
+                        <button type="button" class="secondary" id="sobes-repeat-btn">Повторить вопрос</button>
+                        <button type="button" class="secondary" id="sobes-skip-btn">Пропустить</button>
+                        <button type="button" id="sobes-submit-btn" disabled>Отправить ответ</button>
+                        <span id="sobes-status" class="muted"></span>
+                    </div>
+
+                    <div class="out" id="sobes-expl">Здесь появится оценка и объяснение.</div>
+                    <div class="row" id="sobes-next-btn-row" style="margin-top: 1.5rem; display: none">
+                        <button type="button" class="btn-next" id="sobes-next-btn">Следующий вопрос →</button>
+                    </div>
+                    <div class="row" id="sobes-finish-btn-row" style="margin-top: 1.5rem; display: none">
+                        <button type="button" class="btn-next" id="sobes-finish-btn">Посмотреть результаты →</button>
+                    </div>
+                    <div class="row" id="sobes-points" style="align-items: flex-start; margin-top: 1rem">
+                        <div style="flex: 1">
+                            <h2 style="font-size: 0.95rem; margin: 0.8rem 0 0.4rem">Покрыто</h2>
+                            <ul id="sobes-covered" style="margin: 0.2rem 0 0.8rem 1rem"></ul>
+                        </div>
+                        <div style="flex: 1">
+                            <h2 style="font-size: 0.95rem; margin: 0.8rem 0 0.4rem">Упущено</h2>
+                            <ul id="sobes-missed" style="margin: 0.2rem 0 0.8rem 1rem"></ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sobes-results" class="hidden">
+                    <div class="results-score">
+                        <div class="big" id="sobes-summary">0/0 — 0%</div>
+                        <div class="level" id="sobes-verdict">Вердикт: —</div>
+                    </div>
+                    <h2>Сильные и слабые стороны</h2>
+                    <div class="result-item"><strong>Сильные:</strong> <span id="sobes-strengths">—</span></div>
+                    <div class="result-item" style="margin-top: 0.5rem">
+                        <strong>Слабые:</strong> <span id="sobes-weaknesses">—</span>
+                    </div>
+
+                    <h2 style="margin-top: 1rem">Детали</h2>
+                    <div id="sobes-details"></div>
+
+                    <div class="row" style="margin-top: 1.5rem">
+                        <button type="button" onclick="showHome()">На главную</button>
+                        <button type="button" class="secondary" onclick="startMode('sobes')">Пройти ещё раз</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Системный дизайн -->
+            <div id="design-screen" class="hidden">
+                <button class="secondary" onclick="showHome()">← Назад</button>
+                <h1 style="margin-top: 1rem">Системный дизайн</h1>
+                <div id="design-setup">
+                    <p class="sub">Выберите уровень и сценарий. Можно оставить автоматический выбор.</p>
+                    <label for="design-level">Уровень</label>
+                    <select id="design-level"></select>
+                    <label for="design-scenario" style="margin-top: 0.9rem">Сценарий</label>
+                    <select id="design-scenario"></select>
+                    <div class="meta" id="design-config-hint"></div>
+                    <div class="row">
+                        <button type="button" class="btn-green" id="design-start-btn">Начать проектирование</button>
+                    </div>
+                </div>
+                <div id="design-interview" class="hidden">
+                    <div class="meta" id="design-progress-text">Шаг 1</div>
+                    <div class="quiz-progress"><div class="quiz-progress-bar" id="design-progress-bar"></div></div>
+                    <div class="question-card">
+                        <div class="q-badge" id="design-step-title">Шаг</div>
+                        <div class="q-text" id="design-step-prompt"></div>
+                    </div>
+                    <div class="row">
+                        <button type="button" class="secondary" id="design-hint-btn">Подсказка (−10%)</button>
+                    </div>
+                    <div class="out hidden" id="design-hint"></div>
+                    <label for="design-answer" style="margin-top: 1rem; display: block">Ваше решение</label>
+                    <textarea id="design-answer" placeholder="Опишите решение… (Ctrl/Cmd+Enter — отправить)"></textarea>
+                    <div class="row">
+                        <button type="button" id="design-submit-btn" disabled>Ответить</button
+                        ><span id="design-status"></span>
+                    </div>
+                    <div class="out" id="design-expl">Здесь появится оценка и комментарий техлида.</div>
+                    <div class="row" style="align-items: flex-start">
+                        <div style="flex: 1">
+                            <h2 style="font-size: 0.95rem">Покрыто</h2>
+                            <ul id="design-covered"></ul>
+                        </div>
+                        <div style="flex: 1">
+                            <h2 style="font-size: 0.95rem">Упущено</h2>
+                            <ul id="design-missed"></ul>
+                        </div>
+                    </div>
+                </div>
+                <div id="design-results" class="hidden">
+                    <div class="results-score">
+                        <div class="big" id="design-summary">0%</div>
+                        <div class="level" id="design-verdict">Вердикт: —</div>
+                    </div>
+                    <div class="result-item"><strong>Сильные:</strong> <span id="design-strengths">—</span></div>
+                    <div class="result-item"><strong>Слабые:</strong> <span id="design-weaknesses">—</span></div>
+                    <h2 style="margin-top: 1rem">Рубрика</h2>
+                    <div id="design-rubric" class="out"></div>
+                    <h2 style="margin-top: 1rem">Детали</h2>
+                    <div id="design-details"></div>
+                    <div class="row">
+                        <button type="button" onclick="showHome()">На главную</button
+                        ><button type="button" class="secondary" onclick="startMode('design')">Пройти ещё раз</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Утилиты загрузки
+            function setButtonLoading(btn, loading, textWhileLoading = "") {
+                if (!btn) return;
+                if (loading) {
+                    if (!btn.dataset.origText) btn.dataset.origText = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner"></span>' + (textWhileLoading || btn.textContent || "");
+                } else {
+                    btn.disabled = false;
+                    if (btn.dataset.origText) btn.innerHTML = btn.dataset.origText;
+                    delete btn.dataset.origText;
+                }
+            }
+            function setStatusLoading(el, loading, text = "Загрузка…") {
+                if (!el) return;
+                if (loading) {
+                    el.innerHTML = '<span class="spinner"></span>' + text;
+                } else {
+                    el.textContent = "";
+                }
+            }
+
+            function escapeHtml(value) {
+                return String(value ?? "").replace(
+                    /[&<>'"]/g,
+                    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char],
+                );
+            }
+            function renderInlineMarkdown(text) {
+                if (!text) return "";
+                let value = text;
+
+                // Экранируем HTML-сущности ДО применения markdown, чтобы защитить markdown-разметку
+                // Но сохраняем уже существующие HTML-теги
+                const hasHtmlTags = /<(strong|em|code|pre|blockquote|h[1-6]|ul|ol|li|a|p|br|hr)[^>]*>/i.test(value);
+                const hasHtmlEntities = /&(lt|gt|amp|quot|#[0-9]+|#x[0-9a-f]+);/.test(value);
+
+                // Если контент содержит HTML — вставляем как есть (LLM уже вернул HTML)
+                if (hasHtmlTags || hasHtmlEntities) {
+                    return value;
+                }
+
+                // Markdown-преобразования
+                // Bold: **текст** или __текст__
+                value = value.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+                value = value.replace(/__(.+?)__/g, "<strong>$1</strong>");
+
+                // Курсив: *текст* или _текст_ (но не ** или __)
+                value = value.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, "<em>$1</em>");
+                value = value.replace(/(?<!_) _([^_]+?)_(?!_)/g, "<em>$1</em>");
+
+                // Inline code: `code`
+                value = value.replace(/`([^`]+)`/g, "<code>$1</code>");
+
+                // Links: [text](url)
+                value = value.replace(
+                    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+                    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
+                );
+
+                return value;
+            }
+            function renderMarkdown(markdown) {
+                const lines = String(markdown ?? "")
+                    .replace(/\r\n?/g, "\n")
+                    .split("\n");
+                const html = [];
+                let index = 0;
+                while (index < lines.length) {
+                    const line = lines[index];
+                    if (line.startsWith("```")) {
+                        const language = escapeHtml(line.slice(3).trim());
+                        const code = [];
+                        index += 1;
+                        while (index < lines.length && !lines[index].startsWith("```")) code.push(lines[index++]);
+                        if (index < lines.length) index += 1;
+                        html.push(
+                            `<pre><code class="language-${language}">${escapeHtml(code.join("\n"))}</code></pre>`,
+                        );
+                        continue;
+                    }
+                    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+                    if (heading) {
+                        const level = heading[1].length;
+                        html.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
+                        index += 1;
+                        continue;
+                    }
+                    if (/^\s*[-*+]\s+/.test(line) || /^\s*\d+\.\s+/.test(line)) {
+                        const ordered = /^\s*\d+\.\s+/.test(line);
+                        const tag = ordered ? "ol" : "ul";
+                        const pattern = ordered ? /^\s*\d+\.\s+(.+)$/ : /^\s*[-*+]\s+(.+)$/;
+                        const items = [];
+                        while (index < lines.length) {
+                            const match = lines[index].match(pattern);
+                            if (!match) break;
+                            items.push(`<li>${renderInlineMarkdown(match[1])}</li>`);
+                            index += 1;
+                        }
+                        html.push(`<${tag}>${items.join("")}</${tag}>`);
+                        continue;
+                    }
+                    if (line.startsWith("> ")) {
+                        html.push(`<blockquote>${renderInlineMarkdown(line.slice(2))}</blockquote>`);
+                        index += 1;
+                        continue;
+                    }
+                    if (/^\s*---+\s*$/.test(line)) {
+                        html.push("<hr>");
+                        index += 1;
+                        continue;
+                    }
+                    if (!line.trim()) {
+                        index += 1;
+                        continue;
+                    }
+                    const paragraph = [line];
+                    index += 1;
+                    while (
+                        index < lines.length &&
+                        lines[index].trim() &&
+                        !lines[index].startsWith("```") &&
+                        !/^(#{1,3})\s+/.test(lines[index]) &&
+                        !/^\s*[-*+]\s+/.test(lines[index]) &&
+                        !/^\s*\d+\.\s+/.test(lines[index])
+                    )
+                        paragraph.push(lines[index++]);
+                    html.push(`<p>${renderInlineMarkdown(paragraph.join("\n")).replace(/\n/g, "<br>")}</p>`);
+                }
+                return html.join("") || "<p>—</p>";
+            }
+            function setMarkdown(target, markdown) {
+                const element = typeof target === "string" ? document.getElementById(target) : target;
+                if (!element) return;
+                element.classList.add("markdown");
+                // Если контент содержит HTML-теги или HTML-сущности (&lt;, &gt;, &amp;) — вставляем напрямую
+                // Это означает, что LLM уже вернул отформатированный HTML
+                if (
+                    /&(lt|gt|amp|quot|#[0-9]+|#x[0-9a-f]+);|<(strong|em|code|pre|blockquote|h[1-6]|ul|ol|li|a|p|br|hr)[^>]*>/i.test(
+                        markdown,
+                    )
+                ) {
+                    element.innerHTML = markdown;
+                } else {
+                    element.innerHTML = renderMarkdown(markdown);
+                }
+            }
+
+            // Навигация
+            function showHome() {
+                document.getElementById("home-screen").classList.remove("hidden");
+                document.getElementById("chat-screen").classList.add("hidden");
+                document.getElementById("quiz-screen").classList.add("hidden");
+                document.getElementById("sobes-screen").classList.add("hidden");
+                document.getElementById("design-screen").classList.add("hidden");
+            }
+            function startMode(mode) {
+                document.getElementById("home-screen").classList.add("hidden");
+                if (mode === "chat") {
+                    document.getElementById("chat-screen").classList.remove("hidden");
+                    document.getElementById("quiz-screen").classList.add("hidden");
+                    document.getElementById("sobes-screen").classList.add("hidden");
+                    document.getElementById("design-screen").classList.add("hidden");
+                    // Автоматически подгружаем случайный вопрос при входе в режим интервью
+                    loadRandomQuestion();
+                } else if (mode === "quiz") {
+                    document.getElementById("chat-screen").classList.add("hidden");
+                    document.getElementById("quiz-screen").classList.remove("hidden");
+                    document.getElementById("sobes-screen").classList.add("hidden");
+                    document.getElementById("design-screen").classList.add("hidden");
+                    showQuizSetup();
+                } else if (mode === "sobes") {
+                    document.getElementById("chat-screen").classList.add("hidden");
+                    document.getElementById("quiz-screen").classList.add("hidden");
+                    document.getElementById("sobes-screen").classList.remove("hidden");
+                    showSobesSetup();
+                } else if (mode === "design") {
+                    document.getElementById("chat-screen").classList.add("hidden");
+                    document.getElementById("quiz-screen").classList.add("hidden");
+                    document.getElementById("sobes-screen").classList.add("hidden");
+                    document.getElementById("design-screen").classList.remove("hidden");
+                    showDesignSetup();
+                }
+            }
+
+            // Интервью
+            const SESSION_KEY = "interview_session_id";
+            const sessionId = localStorage.getItem(SESSION_KEY) || crypto.randomUUID();
+            localStorage.setItem(SESSION_KEY, sessionId);
+
+            let lastQuestion = "",
+                lastAnswer = "",
+                lastQuestionNumber = null;
+
+            async function submitChat() {
+                const text = document.getElementById("msg").value.trim();
+                if (!text) return;
+                const sendBtn = document.getElementById("send");
+                const statusEl = document.getElementById("status");
+                setButtonLoading(sendBtn, true, "Отправка…");
+                document.getElementById("out").classList.remove("empty", "err");
+                document.getElementById("out").textContent = "";
+                document.getElementById("meta").textContent = "";
+                document.getElementById("saveBtn").classList.remove("visible");
+                document.getElementById("saveStatus").classList.remove("visible", "error");
+                // Если уже задан случайный вопрос, считаем, что пользователь отправляет свой ответ на него
+                if (!lastQuestion) {
+                    lastQuestion = text;
+                }
+                lastAnswer = "";
+                try {
+                    const r = await fetch("/api/chat", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ message: text, session_id: sessionId }),
+                    });
+                    let data = null;
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        throw new Error("HTTP " + r.status);
+                    }
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
+                    setMarkdown("out", data.answer || "(пустой ответ)");
+                    lastAnswer = data.answer || "";
+                    if (data.meta) {
+                        if (data.meta.suggest_save) document.getElementById("saveBtn").classList.add("visible");
+                    }
+                } catch (e) {
+                    document.getElementById("out").classList.add("err");
+                    document.getElementById("out").textContent = String(e);
+                } finally {
+                    setButtonLoading(sendBtn, false);
+                    document.getElementById("msg").value = "";
+                }
+            }
+
+            async function saveToWord() {
+                const saveBtn = document.getElementById("saveBtn");
+                const saveStatus = document.getElementById("saveStatus");
+                setButtonLoading(saveBtn, true, "Сохранение…");
+                saveStatus.classList.remove("visible", "error");
+                saveStatus.innerHTML = '<span class="spinner"></span>Сохранение…';
+                saveStatus.classList.add("visible");
+                try {
+                    const r = await fetch("/api/interview/save-qa", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            question: lastQuestion,
+                            correct_answer: lastAnswer,
+                            session_id: sessionId,
+                        }),
+                    });
+                    let data = null;
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        throw new Error("HTTP " + r.status);
+                    }
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
+                    if (data.status === "saved") {
+                        saveStatus.textContent = "✅ Сохранено как вопрос №" + data.number;
+                        saveBtn.classList.remove("visible");
+                    } else if (data.status === "skipped") {
+                        saveStatus.textContent = "⚠️ Такой вопрос уже есть в базе";
+                    } else {
+                        throw new Error((data && data.detail) || "Неизвестная ошибка");
+                    }
+                } catch (e) {
+                    saveStatus.textContent = "❌ Ошибка: " + e.message;
+                    saveStatus.classList.add("error");
+                } finally {
+                    setButtonLoading(saveBtn, false);
+                }
+            }
+
+            document.getElementById("send").addEventListener("click", submitChat);
+
+            async function loadRandomQuestion() {
+                const out = document.getElementById("out");
+                const status = document.getElementById("status");
+                const msg = document.getElementById("msg");
+                const badge = document.getElementById("question-badge");
+                const qtext = document.getElementById("question-text");
+                out.classList.add("empty");
+                out.textContent = "Ответ ассистента появится здесь.";
+                setStatusLoading(status, true, "Генерация вопроса…");
+                try {
+                    const r = await fetch("/api/interview/random-question");
+                    let data = null;
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        throw new Error("HTTP " + r.status);
+                    }
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
+                    lastQuestionNumber = data.number;
+                    lastQuestion = data.question || "";
+                    badge.textContent = "Вопрос №" + data.number;
+                    setMarkdown(qtext, data.question || "");
+                    msg.placeholder = "Ваш ответ… (введите и нажмите Отправить)";
+                    document.getElementById("meta").textContent = "Всего вопросов: " + (data.total || "?");
+                } catch (e) {
+                    out.classList.add("err");
+                    out.textContent = "Не удалось загрузить вопрос: " + String(e);
+                } finally {
+                    setStatusLoading(status, false);
+                }
+            }
+            document.getElementById("saveBtn").addEventListener("click", saveToWord);
+            document.getElementById("msg").addEventListener("keydown", (e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submitChat();
+            });
+
+            // Квиз
+            let quizSessionId = null,
+                currentQuestionId = null,
+                selectedOption = null;
+
+            function showQuizSetup() {
+                document.getElementById("quiz-setup").classList.remove("hidden");
+                document.getElementById("quiz-question").classList.add("hidden");
+                document.getElementById("quiz-results").classList.add("hidden");
+            }
+
+            async function startQuiz() {
+                const level = document.getElementById("quiz-level").value;
+                const startBtn = document.getElementById("start-quiz-btn");
+                setButtonLoading(startBtn, true, "Начинаем…");
+                try {
+                    const r = await fetch("/api/quiz/start", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ level }),
+                    });
+                    let data = null;
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        throw new Error("HTTP " + r.status);
+                    }
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
+                    quizSessionId = data.session_id;
+                    currentQuestionId = data.question_id;
+                    showQuizQuestion(data);
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                } finally {
+                    setButtonLoading(startBtn, false);
+                }
+            }
+
+            function showQuizQuestion(q) {
+                document.getElementById("quiz-setup").classList.add("hidden");
+                document.getElementById("quiz-question").classList.remove("hidden");
+                document.getElementById("quiz-results").classList.add("hidden");
+
+                document.getElementById("quiz-progress-text").textContent =
+                    "Вопрос " + q.question_number + " из " + q.total_questions;
+                document.getElementById("quiz-progress-bar").style.width =
+                    (q.question_number / q.total_questions) * 100 + "%";
+                setMarkdown("quiz-question-text", q.question_text);
+
+                const optionsEl = document.getElementById("quiz-options");
+                optionsEl.innerHTML = "";
+                selectedOption = null;
+                document.getElementById("quiz-next-btn").disabled = true;
+
+                q.options.forEach((opt, idx) => {
+                    const div = document.createElement("div");
+                    div.className = "quiz-option";
+                    div.innerHTML =
+                        '<input type="radio" name="quiz-opt" id="opt-' +
+                        idx +
+                        '" value="' +
+                        idx +
+                        '"><label for="opt-' +
+                        idx +
+                        '">' +
+                        escapeHtml(opt) +
+                        "</label>";
+                    div.addEventListener("click", () => selectOption(idx, div));
+                    optionsEl.appendChild(div);
+                });
+            }
+
+            function selectOption(idx, el) {
+                selectedOption = idx;
+                document.querySelectorAll(".quiz-option").forEach((d) => d.classList.remove("selected"));
+                el.classList.add("selected");
+                document.getElementById("opt-" + idx).checked = true;
+                document.getElementById("quiz-next-btn").disabled = false;
+            }
+
+            async function submitQuizAnswer() {
+                if (selectedOption === null || !quizSessionId) return;
+                const nextBtn = document.getElementById("quiz-next-btn");
+                setButtonLoading(nextBtn, true, "Проверка…");
+                try {
+                    const r = await fetch("/api/quiz/answer", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            session_id: quizSessionId,
+                            question_id: currentQuestionId,
+                            selected_index: selectedOption,
+                        }),
+                    });
+                    let data = null;
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        throw new Error("HTTP " + r.status);
+                    }
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
+                    if (data.is_last || data.next_question === null) {
+                        loadQuizResults();
+                    } else {
+                        currentQuestionId = data.next_question.question_id;
+                        showQuizQuestion(data.next_question);
+                    }
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                } finally {
+                    setButtonLoading(nextBtn, false);
+                }
+            }
+
+            async function loadQuizResults() {
+                try {
+                    const r = await fetch("/api/quiz/results/" + quizSessionId);
+                    let data = null;
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        throw new Error("HTTP " + r.status);
+                    }
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
+                    showQuizResults(data);
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                }
+            }
+
+            function showQuizResults(data) {
+                document.getElementById("quiz-setup").classList.add("hidden");
+                document.getElementById("quiz-question").classList.add("hidden");
+                document.getElementById("quiz-results").classList.remove("hidden");
+
+                document.getElementById("results-score-value").textContent =
+                    data.total_score + "/" + data.total_questions;
+                const levelNames = { junior: "Junior", middle: "Middle", senior: "Senior" };
+                document.getElementById("results-level").textContent =
+                    "Уровень: " + (levelNames[data.level] || data.level);
+
+                const listEl = document.getElementById("results-list");
+                listEl.innerHTML = "";
+                data.results.forEach((r, idx) => {
+                    const div = document.createElement("div");
+                    div.className = "result-item " + (r.is_correct ? "correct" : "wrong");
+                    let html = "<h4>Вопрос " + (idx + 1) + ": " + escapeHtml(r.question_text) + "</h4>";
+                    html += '<p><span class="label">Ваш ответ:</span> ' + escapeHtml(r.user_answer) + "</p>";
+                    if (!r.is_correct) {
+                        html +=
+                            '<p><span class="label">Правильный ответ:</span> ' + escapeHtml(r.correct_answer) + "</p>";
+                        html +=
+                            '<div class="markdown"><span class="label">Объяснение:</span> ' +
+                            renderMarkdown(r.explanation) +
+                            "</div>";
+                    }
+                    div.innerHTML = html;
+                    listEl.appendChild(div);
+                });
+            }
+
+            document.getElementById("start-quiz-btn").addEventListener("click", startQuiz);
+            document.getElementById("quiz-next-btn").addEventListener("click", submitQuizAnswer);
+
+            // Собеседование
+            let sobesSessionId = null;
+            let sobesCurrentQuestion = null;
+            let sobesAnsweredCount = 0;
+            let sobesTotalPlanned = 0;
+            let sobesCurrentIndex = 1; // 1-based номер текущего вопроса
+
+            async function loadSobesConfig() {
+                const topicsEl = document.getElementById("sobes-topics");
+                const hint = document.getElementById("sobes-config-hint");
+                topicsEl.innerHTML = '<span class="spinner"></span> Загружаем темы…';
+                try {
+                    const r = await fetch("/api/sobesedovanie/config");
+                    const data = await r.json();
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
+                    const topics = data.topics || [];
+                    topicsEl.innerHTML = "";
+                    topics.forEach((t, i) => {
+                        const id = `sobt-${i}`;
+                        const wrap = document.createElement("label");
+                        wrap.style.display = "inline-flex";
+                        wrap.style.alignItems = "center";
+                        wrap.style.gap = "6px";
+                        wrap.innerHTML = `<input type="checkbox" id="${id}" value="${t}" checked> ${t}`;
+                        topicsEl.appendChild(wrap);
+                    });
+                    const cfg = data.counts_by_level || {};
+                    const rng = (l) => (cfg[l] ? `${cfg[l][0]}–${cfg[l][1]}` : "?");
+                    hint.textContent = `Вопросов: junior ${rng("junior")}, middle ${rng("middle")}, senior ${rng("senior")}. Порог засчёта: ${data.pass_threshold}%`;
+                } catch (e) {
+                    topicsEl.innerHTML = '<span class="err">Не удалось загрузить темы</span>';
+                    console.error(e);
+                }
+            }
+
+            function getSelectedSobesTopics() {
+                return Array.from(document.querySelectorAll('#sobes-topics input[type="checkbox"]:checked')).map(
+                    (el) => el.value,
+                );
+            }
+
+            function showSobesSetup() {
+                document.getElementById("sobes-setup").classList.remove("hidden");
+                document.getElementById("sobes-interview").classList.add("hidden");
+                document.getElementById("sobes-results").classList.add("hidden");
+                document.getElementById("sobes-expl").textContent = "Здесь появится оценка и объяснение.";
+                document.getElementById("sobes-answer").value = "";
+                sobesSessionId = null;
+                sobesCurrentQuestion = null;
+                sobesAnsweredCount = 0;
+                sobesTotalPlanned = 0;
+                loadSobesConfig();
+            }
+
+            async function startSobes() {
+                const level = document.getElementById("sobes-level").value;
+                const topics = getSelectedSobesTopics();
+                const btn = document.getElementById("sobes-start-btn");
+                setButtonLoading(btn, true, "Готовим вопросы…");
+                try {
+                    const r = await fetch("/api/sobesedovanie/start", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ level, topics }),
+                    });
+                    let data = null;
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        throw new Error("HTTP " + r.status);
+                    }
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
+                    sobesSessionId = data.session_id;
+                    sobesTotalPlanned = data.total_planned || 0;
+                    sobesCurrentIndex = 1;
+                    showSobesQuestion(data.question, sobesTotalPlanned, sobesCurrentIndex);
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                } finally {
+                    setButtonLoading(btn, false);
+                }
+            }
+
+            function renderTopicMeta(q) {
+                const levelNames = { junior: "Junior", middle: "Middle", senior: "Senior" };
+                const meta = document.getElementById("sobes-topic-meta");
+                meta.textContent = `Тема: ${q.topic} · Уровень: ${levelNames[q.level] || q.level}`;
+                const hintEl = document.getElementById("sobes-hint");
+                if (q.topic_hint) {
+                    hintEl.style.display = "block";
+                    setMarkdown(hintEl, "**Подсказка:** " + q.topic_hint);
+                } else {
+                    hintEl.style.display = "none";
+                    hintEl.textContent = "";
+                }
+            }
+
+            function showSobesQuestion(q, total, idx) {
+                document.getElementById("sobes-setup").classList.add("hidden");
+                document.getElementById("sobes-interview").classList.remove("hidden");
+                document.getElementById("sobes-results").classList.add("hidden");
+                sobesCurrentQuestion = q;
+                document.getElementById("sobes-progress-text").textContent = `Вопрос ${idx} из ${total}`;
+                const pct = total ? Math.max(0, Math.min(100, Math.round(((idx - 1) / total) * 100))) : 0;
+                document.getElementById("sobes-progress-bar").style.width = pct + "%";
+                document.getElementById("sobes-q-badge").textContent = `Вопрос №${q.number}`;
+                setMarkdown("sobes-q-text", q.text);
+                renderTopicMeta(q);
+                document.getElementById("sobes-expl").textContent = "Здесь появится оценка и объяснение.";
+                document.getElementById("sobes-expl").classList.remove("err");
+                document.getElementById("sobes-covered").innerHTML = "";
+                document.getElementById("sobes-missed").innerHTML = "";
+                document.getElementById("sobes-status").textContent = "";
+
+                // Сбрасываем кнопки
+                const ansEl = document.getElementById("sobes-answer");
+                ansEl.value = "";
+                ansEl.disabled = false;
+                document.getElementById("sobes-submit-btn").disabled = true;
+                document.getElementById("sobes-submit-btn").textContent = "Отправить ответ";
+                document.getElementById("sobes-repeat-btn").disabled = false;
+                document.getElementById("sobes-skip-btn").disabled = false;
+                document.getElementById("sobes-next-btn-row").style.display = "none";
+                document.getElementById("sobes-finish-btn-row").style.display = "none";
+                window._sobesNextQuestion = null;
+
+                ansEl.focus();
+            }
+
+            async function submitSobesAnswer() {
+                if (!sobesSessionId || !sobesCurrentQuestion) return;
+                const btn = document.getElementById("sobes-submit-btn");
+                const status = document.getElementById("sobes-status");
+                const ansEl = document.getElementById("sobes-answer");
+                const ans = ansEl.value.trim();
+                if (!ans) return;
+                setButtonLoading(btn, true, "Оценка…");
+                btn.disabled = true;
+                ansEl.disabled = true;
+                setStatusLoading(status, true, "Оценка ответа…");
+                try {
+                    const r = await fetch("/api/sobesedovanie/answer", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            session_id: sobesSessionId,
+                            question_id: sobesCurrentQuestion.id,
+                            user_answer: ans,
+                        }),
+                    });
+                    let data = null;
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        throw new Error("HTTP " + r.status);
+                    }
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
+
+                    sobesAnsweredCount += 1;
+                    setMarkdown("sobes-expl", `## Оценка: ${data.score_percent}%\n\n${data.techlead_explanation}`);
+
+                    const cov = document.getElementById("sobes-covered");
+                    const mis = document.getElementById("sobes-missed");
+                    cov.innerHTML = "";
+                    mis.innerHTML = "";
+                    (data.covered_points || []).forEach((p) => {
+                        const li = document.createElement("li");
+                        li.textContent = p;
+                        cov.appendChild(li);
+                    });
+                    (data.missed_points || []).forEach((p) => {
+                        const li = document.createElement("li");
+                        li.textContent = p;
+                        mis.appendChild(li);
+                    });
+
+                    // Обновить прогресс (ответили на текущий вопрос)
+                    const pct = sobesTotalPlanned
+                        ? Math.max(0, Math.min(100, Math.round((sobesAnsweredCount / sobesTotalPlanned) * 100)))
+                        : 0;
+                    document.getElementById("sobes-progress-bar").style.width = pct + "%";
+
+                    // Скрываем форму ответа и показываем кнопку "Следующий вопрос"
+                    document.getElementById("sobes-answer").disabled = true;
+                    document.getElementById("sobes-submit-btn").disabled = true;
+                    document.getElementById("sobes-repeat-btn").disabled = true;
+                    document.getElementById("sobes-skip-btn").disabled = true;
+
+                    if (data.is_last || !data.next_question) {
+                        // Показываем кнопку перехода к результатам
+                        document.getElementById("sobes-next-btn-row").style.display = "none";
+                        document.getElementById("sobes-finish-btn-row").style.display = "flex";
+                    } else {
+                        // Сохраняем следующий вопрос и показываем кнопку
+                        window._sobesNextQuestion = data.next_question;
+                        document.getElementById("sobes-next-btn-row").style.display = "flex";
+                        document.getElementById("sobes-finish-btn-row").style.display = "none";
+                    }
+                } catch (e) {
+                    document.getElementById("sobes-expl").classList.add("err");
+                    document.getElementById("sobes-expl").textContent = "Ошибка: " + (e.message || String(e));
+                    // При ошибке оставляем форму доступной для повторной отправки
+                    ansEl.disabled = false;
+                    document.getElementById("sobes-submit-btn").disabled = false;
+                    document.getElementById("sobes-repeat-btn").disabled = false;
+                    document.getElementById("sobes-skip-btn").disabled = false;
+                    document.getElementById("sobes-next-btn-row").style.display = "none";
+                    document.getElementById("sobes-finish-btn-row").style.display = "none";
+                } finally {
+                    setButtonLoading(btn, false);
+                    setStatusLoading(status, false);
+                }
+            }
+
+            async function loadSobesResults() {
+                try {
+                    const r = await fetch(`/api/sobesedovanie/results/${sobesSessionId}`);
+                    let data = null;
+                    try {
+                        data = await r.json();
+                    } catch (_) {
+                        throw new Error("HTTP " + r.status);
+                    }
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
+                    showSobesResults(data);
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                }
+            }
+
+            function showSobesResults(data) {
+                document.getElementById("sobes-setup").classList.add("hidden");
+                document.getElementById("sobes-interview").classList.add("hidden");
+                document.getElementById("sobes-results").classList.remove("hidden");
+                document.getElementById("sobes-summary").textContent =
+                    `${data.summary.counted}/${data.summary.total} — ${data.summary.avg_percent}%`;
+                document.getElementById("sobes-verdict").textContent = `Вердикт: ${data.verdict_level}`;
+                document.getElementById("sobes-strengths").textContent = (data.strengths || []).join(", ") || "—";
+                document.getElementById("sobes-weaknesses").textContent = (data.weaknesses || []).join(", ") || "—";
+                const list = document.getElementById("sobes-details");
+                list.innerHTML = "";
+                (data.details || []).forEach((d, idx) => {
+                    const div = document.createElement("div");
+                    div.className = "result-item";
+                    div.innerHTML =
+                        `<h4>Вопрос ${idx + 1}: ${escapeHtml(d.question_text)}</h4>` +
+                        `<p><span class="label">Тема:</span> ${escapeHtml(d.topic)}</p>` +
+                        `<p><span class="label">Процент:</span> ${d.score_percent}%</p>` +
+                        `<div class="markdown"><span class="label">Комментарий:</span> ${renderMarkdown(d.explanation)}</div>`;
+                    list.appendChild(div);
+                });
+            }
+
+            document.getElementById("sobes-start-btn").addEventListener("click", startSobes);
+            document.getElementById("sobes-submit-btn").addEventListener("click", submitSobesAnswer);
+            document.getElementById("sobes-repeat-btn").addEventListener("click", repeatSobesQuestion);
+            document.getElementById("sobes-skip-btn").addEventListener("click", skipSobesQuestion);
+            document.getElementById("sobes-next-btn").addEventListener("click", () => {
+                const nextQ = window._sobesNextQuestion;
+                if (nextQ) {
+                    sobesCurrentIndex += 1;
+                    showSobesQuestion(nextQ, sobesTotalPlanned, sobesCurrentIndex);
+                    document.getElementById("sobes-next-btn-row").style.display = "none";
+                    window._sobesNextQuestion = null;
+                }
+            });
+            document.getElementById("sobes-finish-btn").addEventListener("click", loadSobesResults);
+            const sobesAnsEl = document.getElementById("sobes-answer");
+            sobesAnsEl.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submitSobesAnswer();
+            });
+            sobesAnsEl.addEventListener("input", () => {
+                document.getElementById("sobes-submit-btn").disabled = sobesAnsEl.value.trim().length === 0;
+            });
+
+            async function repeatSobesQuestion() {
+                if (!sobesSessionId) return;
+                try {
+                    const r = await fetch("/api/sobesedovanie/repeat", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ session_id: sobesSessionId }),
+                    });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
+                    showSobesQuestion(data.question, sobesTotalPlanned, sobesCurrentIndex);
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                }
+            }
+
+            async function skipSobesQuestion() {
+                if (!sobesSessionId) return;
+                const btn = document.getElementById("sobes-skip-btn");
+                setButtonLoading(btn, true, "Пропускаем…");
+                try {
+                    const r = await fetch("/api/sobesedovanie/skip", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ session_id: sobesSessionId }),
+                    });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error((data && data.detail) || "HTTP " + r.status);
+                    if (data.is_last || !data.next_question) {
+                        await loadSobesResults();
+                    } else {
+                        sobesCurrentIndex += 1;
+                        showSobesQuestion(data.next_question, sobesTotalPlanned, sobesCurrentIndex);
+                    }
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                } finally {
+                    setButtonLoading(btn, false);
+                }
+            }
+
+            // Системный дизайн
+            let designSessionId = null;
+            let designStep = null;
+            let designTotalSteps = 0;
+            let designStepIndex = 0;
+            let designConfig = null;
+
+            async function showDesignSetup() {
+                document.getElementById("design-setup").classList.remove("hidden");
+                document.getElementById("design-interview").classList.add("hidden");
+                document.getElementById("design-results").classList.add("hidden");
+                try {
+                    const r = await fetch("/api/design/config");
+                    const data = await r.json();
+                    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+                    designConfig = data;
+                    const levels = document.getElementById("design-level");
+                    levels.innerHTML = (data.levels || [])
+                        .map(
+                            (level) =>
+                                `<option value="${level}" ${level === "middle" ? "selected" : ""}>${level}</option>`,
+                        )
+                        .join("");
+                    updateDesignScenarios();
+                    document.getElementById("design-config-hint").textContent =
+                        `Подсказка снижает балл шага на ${data.hint_penalty_percent}%.`;
+                } catch (e) {
+                    alert("Не удалось загрузить сценарии: " + e.message);
+                }
+            }
+            function updateDesignScenarios() {
+                const level = document.getElementById("design-level").value;
+                const scenarios = (designConfig?.scenarios || []).filter((s) => s.level === level);
+                document.getElementById("design-scenario").innerHTML =
+                    '<option value="">Любой подходящий</option>' +
+                    scenarios.map((s) => `<option value="${s.id}">${s.title}</option>`).join("");
+            }
+            async function startDesign() {
+                const btn = document.getElementById("design-start-btn");
+                setButtonLoading(btn, true, "Готовим сценарий…");
+                try {
+                    const r = await fetch("/api/design/start", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            level: document.getElementById("design-level").value,
+                            scenario_id: document.getElementById("design-scenario").value || null,
+                        }),
+                    });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+                    designSessionId = data.session_id;
+                    designTotalSteps = data.total_steps;
+                    designStepIndex = 0;
+                    showDesignStep(data.step);
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                } finally {
+                    setButtonLoading(btn, false);
+                }
+            }
+            function renderList(id, items) {
+                const el = document.getElementById(id);
+                el.innerHTML = "";
+                (items || []).forEach((item) => {
+                    const li = document.createElement("li");
+                    li.textContent = item;
+                    el.appendChild(li);
+                });
+            }
+            function showDesignStep(step) {
+                designStep = step;
+                designStepIndex += 1;
+                document.getElementById("design-setup").classList.add("hidden");
+                document.getElementById("design-interview").classList.remove("hidden");
+                document.getElementById("design-progress-text").textContent =
+                    `Шаг ${designStepIndex} из ${designTotalSteps}`;
+                document.getElementById("design-progress-bar").style.width =
+                    `${Math.round(((designStepIndex - 1) / designTotalSteps) * 100)}%`;
+                document.getElementById("design-step-title").textContent = step.title;
+                setMarkdown("design-step-prompt", step.prompt);
+                document.getElementById("design-answer").value = "";
+                document.getElementById("design-submit-btn").disabled = true;
+                document.getElementById("design-hint-btn").disabled = false;
+                document.getElementById("design-hint").classList.add("hidden");
+                document.getElementById("design-hint").textContent = "";
+                document.getElementById("design-expl").textContent = "Здесь появится оценка и комментарий техлида.";
+                renderList("design-covered", []);
+                renderList("design-missed", []);
+                document.getElementById("design-answer").focus();
+            }
+            async function showDesignHint() {
+                if (!designSessionId || !designStep) return;
+                const btn = document.getElementById("design-hint-btn");
+                setButtonLoading(btn, true, "Загружаем…");
+                try {
+                    const r = await fetch("/api/design/hint", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ session_id: designSessionId, step_id: designStep.id }),
+                    });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+                    const out = document.getElementById("design-hint");
+                    setMarkdown(out, `**Подсказка (штраф ${data.penalty_applied_percent}%):** ${data.hint}`);
+                    out.classList.remove("hidden");
+                    btn.disabled = true;
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                } finally {
+                    setButtonLoading(btn, false);
+                }
+            }
+            async function submitDesignAnswer() {
+                if (!designSessionId || !designStep) return;
+                const answer = document.getElementById("design-answer").value.trim();
+                if (!answer) return;
+                const btn = document.getElementById("design-submit-btn");
+                setButtonLoading(btn, true, "Оценка…");
+                try {
+                    const r = await fetch("/api/design/answer", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            session_id: designSessionId,
+                            step_id: designStep.id,
+                            user_answer: answer,
+                        }),
+                    });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+                    setMarkdown("design-expl", `## Оценка: ${data.score_percent}%\n\n${data.techlead_explanation}`);
+                    renderList("design-covered", data.covered_points);
+                    renderList("design-missed", data.missed_points);
+                    if (data.is_last) await loadDesignResults();
+                    else showDesignStep(data.next_step);
+                } catch (e) {
+                    document.getElementById("design-expl").textContent = "Ошибка: " + e.message;
+                } finally {
+                    setButtonLoading(btn, false);
+                }
+            }
+            async function loadDesignResults() {
+                const r = await fetch(`/api/design/results/${designSessionId}`);
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+                showDesignResults(data);
+            }
+            function showDesignResults(data) {
+                document.getElementById("design-interview").classList.add("hidden");
+                document.getElementById("design-results").classList.remove("hidden");
+                document.getElementById("design-summary").textContent =
+                    `${data.summary.passed}/${data.summary.steps} — ${data.summary.avg_percent}%`;
+                document.getElementById("design-verdict").textContent = `Вердикт: ${data.verdict_level}`;
+                document.getElementById("design-strengths").textContent = (data.strengths || []).join(", ") || "—";
+                document.getElementById("design-weaknesses").textContent = (data.weaknesses || []).join(", ") || "—";
+                document.getElementById("design-rubric").textContent = Object.entries(data.by_rubric || {})
+                    .map(([k, v]) => `${k}: ${v}%`)
+                    .join(" · ");
+                const list = document.getElementById("design-details");
+                list.innerHTML = "";
+                (data.details || []).forEach((d) => {
+                    const div = document.createElement("div");
+                    div.className = "result-item markdown";
+                    div.innerHTML = `<h4>${escapeHtml(d.title)} — ${d.score_percent}%</h4>${renderMarkdown(d.explanation)}`;
+                    list.appendChild(div);
+                });
+            }
+            document.getElementById("design-level").addEventListener("change", updateDesignScenarios);
+            document.getElementById("design-start-btn").addEventListener("click", startDesign);
+            document.getElementById("design-hint-btn").addEventListener("click", showDesignHint);
+            document.getElementById("design-submit-btn").addEventListener("click", submitDesignAnswer);
+            document
+                .getElementById("design-answer")
+                .addEventListener(
+                    "input",
+                    (e) => (document.getElementById("design-submit-btn").disabled = !e.target.value.trim()),
+                );
+            document.getElementById("design-answer").addEventListener("keydown", (e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submitDesignAnswer();
+            });
+        </script>
+    </body>
+</html>

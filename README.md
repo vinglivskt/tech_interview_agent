@@ -1,8 +1,6 @@
-# tech_interview_agent — Vertical Slice Architecture (VSA)
+# tech_interview_agent
 
-Проект: FastAPI‑приложение «интервью‑ассистент» с RAG (Qdrant) и генерацией ответов через LLM (Ollama).
-
-После миграции проект организован в стиле **Vertical‑Slice Architecture**: каждая фича живёт в своём «слайсе» и содержит всё необходимое (API → Domain → Providers → Infrastructure).
+FastAPI-приложение «интервью-ассистент» с RAG (Qdrant) и генерацией ответов через LLM (Ollama). Фронтенд на React.
 
 ---
 
@@ -14,7 +12,7 @@
 docker compose up --build
 ```
 
-Откройте: `http://localhost:8000`
+Откройте: `http://localhost:3000` (фронтенд)
 
 **Настройки через переменные окружения (`.env`):**
 
@@ -26,9 +24,9 @@ docker compose up --build
 | `OLLAMA_TIMEOUT_SEC` | `120` | Таймаут Ollama |
 | `QDRANT_URL` | `http://qdrant:6333` | URL Qdrant |
 | `QDRANT_COLLECTION` | `interview_qa` | Коллекция Qdrant |
-| `INTERVIEW_DOCX_PATH` | `/app/app/interview_questions.docx` | Файл вопросов |
+| `INTERVIEW_DOCX_PATH` | `/app/src/interview_questions.docx` | Файл вопросов |
 | `SYSTEM_PROMPT_PATH` | `/app/prompts/chat/system.md` | Системный промпт |
-| `DESIGN_SCENARIOS_PATH` | `/app/prompts/design/scenarios.md` | Сценарии дизайна |
+| `DESIGN_SCENARIOS_PATH` | `/app/prompts/design/scenarios.yaml` | Сценарии дизайна |
 
 **Если Ollama на хосте** (не в Docker):
 ```bash
@@ -41,25 +39,22 @@ docker compose up
 
 ### Локальная разработка
 
+#### Бэкенд
 ```bash
-# Установка зависимостей
-pip install -e .
-pip install pytest
-
-# Запуск
-uvicorn app.main:app --reload
+cd backend
+pip install -r requirements.txt  # или uv sync
+uvicorn src.main:app --reload --port 8000
 ```
 
-Откройте:
-
-- `GET /` — фронтенд
-- `GET /api/health` — healthcheck
-- `POST /api/chat` — чат
-
+#### Фронтенд
 ```bash
-# Тесты
-pytest -q
+cd frontend
+npm install
+npm run dev  # http://localhost:3000
 ```
+
+**API будет доступен на**: `http://localhost:8000`
+**Фронтенд на**: `http://localhost:3000` (проксирует `/api/` на `localhost:8000`)
 
 ---
 
@@ -67,113 +62,79 @@ pytest -q
 
 ```
 tech_interview_agent/
-├─ app/
-│  ├─ core/
-│  │  ├─ config.py          # настройки (Settings)
-│  │  ├─ logger.py
-│  │  ├─ exceptions.py
-│  │  └─ interfaces/         # Protocol: LLM, VectorStore, Embeddings
-│  │
-│  ├─ features/
-│  │  ├─ chat/              # RAG-чат с интервью-ассистентом
-│  │  │  ├─ api/router.py
-│  │  │  ├─ domain/
-│  │  │  │  ├─ services.py      # run_chat, RAG retrieval
-│  │  │  │  ├─ docx_repository.py
-│  │  │  │  └─ interview_docx.py
-│  │  │  ├─ providers/ollama.py
-│  │  │  └─ infrastructure/qdrant.py
-│  │  │
-│  │  ├─ quiz/              # Тестирование с вариантами ответов
-│  │  │  ├─ api/router.py
-│  │  │  └─ domain/
-│  │  │     ├─ services.py
-│  │  │     └─ quiz_generator.py
-│  │  │
-│  │  ├─ sobes/             # Устное собеседование с оценкой
-│  │  │  ├─ api/router.py
-│  │  │  └─ domain/
-│  │  │     ├─ services.py
-│  │  │     ├─ classification.py
-│  │  │     ├─ scoring.py
-│  │  │     └─ selection.py
-│  │  │
-│  │  └─ design/            # Системный дизайн
-│  │     ├─ api/router.py
-│  │     └─ domain/
-│  │        ├─ services.py
-│  │        └─ scenarios.py
-│  │
-│  └─ main.py               # точка входа, lifespan
+├─ backend/
+│  ├─ Dockerfile
+│  ├─ src/                    # Python код (FastAPI)
+│  │  ├─ main.py              # точка входа, lifespan
+│  │  ├─ config.py            # настройки (Settings)
+│  │  ├─ core/               # базовые интерфейсы, исключения
+│  │  └─ features/           # фичи (chat, quiz, sobes, design)
+│  │     ├─ chat/            # RAG-чат
+│  │     ├─ quiz/             # Тестирование
+│  │     ├─ sobes/            # Устное собеседование
+│  │     └─ design/          # Системный дизайн
+│  ├─ static/
+│  │  └─ index.html          # резервная копия оригинального UI
+│  └─ prompts/                # промпты для LLM
+│     ├─ chat/system.md
+│     ├─ quiz/wrong_answers.md
+│     ├─ sobes/
+│     └─ design/scenarios.yaml
 │
-├─ prompts/                  # промпты для LLM (все в MD)
-│  ├─ chat/system.md         # системный промпт чата
-│  ├─ quiz/wrong_answers.md  # генерация неправильных ответов
-│  ├─ sobes/
-│  │  ├─ classification.md   # классификация вопросов
-│  │  └─ scoring.md          # оценка ответов
-│  └─ design/
-│     └─ scenarios.md        # сценарии (frontmatter YAML)
+├─ frontend/
+│  ├─ Dockerfile              # multi-stage build (node → nginx)
+│  ├─ nginx.conf             # прокси /api/ → backend:8000
+│  ├─ src/                   # React приложение
+│  │  ├─ components/         # UI компоненты
+│  │  │  ├─ features/        # chat, quiz, sobes, design
+│  │  │  └─ ui/             # Button, Card, Markdown, Spinner
+│  │  ├─ services/api.ts      # API клиент
+│  │  └─ styles/            # глобальные стили
+│  └─ dist/                  # собранное приложение
 │
-├─ static/                  # фронтенд (index.html)
-├─ tests/
-│  ├─ unit/
-│  └─ integration/
+├─ prompts → backend/prompts  # symlink для удобства
 ├─ docker-compose.yml
-└─ Dockerfile
+└─ tests/                    # 37 тестов
 ```
+
+---
+
+## Сервисы Docker Compose
+
+| Сервис | Порт | Описание |
+|---|---|---|
+| `qdrant` | 6333, 6334 | Векторная БД |
+| `api` | 8000 | FastAPI бэкенд |
+| `frontend` | 3000 | React приложение (nginx) |
 
 ---
 
 ## Промпты и конфигурация
 
-LLM-промпты хранятся в `prompts/` в формате Markdown (MD). Конфигурации сценариев — в YAML.
-
-Каждый промпт принадлежит определённой фиче.
+LLM-промпты хранятся в `backend/prompts/` в формате Markdown (MD). Конфигурации сценариев — в YAML.
 
 ### Структура промптов
 
 ```
-prompts/
+backend/prompts/
 ├── chat/
 │   └── system.md           # системный промпт для RAG-чата
 ├── quiz/
 │   └── wrong_answers.md   # промпт для генерации неправильных вариантов
 ├── sobes/
 │   ├── classification.md  # промпт для классификации вопросов
-│   └── scoring.md         # промпт для оценки ответа кандидата
+│   └── scoring.md        # промпт для оценки ответов
 └── design/
-    └── scenarios.yaml     # конфигурация сценариев (YAML, не LLM-промпт)
+    └── scenarios.yaml    # конфигурация сценариев (YAML)
 ```
 
 ### Редактирование промптов
 
-Промпты — это обычные Markdown-файлы. Для изменения поведения LLM:
-
-- **Системный промпт чата**: `prompts/chat/system.md`
-- **Генерация неправильных ответов**: `prompts/quiz/wrong_answers.md`
-- **Классификация вопросов**: `prompts/sobes/classification.md`
-- **Оценка ответов**: `prompts/sobes/scoring.md`
-- **Сценарии дизайна**: `prompts/design/scenarios.yaml` (конфиг, не промпт)
-
----
-
-## Архитектурная схема
-
-```mermaid
-flowchart TD
-    User[Пользователь] -->|HTTP| FastAPI[FastAPI]
-    FastAPI -->|/api/chat| Chat[Chat Router]
-    FastAPI -->|/api/quiz| Quiz[Quiz Router]
-    FastAPI -->|/api/sobes| Sobes[Sobes Router]
-    FastAPI -->|/api/design| Design[Design Router]
-    Chat -->|RAG| Qdrant[Qdrant]
-    Chat -->|LLM| Ollama[Ollama]
-    Sobes -->|classify| Ollama
-    Sobes -->|score| Ollama
-    Quiz -->|generate| Ollama
-    Design -->|evaluate| Ollama
-```
+- **Системный промпт чата**: `backend/prompts/chat/system.md`
+- **Генерация неправильных ответов**: `backend/prompts/quiz/wrong_answers.md`
+- **Классификация вопросов**: `backend/prompts/sobes/classification.md`
+- **Оценка ответов**: `backend/prompts/sobes/scoring.md`
+- **Сценарии дизайна**: `backend/prompts/design/scenarios.yaml`
 
 ---
 
@@ -201,7 +162,7 @@ curl -X POST http://localhost:8000/api/quiz/start \
 # Ответ
 curl -X POST http://localhost:8000/api/quiz/answer \
   -H "Content-Type: application/json" \
-  -d '{"session_id": "...", "question_id": "...", "selected_option": 0}'
+  -d '{"session_id": "...", "question_id": "...", "selected_index": 0}'
 ```
 
 ### Собеседование
@@ -232,6 +193,16 @@ curl -X POST http://localhost:8000/api/design/answer \
 
 ---
 
+## Тесты
+
+```bash
+pytest -q
+```
+
+Всего 37 тестов (интеграционные + unit).
+
+---
+
 ## FAQ
 
 **Q: Не запускается Ollama или Qdrant?**
@@ -241,14 +212,11 @@ curl -X POST http://localhost:8000/api/design/answer \
 - Замените `interview_questions.docx` и перезапустите приложение (автоматический ingest).
 
 **Q: Как изменить промпт?**
-- Отредактируйте соответствующий файл в `prompts/`.
+- Отредактируйте соответствующий файл в `backend/prompts/`.
 
 **Q: Как добавить новый сценарий дизайна?**
-- Добавьте новый элемент в массив `scenarios` в `prompts/design/scenarios.md`.
+- Добавьте новый элемент в массив `scenarios` в `backend/prompts/design/scenarios.yaml`.
 
----
-
-## Контакты
-
-- Вопросы и предложения: [ваш email]
-- Issues и баги: через GitHub Issues
+**Q: Фронтенд не подключается к API?**
+- Проверьте что docker-compose запущен и `frontend` зависит от `api`.
+- API доступен внутри контейнера как `http://api:8000`.

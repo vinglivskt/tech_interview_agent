@@ -1,137 +1,109 @@
-import { useState, useCallback } from 'react';
-import { quizApi } from '@/services/api';
-import type { QuizState } from './types';
+import { useState, useCallback } from "react";
+import { quizApi } from "@/services/api";
+
+type QuizView = "setup" | "question" | "results";
+
+interface QuizQuestion {
+  session_id: string;
+  question_id: string;
+  question_text: string;
+  options: { index: number; text: string }[];
+  question_number: number;
+  total_questions: number;
+}
+
+interface QuizResults {
+  total_score: number;
+  total_questions: number;
+  level: string;
+  results: {
+    question_text: string;
+    user_answer: string;
+    correct_answer: string;
+    is_correct: boolean;
+    explanation: string;
+  }[];
+}
 
 export function useQuiz() {
-  const [state, setState] = useState<QuizState>({
-    view: 'setup',
-    level: 'junior',
-    sessionId: null,
-    currentQuestion: null,
-    selectedOption: null,
-    lastAnswer: null,
-    results: null,
-    isLoading: false,
-    error: null,
-  });
-
-  const setLevel = useCallback((level: 'junior' | 'middle' | 'senior') => {
-    setState((prev) => ({ ...prev, level }));
-  }, []);
+  const [view, setView] = useState<QuizView>("setup");
+  const [level, setLevel] = useState<"junior" | "middle" | "senior">("middle");
+  const [question, setQuestion] = useState<QuizQuestion | null>(null);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [results, setResults] = useState<QuizResults | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const startQuiz = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    setIsLoading(true);
+    setError(null);
     try {
-      const question = await quizApi.start(state.level);
-      setState((prev) => ({
-        ...prev,
-        view: 'question',
-        isLoading: false,
-        sessionId: question.session_id,
-        currentQuestion: question,
-        selectedOption: null,
-        lastAnswer: null,
-      }));
+      const data = await quizApi.start(level);
+      setQuestion(data);
+      setSelectedOption(null);
+      setView("question");
     } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Ошибка запуска квиза',
-      }));
+      setError(err instanceof Error ? err.message : "Ошибка запуска квиза");
+      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+    } finally {
+      setIsLoading(false);
     }
-  }, [state.level]);
+  }, [level]);
 
   const selectOption = useCallback((index: number) => {
-    setState((prev) => ({ ...prev, selectedOption: index }));
+    setSelectedOption(index);
   }, []);
 
   const submitAnswer = useCallback(async () => {
-    if (!state.currentQuestion || state.selectedOption === null || !state.sessionId) return;
+    if (selectedOption === null || !question) return;
 
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    setIsLoading(true);
     try {
-      const answer = await quizApi.answer(
-        state.sessionId,
-        state.currentQuestion.question_id,
-        state.selectedOption
-      );
-      setState((prev) => ({
-        ...prev,
-        view: 'answer',
-        isLoading: false,
-        lastAnswer: answer,
-      }));
+      const data = await quizApi.answer(question.session_id, question.question_id, selectedOption);
+
+      if (data.is_last || !data.next_question) {
+        // Load results
+        const resultsData = await quizApi.getResults(question.session_id);
+        setResults(resultsData);
+        setView("results");
+      } else {
+        setQuestion(data.next_question);
+        setSelectedOption(null);
+      }
     } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Ошибка отправки ответа',
-      }));
+      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+    } finally {
+      setIsLoading(false);
     }
-  }, [state.currentQuestion, state.selectedOption, state.sessionId]);
-
-  const nextQuestion = useCallback(async () => {
-    const nextQ = state.lastAnswer?.next_question;
-    if (state.lastAnswer?.is_last || !nextQ) {
-      await loadResults();
-      return;
-    }
-
-    setState((prev) => ({
-      ...prev,
-      view: 'question',
-      currentQuestion: nextQ,
-      selectedOption: null,
-      lastAnswer: null,
-    }));
-  }, [state.lastAnswer]);
-
-  const loadResults = useCallback(async () => {
-    if (!state.sessionId) return;
-    setState((prev) => ({ ...prev, isLoading: true }));
-    try {
-      const results = await quizApi.getResults(state.sessionId);
-      setState((prev) => ({
-        ...prev,
-        view: 'results',
-        isLoading: false,
-        results,
-      }));
-    } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Ошибка загрузки результатов',
-      }));
-    }
-  }, [state.sessionId]);
-
-  const restart = useCallback(() => {
-    setState({
-      view: 'setup',
-      level: 'junior',
-      sessionId: null,
-      currentQuestion: null,
-      selectedOption: null,
-      lastAnswer: null,
-      results: null,
-      isLoading: false,
-      error: null,
-    });
-  }, []);
+  }, [selectedOption, question]);
 
   const goBack = useCallback(() => {
-    restart();
-  }, [restart]);
+    setView("setup");
+    setQuestion(null);
+    setSelectedOption(null);
+    setResults(null);
+  }, []);
+
+  const restart = useCallback(() => {
+    setView("setup");
+    setQuestion(null);
+    setSelectedOption(null);
+    setResults(null);
+  }, []);
 
   return {
-    ...state,
+    view,
+    level,
     setLevel,
-    startQuiz,
+    question,
+    selectedOption,
     selectOption,
+    results,
+    isLoading,
+    error,
+    startQuiz,
     submitAnswer,
-    nextQuestion,
-    restart,
     goBack,
+    restart,
   };
 }

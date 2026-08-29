@@ -1,0 +1,453 @@
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.setupCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.section {
+  margin-bottom: 1.5rem;
+}
+
+.levelGrid {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.levelCard {
+  flex: 1;
+  min-width: 100px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  text-align: center;
+}
+
+.levelCard:hover {
+  border-color: var(--accent);
+}
+
+.levelCard.selected {
+  border-color: var(--accent);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.levelCard h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.scenariosList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.scenarioCard {
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.scenarioCard:hover {
+  border-color: var(--accent);
+}
+
+.scenarioCard.selected {
+  border-color: var(--accent);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.scenarioCard h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.noScenarios {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0;
+}
+
+.select {
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.95rem;
+  margin-top: 0.5rem;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.loadingContainer {
+  text-align: center;
+  padding: 3rem;
+  color: var(--muted);
+}
+
+.progress {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-family: ui-monospace, monospace;
+}
+
+.progressBar {
+  margin-top: 1rem;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.questionCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.scenarioInfo {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.stepBadge {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: rgba(59, 130, 246, 0.12);
+  margin-bottom: 0.75rem;
+}
+
+.stepDescription {
+  font-size: 1.05rem;
+  font-weight: 500;
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+
+.requirements {
+  margin-bottom: 1rem;
+}
+
+.requirements h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.requirements ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.requirements li {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.hint {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid var(--accent);
+}
+
+.hint h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--accent);
+}
+
+.label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+  margin-top: 1rem;
+}
+
+.textarea {
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.95rem;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.output {
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  min-height: 4rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.answerCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.scoreBar {
+  position: relative;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.scoreFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.scoreText {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.answerSection {
+  margin-top: 1rem;
+}
+
+.answerSection strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.userAnswer {
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+  white-space: pre-wrap;
+}
+
+.explanation {
+  margin-top: 1rem;
+}
+
+.explanation strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.pointsSection {
+  margin-top: 1rem;
+}
+
+.pointsSection h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.pointsSection ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.pointsSection li {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.pointsSection.missed h4 {
+  color: var(--err);
+}
+
+.rubric {
+  margin-top: 1rem;
+}
+
+.rubric h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.rubric ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.rubric li {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.resultsCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.verdictBadge {
+  text-align: center;
+  padding: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.summary {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.feedbackSection {
+  margin-top: 1.5rem;
+}
+
+.feedbackSection h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.feedbackSection ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.feedbackSection li {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.feedbackSection.weaknesses h4 {
+  color: var(--err);
+}
+
+.detailsTitle {
+  margin-top: 1.5rem;
+  font-size: 1.1rem;
+}
+
+.resultsList {
+  margin-top: 1rem;
+}
+
+.resultItem {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.resultItem h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.resultItem p {
+  margin: 0.3rem 0;
+  font-size: 0.85rem;
+}
+
+.resultsActions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.error {
+  color: var(--err);
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid var(--err);
+}

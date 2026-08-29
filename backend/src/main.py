@@ -1,6 +1,6 @@
 """FastAPI application entrypoint.
 
-VSA migration: `main.py` contains only FastAPI initialization, lifespan wiring,
+`main.py` contains only FastAPI initialization, lifespan wiring,
 router registration and static file serving.
 """
 
@@ -46,9 +46,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         state = await sync_interview_index(settings, qdrant)
         logger.info("Состояние индекса: %s", state)
     except Exception:
-        # В docker-compose Ollama может быть не поднята/недоступна.
-        # Не валим приложение на старте: чат/health должны продолжить работать,
-        # а индексация повторится по расписанию.
         logger.exception("Первая индексация docx не удалась")
 
     app.state.settings = settings
@@ -114,7 +111,7 @@ app.include_router(quiz_router, prefix="/api")
 app.include_router(sobes_router, prefix="/api")
 app.include_router(design_router, prefix="/api")
 
-# Static
+# Static files
 static_dir = Path(__file__).resolve().parent.parent / "static"
 
 

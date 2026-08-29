@@ -1,29 +1,31 @@
 import React from "react";
-import { Button, Card, Markdown, Spinner } from "@/components/ui";
-import type {
-  DesignSetupViewProps,
-  DesignQuestionViewProps,
-  DesignAnswerViewProps,
-  DesignResultsViewProps,
-} from "./types";
-import styles from "./design.module.scss";
+import { Button, Markdown } from "@/components/ui";
+import styles from "./design.module.css";
 
-export const DesignSetupPresentation: React.FC<DesignSetupViewProps> = ({
-  config,
-  level,
-  selectedScenarioId,
-  onLevelChange,
-  onScenarioSelect,
-  onStart,
-  onBack,
-  isLoading,
-  error,
-}) => {
+export const DesignSetupView: React.FC<{
+  config: {
+    levels: string[];
+    scenarios: { id: string; title: string; level: string }[];
+    hint_penalty_percent: number;
+  } | null;
+  level: string;
+  selectedScenarioId: string;
+  onLevelChange: (level: string) => void;
+  onScenarioSelect: (scenarioId: string) => void;
+  onStart: () => void;
+  onBack: () => void;
+  isLoading: boolean;
+  error: string | null;
+}> = ({ config, level, selectedScenarioId, onLevelChange, onScenarioSelect, onStart, onBack, isLoading, error }) => {
   if (!config) {
     return (
-      <div className={styles.loadingContainer}>
-        <Spinner size="large" />
-        <p>Загрузка конфигурации...</p>
+      <div className={styles.container}>
+        <header className={styles.header}>
+          <Button variant="secondary" onClick={onBack}>
+            ← На главную
+          </Button>
+        </header>
+        <div className={styles.loadingContainer}>Загрузка конфигурации...</div>
       </div>
     );
   }
@@ -36,204 +38,248 @@ export const DesignSetupPresentation: React.FC<DesignSetupViewProps> = ({
         <Button variant="secondary" onClick={onBack}>
           ← На главную
         </Button>
+        <h1 className={styles.title}>Системный дизайн</h1>
       </header>
 
-      <Card className={styles.setupCard}>
-        <h2 className={styles.title}>Проектирование системы</h2>
-        <p className={styles.subtitle}>Штраф за подсказку: {config.hint_penalty_percent}%</p>
+      <div className={styles.setupCard}>
+        <p className={styles.subtitle}>Выберите уровень и сценарий. Можно оставить автоматический выбор.</p>
 
-        <div className={styles.section}>
-          <h3>Уровень сложности</h3>
-          <div className={styles.levelGrid}>
-            {config.levels.map((l) => (
-              <div
-                key={l}
-                className={`${styles.levelCard} ${level === l ? styles.selected : ""}`}
-                onClick={() => onLevelChange(l)}
-              >
-                <h4>{l.charAt(0).toUpperCase() + l.slice(1)}</h4>
-              </div>
-            ))}
-          </div>
-        </div>
+        <label className={styles.label} htmlFor="design-level">
+          Уровень
+        </label>
+        <select
+          id="design-level"
+          className={styles.select}
+          value={level}
+          onChange={(e) => onLevelChange(e.target.value)}
+        >
+          {config.levels.map((l) => (
+            <option key={l} value={l}>
+              {l.charAt(0).toUpperCase() + l.slice(1)}
+            </option>
+          ))}
+        </select>
 
-        <div className={styles.section}>
-          <h3>Сценарий</h3>
-          {filteredScenarios.length === 0 ? (
-            <p className={styles.noScenarios}>Нет сценариев для этого уровня</p>
-          ) : (
-            <div className={styles.scenariosList}>
-              {filteredScenarios.map((scenario) => (
-                <div
-                  key={scenario.id}
-                  className={`${styles.scenarioCard} ${selectedScenarioId === scenario.id ? styles.selected : ""}`}
-                  onClick={() => onScenarioSelect(scenario.id)}
-                >
-                  <h4>{scenario.title}</h4>
-                </div>
-              ))}
-            </div>
-          )}
+        <label className={styles.label} htmlFor="design-scenario" style={{ marginTop: "0.9rem" }}>
+          Сценарий
+        </label>
+        <select
+          id="design-scenario"
+          className={styles.select}
+          value={selectedScenarioId}
+          onChange={(e) => onScenarioSelect(e.target.value)}
+        >
+          <option value="">Любой подходящий</option>
+          {filteredScenarios.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.title}
+            </option>
+          ))}
+        </select>
+
+        <div className={styles.meta} style={{ marginTop: "0.5rem" }}>
+          Подсказка снижает балл шага на {config.hint_penalty_percent}%.
         </div>
 
         {error && <div className={styles.error}>{error}</div>}
 
-        <Button onClick={onStart} loading={isLoading} disabled={isLoading || !selectedScenarioId}>
-          Начать проектирование
-        </Button>
-      </Card>
+        <div className={styles.row} style={{ marginTop: "1rem" }}>
+          <Button variant="success" onClick={onStart} disabled={isLoading} loading={isLoading}>
+            {isLoading ? "Готовим сценарий…" : "Начать проектирование"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };
 
-export const DesignQuestionPresentation: React.FC<DesignQuestionViewProps> = ({
+export const DesignQuestionView: React.FC<{
+  scenario: { title: string };
+  step: { id: string; title: string; prompt: string };
+  stepIndex: number;
+  totalSteps: number;
+  userAnswer: string;
+  hint: string | null;
+  isLoading: boolean;
+  onAnswerChange: (value: string) => void;
+  onSubmit: () => void;
+  onGetHint: () => void;
+  onBack: () => void;
+}> = ({
   scenario,
   step,
   stepIndex,
   totalSteps,
   userAnswer,
   hint,
+  isLoading,
   onAnswerChange,
   onSubmit,
   onGetHint,
   onBack,
-  isLoading,
-}) => (
-  <div className={styles.container}>
-    <header className={styles.header}>
-      <Button variant="secondary" onClick={onBack}>
-        ← На главную
-      </Button>
-      <div className={styles.progress}>
-        Шаг {stepIndex + 1} из {totalSteps}
+}) => {
+  const progressPercent = totalSteps ? Math.round(((stepIndex - 1) / totalSteps) * 100) : 0;
+
+  return (
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <Button variant="secondary" onClick={onBack}>
+          ← На главную
+        </Button>
+        <div className={styles.progress}>
+          Шаг {stepIndex} из {totalSteps}
+        </div>
+      </header>
+
+      <div className={styles.progressBar}>
+        <div className={styles.progressBarFill} style={{ width: `${progressPercent}%` }} />
       </div>
-    </header>
 
-    <Card className={styles.questionCard}>
-      <div className={styles.scenarioInfo}>{scenario.title}</div>
+      <div className={styles.questionCard}>
+        <div className={styles.scenarioInfo}>{scenario.title}</div>
+        <div className={styles.stepBadge}>Шаг {stepIndex}</div>
+        <p className={styles.stepDescription}>{step.prompt || step.title}</p>
 
-      <div className={styles.stepBadge}>Шаг {stepIndex + 1}</div>
-      <p className={styles.stepDescription}>{step.description}</p>
-
-      {step.requirements.length > 0 && (
-        <div className={styles.requirements}>
-          <h4>Требования:</h4>
-          <ul>
-            {step.requirements.map((req, i) => (
-              <li key={i}>{req}</li>
-            ))}
-          </ul>
+        <div className={styles.row}>
+          <Button variant="secondary" onClick={onGetHint} disabled={isLoading || !!hint}>
+            Подсказка (−10%)
+          </Button>
         </div>
-      )}
 
-      {hint && (
-        <div className={styles.hint}>
-          <h4>Подсказка:</h4>
-          <Markdown content={hint} />
-        </div>
-      )}
+        {hint && (
+          <div className={styles.hint}>
+            <h4>Подсказка:</h4>
+            <Markdown content={hint} />
+          </div>
+        )}
 
-      <div className={styles.answerArea}>
-        <label>Ваше решение:</label>
+        <label className={styles.label} htmlFor="design-answer">
+          Ваше решение
+        </label>
         <textarea
+          id="design-answer"
+          className={styles.textarea}
           value={userAnswer}
           onChange={(e) => onAnswerChange(e.target.value)}
-          placeholder="Опишите ваш подход к решению..."
-          rows={8}
+          placeholder="Опишите решение… (Ctrl/Cmd+Enter — отправить)"
           disabled={isLoading}
         />
-      </div>
 
-      <div className={styles.actions}>
-        <Button onClick={onSubmit} disabled={!userAnswer.trim() || isLoading} loading={isLoading}>
-          Отправить
+        <div className={styles.actions}>
+          <Button onClick={onSubmit} disabled={!userAnswer.trim() || isLoading} loading={isLoading}>
+            Ответить
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const DesignAnswerView: React.FC<{
+  scenario: { title: string };
+  step: { title: string };
+  stepIndex: number;
+  userAnswer: string;
+  answer: {
+    score_percent: number;
+    techlead_explanation: string;
+    covered_points: string[];
+    missed_points: string[];
+    rubric: string[];
+    is_last: boolean;
+  };
+  onNext: () => void;
+  onBack: () => void;
+}> = ({ scenario, step, stepIndex, userAnswer, answer, onNext, onBack }) => {
+  return (
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <Button variant="secondary" onClick={onBack}>
+          ← На главную
         </Button>
-        <Button variant="secondary" onClick={onGetHint} disabled={isLoading || !!hint}>
-          Подсказка
-        </Button>
-      </div>
-    </Card>
-  </div>
-);
+      </header>
 
-export const DesignAnswerPresentation: React.FC<DesignAnswerViewProps> = ({
-  scenario,
-  step,
-  stepIndex,
-  userAnswer,
-  answer,
-  onNext,
-  onBack,
-}) => (
-  <div className={styles.container}>
-    <header className={styles.header}>
-      <Button variant="secondary" onClick={onBack}>
-        ← На главную
-      </Button>
-    </header>
-
-    <Card className={styles.answerCard}>
-      <div className={styles.scoreBar}>
-        <div className={styles.scoreFill} style={{ width: `${answer.score_percent}%` }} />
-        <span className={styles.scoreText}>{answer.score_percent}% покрыто</span>
-      </div>
-
-      <div className={styles.scenarioInfo}>{scenario.title}</div>
-      <div className={styles.stepBadge}>Шаг {stepIndex + 1}</div>
-      <p className={styles.stepDescription}>{step.description}</p>
-
-      <div className={styles.answerSection}>
-        <strong>Ваш ответ:</strong>
-        <p className={styles.userAnswer}>{userAnswer}</p>
-      </div>
-
-      <div className={styles.explanation}>
-        <strong>Разбор:</strong>
-        <Markdown content={answer.techlead_explanation} />
-      </div>
-
-      {answer.covered_points.length > 0 && (
-        <div className={styles.pointsSection}>
-          <h4>✓ Раскрыто:</h4>
-          <ul>
-            {answer.covered_points.map((point, i) => (
-              <li key={i}>{point}</li>
-            ))}
-          </ul>
+      <div className={styles.answerCard}>
+        <div className={styles.scoreBar}>
+          <div className={styles.scoreFill} style={{ width: `${answer.score_percent}%` }} />
         </div>
-      )}
+        <span className={styles.scoreText}>Оценка: {answer.score_percent}%</span>
 
-      {answer.missed_points.length > 0 && (
-        <div className={styles.pointsSection + " " + styles.missed}>
-          <h4>✗ Пропущено:</h4>
-          <ul>
-            {answer.missed_points.map((point, i) => (
-              <li key={i}>{point}</li>
-            ))}
-          </ul>
+        <div className={styles.scenarioInfo}>{scenario.title}</div>
+        <div className={styles.stepBadge}>Шаг {stepIndex}</div>
+        <p className={styles.stepDescription}>{step.title}</p>
+
+        <div className={styles.answerSection}>
+          <strong>Ваш ответ:</strong>
+          <p className={styles.userAnswer}>{userAnswer}</p>
         </div>
-      )}
 
-      {answer.rubric.length > 0 && (
-        <div className={styles.rubric}>
-          <h4>Рубрика:</h4>
-          <ul>
-            {answer.rubric.map((r, i) => (
-              <li key={i}>{r}</li>
-            ))}
-          </ul>
+        <div className={styles.explanation}>
+          <strong>Разбор:</strong>
+          <Markdown content={`## Оценка: ${answer.score_percent}%\n\n${answer.techlead_explanation}`} />
         </div>
-      )}
 
-      <Button onClick={onNext}>{answer.is_last ? "Посмотреть результаты" : "Следующий шаг →"}</Button>
-    </Card>
-  </div>
-);
+        {answer.covered_points.length > 0 && (
+          <div className={styles.pointsSection}>
+            <h4>✓ Раскрыто:</h4>
+            <ul>
+              {answer.covered_points.map((p, i) => (
+                <li key={i}>{p}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-export const DesignResultsPresentation: React.FC<DesignResultsViewProps> = ({ results, onRestart, onBack }) => {
-  const verdictBadge = results.verdict_level
-    ? results.verdict_level.charAt(0).toUpperCase() + results.verdict_level.slice(1)
-    : "N/A";
+        {answer.missed_points.length > 0 && (
+          <div className={`${styles.pointsSection} ${styles.missed}`}>
+            <h4>✗ Упущено:</h4>
+            <ul>
+              {answer.missed_points.map((p, i) => (
+                <li key={i}>{p}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {answer.rubric.length > 0 && (
+          <div className={styles.rubric}>
+            <h4>Рубрика:</h4>
+            <ul>
+              {answer.rubric.map((r, i) => (
+                <li key={i}>{r}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className={styles.row} style={{ marginTop: "1.5rem" }}>
+          <Button onClick={onNext}>{answer.is_last ? "Посмотреть результаты →" : "Следующий шаг →"}</Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const DesignResultsView: React.FC<{
+  results: {
+    summary: string;
+    summary_detail?: { passed: number; steps: number; avg_percent: number };
+    by_rubric: Record<string, number>;
+    strengths: string[];
+    weaknesses: string[];
+    verdict_level: string;
+    details: { title: string; user_answer: string; score_percent: number; explanation: string }[];
+  };
+  onRestart: () => void;
+  onBack: () => void;
+}> = ({ results, onRestart, onBack }) => {
+  const summaryText = results.summary_detail
+    ? `${results.summary_detail.passed}/${results.summary_detail.steps} — ${results.summary_detail.avg_percent}%`
+    : results.summary;
+
+  const rubricText = Object.entries(results.by_rubric || {})
+    .map(([k, v]) => `${k}: ${v}%`)
+    .join(" · ");
 
   return (
     <div className={styles.container}>
@@ -243,55 +289,43 @@ export const DesignResultsPresentation: React.FC<DesignResultsViewProps> = ({ re
         </Button>
       </header>
 
-      <Card className={styles.resultsCard}>
-        <h2 className={styles.resultsTitle}>Результаты проектирования</h2>
-
-        <div className={styles.verdictBadge}>{verdictBadge}</div>
-
-        <div className={styles.summary}>
-          <Markdown content={results.summary} />
+      <div className={styles.resultsCard}>
+        <div className={styles.verdictBadge}>
+          {summaryText} — Вердикт: {results.verdict_level}
         </div>
 
-        {results.strengths.length > 0 && (
-          <div className={styles.feedbackSection}>
-            <h4>Сильные стороны:</h4>
-            <ul>
-              {results.strengths.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <div className={styles.feedbackSection}>
+          <strong>Сильные:</strong> {results.strengths.join(", ") || "—"}
+        </div>
+        <div className={`${styles.feedbackSection} ${styles.weaknesses}`}>
+          <strong>Слабые:</strong> {results.weaknesses.join(", ") || "—"}
+        </div>
 
-        {results.weaknesses.length > 0 && (
-          <div className={styles.feedbackSection + " " + styles.weaknesses}>
-            <h4>Области для улучшения:</h4>
-            <ul>
-              {results.weaknesses.map((w, i) => (
-                <li key={i}>{w}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <h2 style={{ marginTop: "1rem", fontSize: "1.1rem" }}>Рубрика</h2>
+        <div className={styles.output}>{rubricText}</div>
 
-        <h3 className={styles.detailsTitle}>Детализация по шагам</h3>
+        <h2 style={{ marginTop: "1rem", fontSize: "1.1rem" }}>Детали</h2>
         <div className={styles.resultsList}>
-          {results.details.map((detail, i) => (
-            <div key={i} className={styles.resultItem}>
-              <h4>{detail.step}</h4>
-              <p>Ваш ответ: {detail.user_answer}</p>
-              <p>Оценка: {detail.score}%</p>
-              <p className={styles.detailExplanation}>{detail.explanation}</p>
+          {results.details.map((d, idx) => (
+            <div key={idx} className={styles.resultItem}>
+              <h4>
+                {d.title} — {d.score_percent}%
+              </h4>
+              <p>Ваш ответ: {d.user_answer}</p>
+              <p>{d.explanation}</p>
             </div>
           ))}
         </div>
 
         <div className={styles.resultsActions}>
-          <Button onClick={onRestart}>Начать заново</Button>
+          <Button onClick={onBack}>На главную</Button>
+          <Button variant="secondary" onClick={onRestart}>
+            Пройти ещё раз
+          </Button>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };
 
-export default DesignSetupPresentation;
+export default DesignSetupView;

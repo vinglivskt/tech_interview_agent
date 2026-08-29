@@ -1,21 +1,16 @@
-import type { ChatMessage } from "@/types";
-export type { ChatMessage };
-
-export interface ChatState {
-  messages: ChatMessage[];
-  input: string;
-  isLoading: boolean;
-  error: string | null;
-  sessionId: string;
-}
-
 export interface ChatViewProps {
-  messages: ChatMessage[];
-  input: string;
+  questionNumber: string;
+  questionText: string;
+  answer: string;
+  isAnswerEmpty: boolean;
+  userAnswer: string;
+  statusText: string;
+  saveStatus: string;
   isLoading: boolean;
   error: string | null;
-  onInputChange: (value: string) => void;
+  onAnswerChange: (value: string) => void;
   onSend: () => void;
+  onSave: () => void;
   onBack: () => void;
 }
 

@@ -1,202 +1,172 @@
-import { useState, useCallback, useEffect } from 'react';
-import { designApi } from '@/services/api';
-import type { DesignState } from './types';
+import { useState, useCallback, useEffect } from "react";
+import { designApi } from "@/services/api";
+import type { DesignConfig, DesignStep, DesignScenario, DesignAnswer, DesignResults, DesignView } from "./types";
 
 export function useDesign() {
-  const [state, setState] = useState<DesignState>({
-    view: 'setup',
-    config: null,
-    level: 'junior',
-    selectedScenarioId: null,
-    sessionId: null,
-    scenario: null,
-    currentStep: null,
-    stepIndex: 0,
-    totalSteps: 0,
-    userAnswer: '',
-    lastAnswer: null,
-    hint: null,
-    results: null,
-    isLoading: false,
-    error: null,
-  });
-
-  useEffect(() => {
-    loadConfig();
-  }, []);
+  const [view, setView] = useState<DesignView>("setup");
+  const [config, setConfig] = useState<DesignConfig | null>(null);
+  const [level, setLevel] = useState("middle");
+  const [selectedScenarioId, setSelectedScenarioId] = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [scenario, setScenario] = useState<DesignScenario | null>(null);
+  const [step, setStep] = useState<DesignStep | null>(null);
+  const [stepIndex, setStepIndex] = useState(1);
+  const [totalSteps, setTotalSteps] = useState(0);
+  const [userAnswer, setUserAnswer] = useState("");
+  const [hint, setHint] = useState<string | null>(null);
+  const [lastAnswer, setLastAnswer] = useState<DesignAnswer | null>(null);
+  const [results, setResults] = useState<DesignResults | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadConfig = useCallback(async () => {
     try {
-      const config = await designApi.getConfig();
-      setState((prev) => ({
-        ...prev,
-        config,
-        level: config.levels[0] || 'junior',
-      }));
+      const data = await designApi.getConfig();
+      setConfig(data);
+      if (data.levels.includes("middle")) {
+        setLevel("middle");
+      }
     } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        error: err instanceof Error ? err.message : 'Ошибка загрузки конфигурации',
-      }));
+      setError("Не удалось загрузить сценарии");
     }
   }, []);
 
-  const setLevel = useCallback((level: string) => {
-    setState((prev) => ({ ...prev, level }));
-  }, []);
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   const selectScenario = useCallback((scenarioId: string) => {
-    setState((prev) => ({ ...prev, selectedScenarioId: scenarioId }));
+    setSelectedScenarioId(scenarioId);
   }, []);
 
   const startDesign = useCallback(async () => {
-    if (!state.selectedScenarioId) return;
-
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    setIsLoading(true);
+    setError(null);
     try {
-      const response = await designApi.start(state.level, state.selectedScenarioId);
-      setState((prev) => ({
-        ...prev,
-        view: 'question',
-        isLoading: false,
-        sessionId: response.session_id,
-        scenario: response.scenario,
-        currentStep: response.step,
-        totalSteps: response.total_steps,
-        stepIndex: 0,
-        userAnswer: '',
-        lastAnswer: null,
-        hint: null,
-      }));
+      const data = await designApi.start(level, selectedScenarioId);
+      setSessionId(data.session_id);
+      setScenario(data.scenario);
+      setStep(data.step);
+      setTotalSteps(data.total_steps);
+      setStepIndex(1);
+      setUserAnswer("");
+      setHint(null);
+      setLastAnswer(null);
+      setView("question");
     } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Ошибка запуска дизайн-сессии',
-      }));
+      setError(err instanceof Error ? err.message : "Ошибка запуска");
+      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+    } finally {
+      setIsLoading(false);
     }
-  }, [state.level, state.selectedScenarioId]);
-
-  const setUserAnswer = useCallback((answer: string) => {
-    setState((prev) => ({ ...prev, userAnswer: answer }));
-  }, []);
+  }, [level, selectedScenarioId]);
 
   const getHint = useCallback(async () => {
-    if (!state.sessionId || !state.currentStep) return;
+    if (!sessionId || !step) return;
 
-    setState((prev) => ({ ...prev, isLoading: true }));
+    setIsLoading(true);
     try {
-      const response = await designApi.getHint(state.sessionId, state.currentStep.step_id);
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        hint: response.hint,
-      }));
+      const data = await designApi.getHint(sessionId, step.id);
+      setHint(`**Подсказка (штраф ${data.penalty_applied_percent}%):** ${data.hint}`);
     } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Ошибка получения подсказки',
-      }));
+      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+    } finally {
+      setIsLoading(false);
     }
-  }, [state.sessionId, state.currentStep]);
+  }, [sessionId, step]);
 
   const submitAnswer = useCallback(async () => {
-    if (!state.currentStep || !state.sessionId || !state.userAnswer.trim()) return;
+    if (!sessionId || !step || !userAnswer.trim()) return;
 
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    setIsLoading(true);
     try {
-      const answer = await designApi.answer(
-        state.sessionId,
-        state.currentStep.step_id,
-        state.userAnswer
-      );
-      setState((prev) => ({
-        ...prev,
-        view: 'answer',
-        isLoading: false,
-        lastAnswer: answer,
-      }));
+      const data = await designApi.answer(sessionId, step.id, userAnswer);
+      setLastAnswer(data);
+
+      if (data.is_last) {
+        // Will load results
+        const resultsData = await designApi.getResults(sessionId);
+        setResults(resultsData);
+        setView("answer");
+      } else {
+        setView("answer");
+      }
     } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Ошибка отправки ответа',
-      }));
+      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+    } finally {
+      setIsLoading(false);
     }
-  }, [state.currentStep, state.sessionId, state.userAnswer]);
+  }, [sessionId, step, userAnswer]);
 
   const nextStep = useCallback(async () => {
-    if (!state.sessionId) return;
+    if (!lastAnswer) return;
 
-    const nextS = state.lastAnswer?.next_step;
-    if (state.lastAnswer?.is_last || !nextS) {
-      await loadResults();
+    if (lastAnswer.is_last) {
+      if (sessionId) {
+        try {
+          const resultsData = await designApi.getResults(sessionId);
+          setResults(resultsData);
+          setView("results");
+        } catch (err) {
+          alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+        }
+      }
       return;
     }
 
-    setState((prev) => ({
-      ...prev,
-      view: 'question',
-      currentStep: nextS,
-      stepIndex: prev.stepIndex + 1,
-      userAnswer: '',
-      lastAnswer: null,
-      hint: null,
-    }));
-  }, [state.lastAnswer, state.sessionId]);
-
-  const loadResults = useCallback(async () => {
-    if (!state.sessionId) return;
-    setState((prev) => ({ ...prev, isLoading: true }));
-    try {
-      const results = await designApi.getResults(state.sessionId);
-      setState((prev) => ({
-        ...prev,
-        view: 'results',
-        isLoading: false,
-        results,
-      }));
-    } catch (err) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Ошибка загрузки результатов',
-      }));
+    if (lastAnswer.next_step) {
+      setStep(lastAnswer.next_step);
+      setStepIndex((prev) => prev + 1);
+      setUserAnswer("");
+      setHint(null);
+      setLastAnswer(null);
+      setView("question");
     }
-  }, [state.sessionId]);
-
-  const restart = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      view: 'setup',
-      selectedScenarioId: null,
-      sessionId: null,
-      scenario: null,
-      currentStep: null,
-      stepIndex: 0,
-      userAnswer: '',
-      lastAnswer: null,
-      hint: null,
-      results: null,
-      error: null,
-    }));
-  }, []);
+  }, [lastAnswer, sessionId]);
 
   const goBack = useCallback(() => {
-    restart();
-  }, [restart]);
+    setView("setup");
+    setStep(null);
+    setUserAnswer("");
+    setHint(null);
+    setLastAnswer(null);
+    setResults(null);
+  }, []);
+
+  const restart = useCallback(() => {
+    setView("setup");
+    setStep(null);
+    setUserAnswer("");
+    setHint(null);
+    setLastAnswer(null);
+    setResults(null);
+    setSessionId(null);
+    setScenario(null);
+  }, []);
 
   return {
-    ...state,
+    view,
+    config,
+    level,
     setLevel,
+    selectedScenarioId,
     selectScenario,
     startDesign,
+    scenario,
+    step,
+    stepIndex,
+    totalSteps,
+    userAnswer,
     setUserAnswer,
+    hint,
+    lastAnswer,
+    results,
+    isLoading,
+    error,
     getHint,
     submitAnswer,
     nextStep,
-    restart,
     goBack,
+    restart,
   };
 }
