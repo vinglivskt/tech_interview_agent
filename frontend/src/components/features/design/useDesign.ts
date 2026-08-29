@@ -26,7 +26,7 @@ export function useDesign() {
       if (data.levels.includes("middle")) {
         setLevel("middle");
       }
-    } catch (err) {
+    } catch {
       setError("Не удалось загрузить сценарии");
     }
   }, []);

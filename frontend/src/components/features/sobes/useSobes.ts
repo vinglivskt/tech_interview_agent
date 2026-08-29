@@ -23,7 +23,7 @@ export function useSobes() {
       const data = await sobesApi.getConfig();
       setConfig(data);
       setSelectedTopics(data.topics);
-    } catch (err) {
+    } catch {
       setError("Не удалось загрузить темы");
     }
   }, []);
