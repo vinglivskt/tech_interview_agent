@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 from backend.src.main import app
 
 
-
 class DummyLLM:
     def __init__(self) -> None:
         self.calls = 0
@@ -40,7 +39,7 @@ def client():
                 "design_pass_threshold_percent": 50,
                 "design_max_explanation_len": 600,
                 "design_max_tokens": 800,
-                "design_scenarios_path": "prompts/design/scenarios.yaml",
+                "design_scenarios_path": "backend/prompts/design/scenarios.yaml",
             },
         )()
         application.state.llm = DummyLLM()
