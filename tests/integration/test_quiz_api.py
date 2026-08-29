@@ -8,8 +8,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-
-from app.main import app
+from src.main import app
 
 
 class DummyLLM:
@@ -33,8 +32,8 @@ class DummyLLM:
 def client(monkeypatch, tmp_path):
     """Создаёт тестовый клиент с замоканными зависимостями."""
     # Сбрасываем глобальное состояние между тестами
-    import app.features.quiz.api.router as quiz_router
-    from app.features.quiz.domain.services import QuizSessionStore
+    import src.features.quiz.api.router as quiz_router
+    from src.features.quiz.domain.services import QuizSessionStore
 
     quiz_router._quiz_session_store = None
 

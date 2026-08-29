@@ -1,6 +1,5 @@
 import pytest
-
-from app.features.chat.domain.services import SessionStore
+from src.features.chat.domain.services import SessionStore
 
 
 @pytest.fixture

@@ -6,8 +6,7 @@ import shutil
 from pathlib import Path
 
 import pytest
-
-from app.features.chat.domain.docx_repository import (
+from src.features.chat.domain.docx_repository import (
     question_exists,
     save_question_answer,
 )

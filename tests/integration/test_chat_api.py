@@ -1,7 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-
-from app.main import app
+from src.main import app
 
 
 class DummyLLM:
@@ -50,7 +49,7 @@ def client(monkeypatch):
         )()
         _app.state.llm = DummyLLM()
         _app.state.qdrant = DummyVector()
-        from app.features.chat.domain.services import SessionStore
+        from src.features.chat.domain.services import SessionStore
 
         _app.state.sessions = SessionStore(
             max_sessions=10,

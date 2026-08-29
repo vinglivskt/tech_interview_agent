@@ -10,8 +10,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-
-from app.main import app
+from src.main import app
 
 
 class DummyLLM:
@@ -63,7 +62,7 @@ class DummyLLM:
 @pytest.fixture
 def client(monkeypatch, tmp_path):
     """Создаёт тестовый клиент с замоканными зависимостями."""
-    from app.features.sobes.domain.services import SobesSessionStore
+    from src.features.sobes.domain.services import SobesSessionStore
 
     @asynccontextmanager
     async def _lifespan(_app: Any):  # type: ignore[no-untyped-def]

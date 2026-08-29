@@ -1,5 +1,6 @@
 # Qdrant: REST + gRPC и веб-дашборд
 # API: интервью-помощник с RAG по docx-файлу
+# Frontend: React приложение
 
 services:
   qdrant:
@@ -13,7 +14,9 @@ services:
       QDRANT__SERVICE__GRPC_PORT: 6334
 
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -30,13 +33,22 @@ services:
       VECTORIZATION_MAX_CHUNK_CHARS: ${VECTORIZATION_MAX_CHUNK_CHARS:-1000}
       VECTORIZATION_OVERLAP: ${VECTORIZATION_OVERLAP:-100}
       INTERVIEW_TOP_K: ${INTERVIEW_TOP_K:-5}
-      INTERVIEW_DOCX_PATH: /app/app/interview_questions.docx
+      INTERVIEW_DOCX_PATH: /app/src/interview_questions.docx
       SYSTEM_PROMPT_PATH: /app/prompts/chat/system.md
       DESIGN_SCENARIOS_PATH: /app/prompts/design/scenarios.yaml
       INGEST_STATE_PATH: ${INGEST_STATE_PATH:-data/interview_ingest_state.json}
       INGEST_INTERVAL_HOURS: ${INGEST_INTERVAL_HOURS:-1}
     depends_on:
       - qdrant
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
 
 volumes:
   qdrant_storage:

@@ -3,8 +3,7 @@ from contextlib import asynccontextmanager
 
 import pytest
 from fastapi.testclient import TestClient
-
-from app.main import app
+from src.main import app
 
 
 class DummyLLM:
