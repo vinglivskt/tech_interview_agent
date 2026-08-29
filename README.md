@@ -6,14 +6,43 @@ FastAPI-приложение «интервью-ассистент» с RAG (Qdr
 
 ## Быстрый старт
 
-### Docker (рекомендуется)
+### Production (один контейнер)
 
 ```bash
-# Production сборка
-docker compose up --build
+docker compose --profile prod up --build
 ```
 
-Откройте: `http://localhost:3000` (фронтенд)
+Откройте: `http://localhost:8000`
+
+Multi-stage build собирает фронтенд (Node) и укладывает его в Python-образ — UI отдается FastAPI напрямую.
+
+### Development с hot reload
+
+```bash
+# Бэкенд с --reload + фронтенд (Vite dev server) с hot reload
+docker compose --profile dev up
+# или
+docker compose --profile dev watch
+```
+
+- **Бэкенд** на `http://localhost:8000` (volume mount → авто-рестарт при изменении `backend/src`)
+- **Фронтенд** на `http://localhost:3000` (Vite → HMR при изменении `frontend/src`)
+- Vite проксирует `/api/*` на `api-dev:8000` через `VITE_API_URL`
+
+### Локальная разработка (без Docker)
+
+```bash
+# Терминал 1
+make dev-backend         # http://localhost:8000
+
+# Терминал 2
+make dev-frontend        # http://localhost:3000
+```
+
+Vite проксирует `/api/*` на `http://localhost:8000`.
+
+### Если Ollama на хосте (не в Docker):
+Для доступа к Ollama на хосте с MacOS/Windows: Docker Desktop → Settings → Resources → Network → добавьте `host.docker.internal`. По умолчанию `OLLAMA_URL=http://host.docker.internal:11434`.
 
 **Настройки через переменные окружения (`.env`):**
 
@@ -28,52 +57,6 @@ docker compose up --build
 | `INTERVIEW_DOCX_PATH` | `/app/src/interview_questions.docx` | Файл вопросов |
 | `SYSTEM_PROMPT_PATH` | `/app/prompts/chat/system.md` | Системный промпт |
 | `DESIGN_SCENARIOS_PATH` | `/app/prompts/design/scenarios.yaml` | Сценарии дизайна |
-
-### Docker с Hot Reload (разработка)
-
-```bash
-# Запуск с авто-перезагрузкой при изменениях файлов
-docker compose watch
-```
-
-Или вручную:
-```bash
-# Запуск с пересборкой при изменениях
-docker compose up --build --watch
-```
-
-**Что происходит:**
-- **Бэкенд**: изменения в `backend/src` → авто-рестарт uvicorn
-- **Фронтенд**: изменения в `frontend/src` → hot reload через Vite
-- **Промпты**: изменения в `backend/prompts` → синхронизируются в контейнер
-
-### Если Ollama на хосте (не в Docker):
-```bash
-docker compose up
-```
-
-Для доступа к Ollama на хосте с MacOS/Windows: Docker Desktop → Settings → Resources → Network → добавьте `host.docker.internal`.
-
----
-
-### Локальная разработка
-
-#### Бэкенд
-```bash
-cd backend
-pip install -r requirements.txt  # или uv sync
-uvicorn src.main:app --reload --port 8000
-```
-
-#### Фронтенд
-```bash
-cd frontend
-npm install
-npm run dev  # http://localhost:3000
-```
-
-**API будет доступен на**: `http://localhost:8000`
-**Фронтенд на**: `http://localhost:3000` (проксирует `/api/` на `localhost:8000`)
 
 ---
 

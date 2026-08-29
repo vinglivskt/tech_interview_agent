@@ -1,6 +1,6 @@
 # Qdrant: REST + gRPC и веб-дашборд
-# API: интервью-помощник с RAG по docx-файлу
-# Frontend: React приложение
+# API: интервью-помощник с RAG по docx-файлу + встроенный frontend (если собран)
+# Frontend: React приложение (отдельный сервис для dev с hot reload)
 
 services:
   qdrant:
