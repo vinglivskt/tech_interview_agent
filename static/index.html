@@ -118,6 +118,12 @@
             .btn-green {
                 background: linear-gradient(180deg, #10b981, #059669);
             }
+            .btn-next {
+                background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+                color: white;
+                border: 2px solid #1d4ed8;
+                font-weight: bold;
+            }
 
             textarea,
             select {
@@ -537,13 +543,13 @@
                     </div>
 
                     <div class="out" id="sobes-expl">Здесь появится оценка и объяснение.</div>
-                    <div class="row" id="sobes-next-btn-row" style="margin-top: 1rem; display: none">
-                        <button type="button" class="btn-green" id="sobes-next-btn">Следующий вопрос →</button>
+                    <div class="row" id="sobes-next-btn-row" style="margin-top: 1.5rem; display: none">
+                        <button type="button" class="btn-next" id="sobes-next-btn">Следующий вопрос →</button>
                     </div>
-                    <div class="row" id="sobes-finish-btn-row" style="margin-top: 1rem; display: none">
-                        <button type="button" class="btn-green" id="sobes-finish-btn">Посмотреть результаты →</button>
+                    <div class="row" id="sobes-finish-btn-row" style="margin-top: 1.5rem; display: none">
+                        <button type="button" class="btn-next" id="sobes-finish-btn">Посмотреть результаты →</button>
                     </div>
-                    <div class="row" id="sobes-points" style="align-items: flex-start">
+                    <div class="row" id="sobes-points" style="align-items: flex-start; margin-top: 1rem">
                         <div style="flex: 1">
                             <h2 style="font-size: 0.95rem; margin: 0.8rem 0 0.4rem">Покрыто</h2>
                             <ul id="sobes-covered" style="margin: 0.2rem 0 0.8rem 1rem"></ul>
