@@ -47,7 +47,7 @@ def _parse_frontmatter(content: str) -> list[dict[str, Any]]:
 
 
 def load_scenarios(settings: Settings) -> list[Scenario]:
-    path = Path(getattr(settings, "design_scenarios_path", "app/prompts/design/scenarios.md"))
+    path = Path(getattr(settings, "design_scenarios_path", "prompts/design/scenarios.md"))
     if not path.exists():
         return []
     raw = _parse_frontmatter(path.read_text(encoding="utf-8"))

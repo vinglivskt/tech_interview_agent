@@ -8,16 +8,15 @@
 
 ## Быстрый старт
 
-### 1) Docker (рекомендуется)
+### Docker (рекомендуется)
 
 ```bash
-# Клонирование и запуск
 docker compose up --build
 ```
 
 Откройте: `http://localhost:8000`
 
-Настройки через переменные окружения (можно задать в `.env`):
+**Настройки через переменные окружения (`.env`):**
 
 | Переменная | По умолчанию | Описание |
 |---|---|---|
@@ -27,237 +26,148 @@ docker compose up --build
 | `OLLAMA_TIMEOUT_SEC` | `120` | Таймаут Ollama |
 | `QDRANT_URL` | `http://qdrant:6333` | URL Qdrant |
 | `QDRANT_COLLECTION` | `interview_qa` | Коллекция Qdrant |
-| `INTERVIEW_DOCX_PATH` | `/app/app/interview_questions.docx` | Путь к файлу вопросов |
+| `INTERVIEW_DOCX_PATH` | `/app/app/interview_questions.docx` | Файл вопросов |
+| `SYSTEM_PROMPT_PATH` | `/app/prompts/chat/system.md` | Системный промпт |
+| `DESIGN_SCENARIOS_PATH` | `/app/prompts/design/scenarios.md` | Сценарии дизайна |
 
-Если Ollama на хосте (не в Docker), используйте:
+**Если Ollama на хосте** (не в Docker):
 ```bash
 docker compose up
 ```
 
-Для доступа к Ollama на хосте с MacOS/Windows добавьте `host.docker.internal` в Docker Desktop → Settings → Resources → Network.
+Для доступа к Ollama на хосте с MacOS/Windows: Docker Desktop → Settings → Resources → Network → добавьте `host.docker.internal`.
 
 ---
 
-### 2) Локальная разработка
-
-#### Установка зависимостей
-
-Проект использует `pyproject.toml`.
+### Локальная разработка
 
 ```bash
-python3 -m pip install -e .
-python3 -m pip install pytest
-```
+# Установка зависимостей
+pip install -e .
+pip install pytest
 
-#### Запуск приложения
-
-```bash
+# Запуск
 uvicorn app.main:app --reload
 ```
 
 Откройте:
 
-- `GET /` — фронтенд (`static/index.html`)
+- `GET /` — фронтенд
 - `GET /api/health` — healthcheck
 - `POST /api/chat` — чат
 
-### 3) Запуск тестов
-
 ```bash
-python3 -m pytest -q
+# Тесты
+pytest -q
 ```
 
 ---
 
-## Структура проекта (после VSA‑миграции)
+## Структура проекта
 
 ```
 tech_interview_agent/
 ├─ app/
 │  ├─ core/
-│  │  ├─ config.py
+│  │  ├─ config.py          # настройки (Settings)
 │  │  ├─ logger.py
 │  │  ├─ exceptions.py
-│  │  └─ interfaces/
-│  │     ├─ llm.py
-│  │     ├─ embeddings.py
-│  │     └─ vectorstore.py
+│  │  └─ interfaces/         # Protocol: LLM, VectorStore, Embeddings
 │  │
 │  ├─ features/
-│  │  └─ chat/
-│  │     ├─ api/
-│  │     │  └─ router.py
-│  │     ├─ domain/
-│  │     │  ├─ models.py
-│  │     │  ├─ services.py
-│  │     │  ├─ ingest.py
-│  │     │  ├─ interview_docx.py
-│  │     │  └─ vectorization.py
-│  │     ├─ providers/
-│  │     │  └─ ollama.py
-│  │     └─ infrastructure/
-│  │        └─ qdrant.py
+│  │  ├─ chat/              # RAG-чат с интервью-ассистентом
+│  │  │  ├─ api/router.py
+│  │  │  ├─ domain/
+│  │  │  │  ├─ services.py      # run_chat, RAG retrieval
+│  │  │  │  ├─ docx_repository.py
+│  │  │  │  └─ interview_docx.py
+│  │  │  ├─ providers/ollama.py
+│  │  │  └─ infrastructure/qdrant.py
+│  │  │
+│  │  ├─ quiz/              # Тестирование с вариантами ответов
+│  │  │  ├─ api/router.py
+│  │  │  └─ domain/
+│  │  │     ├─ services.py
+│  │  │     └─ quiz_generator.py
+│  │  │
+│  │  ├─ sobes/             # Устное собеседование с оценкой
+│  │  │  ├─ api/router.py
+│  │  │  └─ domain/
+│  │  │     ├─ services.py
+│  │  │     ├─ classification.py
+│  │  │     ├─ scoring.py
+│  │  │     └─ selection.py
+│  │  │
+│  │  └─ design/            # Системный дизайн
+│  │     ├─ api/router.py
+│  │     └─ domain/
+│  │        ├─ services.py
+│  │        └─ scenarios.py
 │  │
-│  ├─ shared/
-│  │  ├─ dto/
-│  │  ├─ enums/
-│  │  └─ utils/
-│  │
-│  └─ main.py
+│  └─ main.py               # точка входа, lifespan
 │
-├─ static/
+├─ prompts/                  # промпты для LLM (все в MD)
+│  ├─ chat/system.md         # системный промпт чата
+│  ├─ quiz/wrong_answers.md  # генерация неправильных ответов
+│  ├─ sobes/
+│  │  ├─ classification.md   # классификация вопросов
+│  │  └─ scoring.md          # оценка ответов
+│  └─ design/
+│     └─ scenarios.md        # сценарии (frontmatter YAML)
+│
+├─ static/                  # фронтенд (index.html)
 ├─ tests/
 │  ├─ unit/
 │  └─ integration/
-└─ pyproject.toml
+├─ docker-compose.yml
+└─ Dockerfile
 ```
 
-### Как читать слои
-
-- **API** (`app/features/<feature>/api`) — FastAPI роутеры, валидация запросов/ответов, коды ошибок.
-- **Domain** (`.../domain`) — бизнес‑логика фичи, DTO/модели домена, use‑cases.
-- **Providers** (`.../providers`) — внешние провайдеры (LLM: Ollama/OpenAI/…); обычно HTTP‑клиенты.
-- **Infrastructure** (`.../infrastructure`) — инфраструктура хранения/очередей/БД (Qdrant/Pg/Kafka/…)
-- **Core** (`app/core`) — общие вещи: конфиг, логгер, интерфейсы (Protocol), исключения.
-- **Shared** (`app/shared`) — общие утилиты/DTO, которые реально используются более чем одной фичей.
-
 ---
 
-## Точка входа: `app/main.py`
+## Промпты
 
-`app/main.py` специально держится «тонким»:
+Все промпты хранятся в `prompts/` в формате Markdown (MD). Каждый промпт принадлежит определённой фиче.
 
-1. Создаёт `FastAPI`.
-2. В `lifespan`:
-   - загружает `settings`
-   - поднимает `llm` и `vectorstore`
-   - выполняет первичный ingest (`sync_interview_index`)
-   - запускает периодический ingest в фоне
-   - кладёт зависимости в `app.state` (чтобы роутеры могли их брать через `request.app.state`)
-3. Подключает роутеры фич: `app.include_router(chat_router, prefix="/api")`
-4. Отдаёт статику.
+### Структура промптов
 
+```
+prompts/
+├── chat/
+│   └── system.md           # системный промпт для RAG-чата
+├── quiz/
+│   └── wrong_answers.md    # промпт для генерации неправильных вариантов
+├── sobes/
+│   ├── classification.md   # промпт для классификации вопросов по темам/уровню
+│   └── scoring.md         # промпт для оценки ответа кандидата
+└── design/
+    └── scenarios.md       # сценарии системного дизайна (frontmatter YAML)
+```
+
+### Редактирование промптов
+
+Промпты — это обычные Markdown-файлы. Для изменения поведения LLM:
+
+- **Системный промпт чата**: `prompts/chat/system.md`
+- **Генерация неправильных ответов**: `prompts/quiz/wrong_answers.md`
+- **Классификация вопросов**: `prompts/sobes/classification.md`
+- **Оценка ответов**: `prompts/sobes/scoring.md`
+- **Сценарии дизайна**: `prompts/design/scenarios.md`
+
+### Формат scenarios.md
+
+Сценарии хранятся в MD с YAML frontmatter:
+
+```yaml
 ---
-
-## Фича `chat`
-
-### API: `app/features/chat/api/router.py`
-
-Эндпоинты:
-
-- `GET /api/health`
-  - проверяет доступность Qdrant и LLM.
-
-- `POST /api/chat`
-  - тело запроса:
-    ```json
-    {
-      "message": "Привет",
-      "session_id": "default"
-    }
-    ```
-  - ответ:
-    ```json
-    {
-      "answer": "...",
-      "meta": {
-        "used_rag": true,
-        "retrieved_chunks": 5,
-        "answer_numbers": [1, 2]
-      }
-    }
-    ```
-
-### Domain: `app/features/chat/domain/services.py`
-
-Ключевой use‑case: `run_chat(...)`.
-
-Алгоритм (упрощённо):
-
-1. Делает retrieval из векторного стора (Qdrant):
-   - получает эмбеддинг запроса
-   - ищет топ‑K релевантных чанков
-2. Собирает `system_prompt`:
-   - базовый промпт берётся из `Settings.system_prompt`
-   - добавляет RAG‑контекст и список найденных номеров ответов
-3. Вызывает LLM через `llm.generate(messages)`.
-4. Возвращает `answer` и `meta`.
-
-### Ingest: `app/features/chat/domain/ingest.py`
-
-`sync_interview_index(settings, qdrant)`:
-
-- считает sha256 `.docx`
-- если хеш не изменился — пропускает ingest
-- иначе:
-  - парсит docx (`interview_docx.py`)
-  - режет на чанки (`vectorization.py`)
-  - upsert в Qdrant
-  - удаляет устаревшие точки по `doc_hash`
-  - сохраняет state в `data/interview_ingest_state.json`
-
+scenarios:
+  - id: url-shortener
+    title: URL Shortener
+    level: junior
+    ...
 ---
-
-## Интерфейсы (Protocol)
-
-Интерфейсы лежат в `app/core/interfaces/` и позволяют:
-
-- легко мокать зависимости в тестах
-- менять провайдера без переписывания доменной логики
-
-### `LLMGateway` (`app/core/interfaces/llm.py`)
-
-Минимальный контракт генерации:
-
-- `ping() -> bool`
-- `generate(messages, temperature?, max_tokens?, **kwargs) -> str`
-
-### `EmbeddingGateway` (`app/core/interfaces/embeddings.py`)
-
-Отдельный контракт для эмбеддингов:
-
-- `embed(texts: list[str]) -> list[list[float]]`
-
-### `VectorStoreGateway` (`app/core/interfaces/vectorstore.py`)
-
-- `ensure_collection()`
-- `upsert(vectors, payloads)`
-- `search(query_vector, top_k)`
-- `ping()`
-
----
-
-## Конфигурация
-
-Все настройки — в `app/config.py` (источник), а `app/core/config.py` — новый «официальный» путь импорта.
-
-Главное:
-
-- `SYSTEM_PROMPT` теперь хранится в `Settings.system_prompt`
-- параметры генерации: `llm_temperature`, `llm_max_tokens`
-
-Настройки читаются из `.env` (см. `SettingsConfigDict`).
-
----
-
-## Как добавить новую фичу
-
-1. Создать структуру:
-   - `app/features/<feature>/api/router.py`
-   - `app/features/<feature>/domain/...`
-   - `app/features/<feature>/providers/...`
-   - `app/features/<feature>/infrastructure/...`
-2. В `app/main.py` добавить:
-   - импорт роутера
-   - `app.include_router(..., prefix="/api")`
-3. Если нужны зависимости — инициализировать их в `lifespan` и положить в `app.state`.
-
----
-
-## Примечания
-
-- Папка `app/services` удалена, вся логика разнесена по slice‑модулям.
-- Интеграционные тесты используют моки (`DummyLLM`, `DummyVector`) и подменяют lifespan приложения.
+# Человекочитаемое описание (не парсится)
+```
 
 ---
 
@@ -265,69 +175,93 @@ tech_interview_agent/
 
 ```mermaid
 flowchart TD
-    User[Пользователь] -->|HTTP| FastAPI[FastAPI (app.main)]
-    FastAPI -->|/api/chat| ChatRouter[Chat API Router]
-    ChatRouter -->|use-case| RunChat[run_chat (services.py)]
-    RunChat -->|RAG| Qdrant[QdrantService]
-    RunChat -->|LLM| Ollama[OllamaClient]
-    Qdrant <--> Ollama
-    RunChat -->|docx ingest| Ingest[Ingest/Docx Parser]
+    User[Пользователь] -->|HTTP| FastAPI[FastAPI]
+    FastAPI -->|/api/chat| Chat[Chat Router]
+    FastAPI -->|/api/quiz| Quiz[Quiz Router]
+    FastAPI -->|/api/sobes| Sobes[Sobes Router]
+    FastAPI -->|/api/design| Design[Design Router]
+    Chat -->|RAG| Qdrant[Qdrant]
+    Chat -->|LLM| Ollama[Ollama]
+    Sobes -->|classify| Ollama
+    Sobes -->|score| Ollama
+    Quiz -->|generate| Ollama
+    Design -->|evaluate| Ollama
 ```
 
 ---
 
-## Примеры запросов к API
+## API эндпоинты
 
-### Проверка состояния
-
+### Проверка здоровья
 ```bash
 curl http://localhost:8000/api/health
 ```
 
-### Диалог с ассистентом
-
+### Чат с ассистентом
 ```bash
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Что такое GIL в Python?", "session_id": "default"}'
+  -d '{"message": "Что такое GIL?", "session_id": "test"}'
 ```
 
-Пример ответа:
+### Квиз
+```bash
+# Старт
+curl -X POST http://localhost:8000/api/quiz/start \
+  -H "Content-Type: application/json" \
+  -d '{"level": "middle"}'
 
-```json
-{
-  "answer": "GIL (Global Interpreter Lock) — это механизм CPython, ...",
-  "meta": {
-    "used_rag": true,
-    "retrieved_chunks": 3,
-    "answer_numbers": [12, 15]
-  }
-}
+# Ответ
+curl -X POST http://localhost:8000/api/quiz/answer \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "...", "question_id": "...", "selected_option": 0}'
+```
+
+### Собеседование
+```bash
+# Старт сессии
+curl -X POST http://localhost:8000/api/sobes/start \
+  -H "Content-Type: application/json" \
+  -d '{"level": "middle", "topics": ["python", "db"]}'
+
+# Ответ
+curl -X POST http://localhost:8000/api/sobes/answer \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "...", "question_id": "...", "user_answer": "..."}'
+```
+
+### Системный дизайн
+```bash
+# Старт
+curl -X POST http://localhost:8000/api/design/start \
+  -H "Content-Type: application/json" \
+  -d '{"level": "middle"}'
+
+# Ответ на шаг
+curl -X POST http://localhost:8000/api/design/answer \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "...", "step_id": "...", "user_answer": "..."}'
 ```
 
 ---
 
 ## FAQ
 
-**Q: Почему не запускается Ollama или Qdrant?**
-
-- Проверьте, что сервисы Ollama и Qdrant запущены и доступны по адресам из `.env`.
+**Q: Не запускается Ollama или Qdrant?**
+- Проверьте, что сервисы доступны по адресам из `.env`.
 
 **Q: Как обновить базу вопросов?**
+- Замените `interview_questions.docx` и перезапустите приложение (автоматический ingest).
 
-- Просто замените docx-файл и дождитесь автоматического ingest (или перезапустите приложение).
+**Q: Как изменить промпт?**
+- Отредактируйте соответствующий файл в `prompts/`.
 
-**Q: Как добавить новую тему для интервью?**
-
-- Добавьте вопросы/ответы в docx-файл, они будут автоматически проиндексированы.
-
-**Q: Как изменить системный промпт?**
-
-- Измените переменную `system_prompt` в `.env` или настройках.
+**Q: Как добавить новый сценарий дизайна?**
+- Добавьте новый элемент в массив `scenarios` в `prompts/design/scenarios.md`.
 
 ---
 
 ## Контакты
 
-- Вопросы и предложения: [your-email@example.com]
+- Вопросы и предложения: [ваш email]
 - Issues и баги: через GitHub Issues
