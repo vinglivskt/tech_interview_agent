@@ -10,7 +10,7 @@ from app.features.chat.providers.ollama import OllamaClient
 logger = logging.getLogger(__name__)
 
 # Путь к файлу промпта
-_PROMPT_PATH = Path(__file__).resolve().parent.parent.parent.parent / "prompts" / "quiz" / "wrong_answers.md"
+_PROMPT_PATH = Path(__file__).resolve().parent.parent.parent.parent.parent / "prompts" / "quiz" / "wrong_answers.md"
 
 
 def _load_wrong_answers_prompt() -> str:

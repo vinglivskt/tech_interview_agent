@@ -28,7 +28,7 @@ def _resolve_system_prompt_path(settings: Any) -> Path:
         return Path(prompt_path)
 
     # Fallback: относительно корня проекта
-    app_dir = Path(__file__).resolve().parent.parent.parent.parent
+    app_dir = Path(__file__).resolve().parent.parent.parent.parent.parent
     return app_dir / "prompts" / "chat" / "system.md"
 
 

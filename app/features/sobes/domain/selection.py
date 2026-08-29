@@ -5,8 +5,8 @@ import uuid
 from collections.abc import Iterable
 from random import Random
 
-from app.features.sobesedovanie.domain.classification import ClassifiedQA
-from app.features.sobesedovanie.domain.models import SobesQuestion
+from app.features.sobes.domain.classification import ClassifiedQA
+from app.features.sobes.domain.models import SobesQuestion
 
 
 def _plan_count_by_level(level: str, counts_cfg: dict[str, list[int]]) -> int:

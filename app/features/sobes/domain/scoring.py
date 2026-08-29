@@ -7,7 +7,7 @@ from typing import Any
 from app.features.chat.providers.ollama import OllamaClient
 
 # Путь к файлу промпта
-_PROMPT_PATH = Path(__file__).resolve().parent.parent.parent.parent / "prompts" / "sobesedovanie" / "scoring.md"
+_PROMPT_PATH = Path(__file__).resolve().parent.parent.parent.parent.parent / "prompts" / "sobes" / "scoring.md"
 
 
 def _load_scoring_prompt() -> str:
@@ -16,7 +16,7 @@ def _load_scoring_prompt() -> str:
         return _PROMPT_PATH.read_text(encoding="utf-8")
     except FileNotFoundError:
         raise FileNotFoundError(
-            f"Prompt file not found: {_PROMPT_PATH}. Please ensure prompts/sobesedovanie/scoring.md exists."
+            f"Prompt file not found: {_PROMPT_PATH}. Please ensure prompts/sobes/scoring.md exists."
         )
 
 

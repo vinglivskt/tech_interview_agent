@@ -89,7 +89,7 @@ class Settings(BaseSettings):
     )
     sobes_pass_threshold_percent: int = Field(default=50, ge=0, le=100, description="Порог засчёта ответа в процентах")
     sobes_cache_path: str = Field(
-        default="data/sobesedovanie_index.json",
+        default="data/sobes_index.json",
         description="Путь к кэшу классифицированной базы QA",
     )
     sobes_max_explanation_len: int = Field(default=600, ge=50, description="Максимальная длина пояснения техлида")

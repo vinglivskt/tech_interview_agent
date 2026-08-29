@@ -25,7 +25,7 @@ from app.features.chat.infrastructure.qdrant import QdrantService
 from app.features.chat.providers.ollama import OllamaClient
 from app.features.design.api.router import router as design_router
 from app.features.quiz.api.router import router as quiz_router
-from app.features.sobesedovanie.api.router import router as sobes_router
+from app.features.sobes.api.router import router as sobes_router
 
 configure_logging()
 logger = logging.getLogger(__name__)

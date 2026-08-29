@@ -19,7 +19,7 @@ class ClassifiedQA:
 
 
 # Путь к файлу промпта
-_PROMPT_PATH = Path(__file__).resolve().parent.parent.parent.parent / "prompts" / "sobesedovanie" / "classification.md"
+_PROMPT_PATH = Path(__file__).resolve().parent.parent.parent.parent.parent / "prompts" / "sobes" / "classification.md"
 
 
 def _load_classification_prompt(topics: list[str]) -> str:
@@ -29,7 +29,7 @@ def _load_classification_prompt(topics: list[str]) -> str:
         return template.format(topics=", ".join(topics))
     except FileNotFoundError:
         raise FileNotFoundError(
-            f"Prompt file not found: {_PROMPT_PATH}. Please ensure prompts/sobesedovanie/classification.md exists."
+            f"Prompt file not found: {_PROMPT_PATH}. Please ensure prompts/sobes/classification.md exists."
         )
 
 

@@ -8,17 +8,17 @@ from dataclasses import dataclass
 from app.core.config import Settings
 from app.features.chat.domain.interview_docx import InterviewQA
 from app.features.chat.providers.ollama import OllamaClient
-from app.features.sobesedovanie.domain.classification import ClassifiedQA, classify_batch
-from app.features.sobesedovanie.domain.models import (
+from app.features.sobes.domain.classification import ClassifiedQA, classify_batch
+from app.features.sobes.domain.models import (
     SobesAnswerRecord,
     SobesLevel,
     SobesQuestion,
     SobesQuestionDTO,
     SobesSession,
 )
-from app.features.sobesedovanie.domain.repository import as_plain_dict, load_cached_index, load_qa, save_cached_index
-from app.features.sobesedovanie.domain.scoring import score_free_answer
-from app.features.sobesedovanie.domain.selection import select_questions
+from app.features.sobes.domain.repository import as_plain_dict, load_cached_index, load_qa, save_cached_index
+from app.features.sobes.domain.scoring import score_free_answer
+from app.features.sobes.domain.selection import select_questions
 
 
 @dataclass
