@@ -1,5 +1,6 @@
 import React from "react";
 import { Button, Markdown } from "@/components/ui";
+import { FeatureHeader } from "@/components/features/_shared/FeatureHeader";
 import type { ChatViewProps } from "./types";
 import styles from "./chat.module.css";
 
@@ -30,13 +31,7 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <Button variant="secondary" onClick={onBack}>
-          ← На главную
-        </Button>
-        <h1 className={styles.title}>Интервью</h1>
-        {statsButton}
-      </header>
+      <FeatureHeader onBack={onBack} title="Интервью" right={statsButton} />
 
       <p className={styles.subtitle} style={{ color: "var(--muted)", marginBottom: "1rem" }}>
         Вверху — текущий вопрос. Ниже — поле для вашего ответа и результаты проверки.

@@ -1,237 +1,218 @@
 .container {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.title {
-  font-size: 1.35rem;
-  font-weight: 600;
-  margin: 0;
+    max-width: 720px;
+    margin: 0 auto;
 }
 
 .subtitle {
-  color: var(--muted);
-  font-size: 0.9rem;
-  margin-bottom: 1.5rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
 }
 
 .setupCard {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.5rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
 }
 
 .section {
-  margin-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
 }
 
 .levelGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-  margin-top: 0.75rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-top: 0.75rem;
 }
 
 .levelCard {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1rem;
-  cursor: pointer;
-  transition: border-color 0.2s;
-  text-align: center;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    text-align: center;
 }
 
 .levelCard:hover {
-  border-color: var(--accent);
+    border-color: var(--accent);
 }
 
 .levelCard.selected {
-  border-color: var(--accent);
-  background: rgba(59, 130, 246, 0.1);
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, 0.1);
 }
 
 .levelCard h3 {
-  margin: 0 0 0.25rem;
-  font-size: 1rem;
+    margin: 0 0 0.25rem;
+    font-size: 1rem;
 }
 
 .levelCard p {
-  margin: 0;
-  font-size: 0.78rem;
-  color: var(--muted);
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--muted);
 }
 
 .select {
-  width: 100%;
-  padding: 0.75rem 0.85rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--text);
-  font-size: 0.95rem;
-  margin-top: 0.5rem;
+    width: 100%;
+    padding: 0.75rem 0.85rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 0.95rem;
+    margin-top: 0.5rem;
 }
 
 .select:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
-}
-
-.progress {
-  color: var(--muted);
-  font-size: 0.85rem;
-  font-family: ui-monospace, monospace;
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
 }
 
 .progressBar {
-  margin-top: 1rem;
-  height: 6px;
-  background: var(--border);
-  border-radius: 3px;
-  overflow: hidden;
+    margin-top: 1rem;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
 }
 
 .progressBarFill {
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.3s ease;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s ease;
 }
 
 .questionCard {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-top: 1rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1rem;
 }
 
 .questionBadge {
-  display: inline-block;
-  font-weight: 700;
-  font-size: 0.85rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  background: rgba(59, 130, 246, 0.12);
-  margin-bottom: 0.75rem;
+    display: inline-block;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    background: rgba(59, 130, 246, 0.12);
+    margin-bottom: 0.75rem;
 }
 
 .questionText {
-  font-size: 1.05rem;
-  font-weight: 500;
-  margin: 0 0 1rem;
-  line-height: 1.5;
+    font-size: 1.05rem;
+    font-weight: 500;
+    margin: 0 0 1rem;
+    line-height: 1.5;
 }
 
 .options {
-  margin-top: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
 }
 
 .option {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.75rem 1rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  cursor: pointer;
-  transition: border-color 0.15s;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    transition: border-color 0.15s;
 }
 
 .option:hover {
-  border-color: var(--accent);
+    border-color: var(--accent);
 }
 
 .option.selected {
-  border-color: var(--accent);
-  background: rgba(59, 130, 246, 0.1);
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, 0.1);
 }
 
 .option input {
-  margin-top: 0.2rem;
+    margin-top: 0.2rem;
 }
 
 .option label {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--text);
-  cursor: pointer;
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text);
+    cursor: pointer;
 }
 
 .resultsCard {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-top: 1rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1rem;
 }
 
 .resultsScore {
-  text-align: center;
-  padding: 2rem 1rem;
+    text-align: center;
+    padding: 2rem 1rem;
 }
 
 .bigScore {
-  font-size: 3rem;
-  font-weight: 700;
+    font-size: 3rem;
+    font-weight: 700;
 }
 
 .levelBadge {
-  font-size: 1.2rem;
-  margin-top: 0.5rem;
+    font-size: 1.2rem;
+    margin-top: 0.5rem;
 }
 
 .resultsList {
-  margin-top: 1rem;
+    margin-top: 1rem;
 }
 
 .resultItem {
-  margin-top: 1rem;
-  padding: 1rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg);
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
 }
 
 .resultItem.correct {
-  border-left: 4px solid var(--success);
+    border-left: 4px solid var(--success);
 }
 
 .resultItem.wrong {
-  border-left: 4px solid var(--err);
+    border-left: 4px solid var(--err);
 }
 
 .resultItem h4 {
-  margin: 0 0 0.5rem;
-  font-size: 0.95rem;
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
 }
 
 .resultItem p {
-  margin: 0.3rem 0;
-  font-size: 0.85rem;
+    margin: 0.3rem 0;
+    font-size: 0.85rem;
 }
 
 .resultItem .label {
-  color: var(--muted);
+    color: var(--muted);
 }
 
 .resultsActions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
 }

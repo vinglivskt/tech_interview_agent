@@ -1,5 +1,6 @@
 import React from "react";
 import { Button, Markdown } from "@/components/ui";
+import { FeatureHeader } from "@/components/features/_shared/FeatureHeader";
 import styles from "./sobes.module.css";
 
 export const SobesSetupView: React.FC<{
@@ -32,12 +33,7 @@ export const SobesSetupView: React.FC<{
   if (!config) {
     return (
       <div className={styles.container}>
-        <header className={styles.header}>
-          <Button variant="secondary" onClick={onBack}>
-            ← На главную
-          </Button>
-          {onShowStats}
-        </header>
+        <FeatureHeader onBack={onBack} right={onShowStats} />
         <div className={styles.loadingContainer}>Загрузка конфигурации...</div>
       </div>
     );
@@ -51,13 +47,7 @@ export const SobesSetupView: React.FC<{
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <Button variant="secondary" onClick={onBack}>
-          ← На главную
-        </Button>
-        <h1 className={styles.title}>Собеседование</h1>
-        {onShowStats}
-      </header>
+      <FeatureHeader onBack={onBack} title="Собеседование" right={onShowStats} />
 
       <div className={styles.setupCard}>
         <p className={styles.subtitle}>
@@ -154,15 +144,7 @@ export const SobesQuestionView: React.FC<{
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <Button variant="secondary" onClick={onBack}>
-          ← На главную
-        </Button>
-        <div className={styles.progress}>
-          Вопрос {questionIndex} из {totalPlanned}
-        </div>
-        {onShowStats}
-      </header>
+      <FeatureHeader onBack={onBack} center={`Вопрос ${questionIndex} из ${totalPlanned}`} right={onShowStats} />
 
       <div className={styles.progressBar}>
         <div className={styles.progressBarFill} style={{ width: `${progressPercent}%` }} />
@@ -228,12 +210,7 @@ export const SobesAnswerView: React.FC<{
 }> = ({ question, userAnswer, answer, onNext, onBack, onShowStats }) => {
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <Button variant="secondary" onClick={onBack}>
-          ← На главную
-        </Button>
-        {onShowStats}
-      </header>
+      <FeatureHeader onBack={onBack} right={onShowStats} />
 
       <div className={styles.answerCard}>
         <div className={styles.scoreBar}>
@@ -302,12 +279,7 @@ export const SobesResultsView: React.FC<{
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <Button variant="secondary" onClick={onBack}>
-          ← На главную
-        </Button>
-        {onShowStats}
-      </header>
+      <FeatureHeader onBack={onBack} right={onShowStats} />
 
       <div className={styles.resultsCard}>
         <div className={styles.verdictBadge}>

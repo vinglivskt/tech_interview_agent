@@ -37,8 +37,6 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 // Chat API
 export const chatApi = {
-  health: () => request<{ status: string; qdrant: boolean; ollama_available: boolean }>("/chat/health"),
-
   send: (message: string, sessionId?: string) =>
     request<{ answer: string; meta: Record<string, unknown> }>("/chat", {
       method: "POST",

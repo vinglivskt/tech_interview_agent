@@ -422,9 +422,12 @@ class QuizService:
         total_score = sum(1 for a in session.answers if a.is_correct)
         # Вычисляем итоговый уровень на основе результатов
         final_level = self._calculate_level(total_score, TOTAL_QUESTIONS)
+        # total_questions — это размер квиза (константа), а не количество сгенерированных
+        # или отвеченных вопросов. Иначе на промежуточных вызовах (например, после 1 ответа)
+        # фронт видит «2/2», что вводит в заблуждение.
         return (
             total_score,
-            len(session.questions),
+            TOTAL_QUESTIONS,
             final_level,
             session.answers,
         )

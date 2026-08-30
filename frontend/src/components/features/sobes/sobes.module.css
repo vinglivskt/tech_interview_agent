@@ -1,413 +1,394 @@
 .container {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.title {
-  font-size: 1.35rem;
-  font-weight: 600;
-  margin: 0;
+    max-width: 720px;
+    margin: 0 auto;
 }
 
 .subtitle {
-  color: var(--muted);
-  font-size: 0.9rem;
-  margin-bottom: 1.5rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
 }
 
 .setupCard {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.5rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
 }
 
 .section {
-  margin-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
 }
 
 .levelGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-  margin-top: 0.75rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-top: 0.75rem;
 }
 
 .levelCard {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1rem;
-  cursor: pointer;
-  transition: border-color 0.2s;
-  text-align: center;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    text-align: center;
 }
 
 .levelCard:hover {
-  border-color: var(--accent);
+    border-color: var(--accent);
 }
 
 .levelCard.selected {
-  border-color: var(--accent);
-  background: rgba(59, 130, 246, 0.1);
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, 0.1);
 }
 
 .levelCard h4 {
-  margin: 0 0 0.25rem;
-  font-size: 1rem;
+    margin: 0 0 0.25rem;
+    font-size: 1rem;
 }
 
 .levelCard p {
-  margin: 0;
-  font-size: 0.78rem;
-  color: var(--muted);
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--muted);
 }
 
 .topicsGrid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
 }
 
 .topicCard {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0.5rem 0.85rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  cursor: pointer;
-  transition: border-color 0.2s;
-  font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.5rem 0.85rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    transition: border-color 0.2s;
+    font-size: 0.85rem;
 }
 
 .topicCard:hover {
-  border-color: var(--accent);
+    border-color: var(--accent);
 }
 
 .topicCard.selected {
-  border-color: var(--accent);
-  background: rgba(59, 130, 246, 0.1);
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, 0.1);
 }
 
 .topicCheck {
-  color: var(--success);
-  font-weight: bold;
+    color: var(--success);
+    font-weight: bold;
 }
 
 .select {
-  width: 100%;
-  padding: 0.75rem 0.85rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--text);
-  font-size: 0.95rem;
-  margin-top: 0.5rem;
+    width: 100%;
+    padding: 0.75rem 0.85rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 0.95rem;
+    margin-top: 0.5rem;
 }
 
 .select:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
 }
 
 .loadingContainer {
-  text-align: center;
-  padding: 3rem;
-  color: var(--muted);
-}
-
-.progress {
-  color: var(--muted);
-  font-size: 0.85rem;
-  font-family: ui-monospace, monospace;
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted);
 }
 
 .progressBar {
-  margin-top: 1rem;
-  height: 6px;
-  background: var(--border);
-  border-radius: 3px;
-  overflow: hidden;
+    margin-top: 1rem;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
 }
 
 .progressBarFill {
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.3s ease;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s ease;
 }
 
 .questionCard {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-top: 1rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1rem;
 }
 
 .questionMeta {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-  font-size: 0.85rem;
-  color: var(--muted);
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--muted);
 }
 
 .questionNumber {
-  font-weight: 600;
-  color: var(--accent);
+    font-weight: 600;
+    color: var(--accent);
 }
 
 .questionText {
-  font-size: 1.05rem;
-  font-weight: 500;
-  margin: 0 0 1rem;
-  line-height: 1.5;
+    font-size: 1.05rem;
+    font-weight: 500;
+    margin: 0 0 1rem;
+    line-height: 1.5;
 }
 
 .topicHint {
-  margin-bottom: 1rem;
-  padding: 0.75rem;
-  border-radius: 8px;
-  background: rgba(59, 130, 246, 0.08);
-  border: 1px solid var(--accent);
-  font-size: 0.9rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid var(--accent);
+    font-size: 0.9rem;
 }
 
 .label {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--muted);
-  margin-bottom: 0.4rem;
-  margin-top: 1rem;
+    display: block;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+    margin-top: 1rem;
 }
 
 .textarea {
-  width: 100%;
-  padding: 0.75rem 0.85rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--text);
-  font-size: 0.95rem;
-  resize: vertical;
-  font-family: inherit;
+    width: 100%;
+    padding: 0.75rem 0.85rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 0.95rem;
+    resize: vertical;
+    font-family: inherit;
 }
 
 .textarea:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
 }
 
 .actions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  flex-wrap: wrap;
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
 }
 
 .output {
-  margin-top: 1.25rem;
-  padding: 1rem 1.1rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  min-height: 4rem;
-  white-space: pre-wrap;
-  word-break: break-word;
+    margin-top: 1.25rem;
+    padding: 1rem 1.1rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    min-height: 4rem;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 .answerCard {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-top: 1rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1rem;
 }
 
 .scoreBar {
-  position: relative;
-  height: 6px;
-  background: var(--border);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 1rem;
+    position: relative;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 1rem;
 }
 
 .scoreFill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.3s ease;
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s ease;
 }
 
 .scoreText {
-  font-size: 0.85rem;
-  color: var(--muted);
-  margin-bottom: 1rem;
-  display: block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 1rem;
+    display: block;
 }
 
 .answerSection {
-  margin-top: 1rem;
+    margin-top: 1rem;
 }
 
 .answerSection strong {
-  display: block;
-  margin-bottom: 0.25rem;
-  font-size: 0.85rem;
-  color: var(--muted);
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--muted);
 }
 
 .userAnswer {
-  padding: 0.75rem;
-  border-radius: 8px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  margin: 0.25rem 0 0;
-  font-size: 0.95rem;
-  white-space: pre-wrap;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    margin: 0.25rem 0 0;
+    font-size: 0.95rem;
+    white-space: pre-wrap;
 }
 
 .explanation {
-  margin-top: 1rem;
+    margin-top: 1rem;
 }
 
 .explanation strong {
-  display: block;
-  margin-bottom: 0.25rem;
-  font-size: 0.85rem;
-  color: var(--muted);
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--muted);
 }
 
 .pointsSection {
-  margin-top: 1rem;
+    margin-top: 1rem;
 }
 
 .pointsSection h4 {
-  margin: 0 0 0.5rem;
-  font-size: 0.9rem;
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
 }
 
 .pointsSection ul {
-  margin: 0;
-  padding-left: 1.25rem;
+    margin: 0;
+    padding-left: 1.25rem;
 }
 
 .pointsSection li {
-  margin: 0.25rem 0;
-  font-size: 0.9rem;
+    margin: 0.25rem 0;
+    font-size: 0.9rem;
 }
 
 .pointsSection.missed h4 {
-  color: var(--err);
+    color: var(--err);
 }
 
 .resultsCard {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-top: 1rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1rem;
 }
 
 .verdictBadge {
-  text-align: center;
-  padding: 1.5rem;
-  font-size: 1.5rem;
-  font-weight: 600;
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 1.5rem;
+    font-weight: 600;
 }
 
 .summary {
-  margin-top: 1rem;
-  padding: 1rem;
-  border-radius: 8px;
-  background: var(--bg);
-  border: 1px solid var(--border);
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
 }
 
 .feedbackSection {
-  margin-top: 1.5rem;
+    margin-top: 1.5rem;
 }
 
 .feedbackSection h4 {
-  margin: 0 0 0.5rem;
-  font-size: 0.95rem;
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
 }
 
 .feedbackSection ul {
-  margin: 0;
-  padding-left: 1.25rem;
+    margin: 0;
+    padding-left: 1.25rem;
 }
 
 .feedbackSection li {
-  margin: 0.25rem 0;
-  font-size: 0.9rem;
+    margin: 0.25rem 0;
+    font-size: 0.9rem;
 }
 
 .feedbackSection.weaknesses h4 {
-  color: var(--err);
+    color: var(--err);
 }
 
 .detailsTitle {
-  margin-top: 1.5rem;
-  font-size: 1.1rem;
+    margin-top: 1.5rem;
+    font-size: 1.1rem;
 }
 
 .resultsList {
-  margin-top: 1rem;
+    margin-top: 1rem;
 }
 
 .resultItem {
-  margin-top: 1rem;
-  padding: 1rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg);
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
 }
 
 .resultItem.correct {
-  border-left: 4px solid var(--success);
+    border-left: 4px solid var(--success);
 }
 
 .resultItem.wrong {
-  border-left: 4px solid var(--err);
+    border-left: 4px solid var(--err);
 }
 
 .resultItem h4 {
-  margin: 0 0 0.5rem;
-  font-size: 0.95rem;
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
 }
 
 .resultItem p {
-  margin: 0.3rem 0;
-  font-size: 0.85rem;
+    margin: 0.3rem 0;
+    font-size: 0.85rem;
 }
 
 .resultsActions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
 }
 
 .error {
-  color: var(--err);
-  margin-top: 1rem;
-  padding: 0.75rem;
-  border-radius: 8px;
-  background: rgba(248, 113, 113, 0.1);
-  border: 1px solid var(--err);
+    color: var(--err);
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: rgba(248, 113, 113, 0.1);
+    border: 1px solid var(--err);
 }

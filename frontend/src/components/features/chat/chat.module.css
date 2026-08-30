@@ -3,19 +3,6 @@
     margin: 0 auto;
 }
 
-.header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.title {
-    font-size: 1.35rem;
-    font-weight: 600;
-    margin: 0;
-}
-
 .questionCard {
     margin-top: 1rem;
     padding: 1rem 1.1rem;

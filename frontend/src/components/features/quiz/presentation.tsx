@@ -1,5 +1,6 @@
 import React from "react";
 import { Button, Markdown } from "@/components/ui";
+import { FeatureHeader } from "@/components/features/_shared/FeatureHeader";
 import type { QuizViewProps } from "./types";
 import styles from "./quiz.module.css";
 
@@ -19,13 +20,7 @@ export const QuizSetupView: React.FC<QuizViewProps> = ({
 }) => {
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <Button variant="secondary" onClick={onBack ?? (() => {})}>
-          ← На главную
-        </Button>
-        <h1 className={styles.title}>Тестирование</h1>
-        {onShowStats}
-      </header>
+      <FeatureHeader onBack={onBack ?? (() => {})} title="Тестирование" right={onShowStats} />
 
       <div className={styles.setupCard}>
         <p className={styles.subtitle}>Выберите уровень сложности и начните тест из 20 вопросов</p>
@@ -72,15 +67,11 @@ export const QuizQuestionView: React.FC<{
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <Button variant="secondary" onClick={onBack}>
-          ← На главную
-        </Button>
-        <div className={styles.progress}>
-          Вопрос {question.question_number} из {question.total_questions}
-        </div>
-        {onShowStats}
-      </header>
+      <FeatureHeader
+        onBack={onBack}
+        center={`Вопрос ${question.question_number} из ${question.total_questions}`}
+        right={onShowStats}
+      />
 
       <div className={styles.progressBar}>
         <div className={styles.progressBarFill} style={{ width: `${progressPercent}%` }} />
@@ -141,12 +132,7 @@ export const QuizResultsView: React.FC<{
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <Button variant="secondary" onClick={onBack}>
-          ← На главную
-        </Button>
-        {onShowStats}
-      </header>
+      <FeatureHeader onBack={onBack} right={onShowStats} />
 
       <div className={styles.resultsCard}>
         <div className={styles.resultsScore}>

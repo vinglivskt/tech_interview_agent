@@ -1,5 +1,6 @@
 import React from "react";
 import { Button, Markdown } from "@/components/ui";
+import { FeatureHeader } from "@/components/features/_shared/FeatureHeader";
 import styles from "./design.module.css";
 
 export const DesignSetupView: React.FC<{
@@ -32,12 +33,7 @@ export const DesignSetupView: React.FC<{
   if (!config) {
     return (
       <div className={styles.container}>
-        <header className={styles.header}>
-          <Button variant="secondary" onClick={onBack}>
-            ← На главную
-          </Button>
-          {onShowStats}
-        </header>
+        <FeatureHeader onBack={onBack} right={onShowStats} />
         <div className={styles.loadingContainer}>Загрузка конфигурации...</div>
       </div>
     );
@@ -47,13 +43,7 @@ export const DesignSetupView: React.FC<{
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <Button variant="secondary" onClick={onBack}>
-          ← На главную
-        </Button>
-        <h1 className={styles.title}>Системный дизайн</h1>
-        {onShowStats}
-      </header>
+      <FeatureHeader onBack={onBack} title="Системный дизайн" right={onShowStats} />
 
       <div className={styles.setupCard}>
         <p className={styles.subtitle}>Выберите уровень и сценарий. Можно оставить автоматический выбор.</p>
@@ -138,15 +128,7 @@ export const DesignQuestionView: React.FC<{
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <Button variant="secondary" onClick={onBack}>
-          ← На главную
-        </Button>
-        <div className={styles.progress}>
-          Шаг {stepIndex} из {totalSteps}
-        </div>
-        {onShowStats}
-      </header>
+      <FeatureHeader onBack={onBack} center={`Шаг ${stepIndex} из ${totalSteps}`} right={onShowStats} />
 
       <div className={styles.progressBar}>
         <div className={styles.progressBarFill} style={{ width: `${progressPercent}%` }} />
@@ -211,12 +193,7 @@ export const DesignAnswerView: React.FC<{
 }> = ({ scenario, step, stepIndex, userAnswer, answer, onNext, onBack, onShowStats }) => {
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <Button variant="secondary" onClick={onBack}>
-          ← На главную
-        </Button>
-        {onShowStats}
-      </header>
+      <FeatureHeader onBack={onBack} right={onShowStats} />
 
       <div className={styles.answerCard}>
         <div className={styles.scoreBar}>
@@ -303,12 +280,7 @@ export const DesignResultsView: React.FC<{
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <Button variant="secondary" onClick={onBack}>
-          ← На главную
-        </Button>
-        {onShowStats}
-      </header>
+      <FeatureHeader onBack={onBack} right={onShowStats} />
 
       <div className={styles.resultsCard}>
         <div className={styles.verdictBadge}>

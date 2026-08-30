@@ -1,0 +1,25 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.center {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-family: ui-monospace, monospace;
+}
+
+.right {
+  margin-left: auto;
+  display: flex;
+  gap: 0.5rem;
+}
