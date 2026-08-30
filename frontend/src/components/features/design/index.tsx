@@ -1,9 +1,23 @@
-import React from "react";
+import React, { useState } from "react";
 import { DesignSetupView, DesignQuestionView, DesignAnswerView, DesignResultsView } from "./presentation";
 import { useDesign } from "./useDesign";
+import { StatsButton } from "@/components/features/_shared/StatsButton";
+import { StatsView } from "@/components/features/_shared/StatsView";
 
-export const DesignContainer: React.FC = () => {
+interface Props {
+  onBack?: () => void;
+}
+
+export const DesignContainer: React.FC<Props> = ({ onBack }) => {
   const design = useDesign();
+  const [showStats, setShowStats] = useState(false);
+
+  if (showStats) {
+    return <StatsView mode="design" onBack={() => setShowStats(false)} title="Системный дизайн" />;
+  }
+
+  const handleBack = onBack ?? design.goBack;
+  const statsButton = <StatsButton onClick={() => setShowStats(true)} />;
 
   switch (design.view) {
     case "setup":
@@ -15,9 +29,10 @@ export const DesignContainer: React.FC = () => {
           onLevelChange={design.setLevel}
           onScenarioSelect={design.selectScenario}
           onStart={design.startDesign}
-          onBack={design.goBack}
+          onBack={handleBack}
           isLoading={design.isLoading}
           error={design.error}
+          onShowStats={statsButton}
         />
       );
     case "question":
@@ -33,7 +48,8 @@ export const DesignContainer: React.FC = () => {
           onAnswerChange={design.setUserAnswer}
           onSubmit={design.submitAnswer}
           onGetHint={design.getHint}
-          onBack={design.goBack}
+          onBack={handleBack}
+          onShowStats={statsButton}
         />
       ) : null;
     case "answer":
@@ -45,12 +61,18 @@ export const DesignContainer: React.FC = () => {
           userAnswer={design.userAnswer}
           answer={design.lastAnswer}
           onNext={design.nextStep}
-          onBack={design.goBack}
+          onBack={handleBack}
+          onShowStats={statsButton}
         />
       ) : null;
     case "results":
       return design.results ? (
-        <DesignResultsView results={design.results} onRestart={design.restart} onBack={design.goBack} />
+        <DesignResultsView
+          results={design.results}
+          onRestart={design.restart}
+          onBack={handleBack}
+          onShowStats={statsButton}
+        />
       ) : null;
     default:
       return null;

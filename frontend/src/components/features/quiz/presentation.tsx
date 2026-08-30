@@ -9,14 +9,22 @@ const LEVEL_NAMES: Record<string, string> = {
   senior: "Senior",
 };
 
-export const QuizSetupView: React.FC<QuizViewProps> = ({ level, onLevelChange, onStart, isLoading }) => {
+export const QuizSetupView: React.FC<QuizViewProps> = ({
+  level,
+  onLevelChange,
+  onStart,
+  isLoading,
+  onBack,
+  onShowStats,
+}) => {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <Button variant="secondary" onClick={onStart === undefined ? () => {} : () => {}}>
+        <Button variant="secondary" onClick={onBack ?? (() => {})}>
           ← На главную
         </Button>
         <h1 className={styles.title}>Тестирование</h1>
+        {onShowStats}
       </header>
 
       <div className={styles.setupCard}>
@@ -58,7 +66,8 @@ export const QuizQuestionView: React.FC<{
   onSubmit: () => void;
   onBack: () => void;
   isLoading: boolean;
-}> = ({ question, selectedOption, onSelectOption, onSubmit, onBack, isLoading }) => {
+  onShowStats?: React.ReactNode;
+}> = ({ question, selectedOption, onSelectOption, onSubmit, onBack, isLoading, onShowStats }) => {
   const progressPercent = (question.question_number / question.total_questions) * 100;
 
   return (
@@ -70,6 +79,7 @@ export const QuizQuestionView: React.FC<{
         <div className={styles.progress}>
           Вопрос {question.question_number} из {question.total_questions}
         </div>
+        {onShowStats}
       </header>
 
       <div className={styles.progressBar}>
@@ -123,7 +133,8 @@ export const QuizResultsView: React.FC<{
   };
   onRestart: () => void;
   onBack: () => void;
-}> = ({ results, onRestart, onBack }) => {
+  onShowStats?: React.ReactNode;
+}> = ({ results, onRestart, onBack, onShowStats }) => {
   const escapeHtml = (text: string) => {
     return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   };
@@ -134,6 +145,7 @@ export const QuizResultsView: React.FC<{
         <Button variant="secondary" onClick={onBack}>
           ← На главную
         </Button>
+        {onShowStats}
       </header>
 
       <div className={styles.resultsCard}>

@@ -3,6 +3,15 @@ import { chatApi } from "@/services/api";
 
 const SESSION_KEY = "interview_session_id";
 
+export function formatInterviewAnswerRequest(question: string, answer: string): string {
+  return [
+    "Проверь мой ответ на вопрос технического интервью.",
+    `Вопрос: ${question.trim()}`,
+    `Мой ответ: ${answer.trim()}`,
+    "Дай разбор ответа по правилам собеседования: что верно, что упущено, правильный ответ и оценку.",
+  ].join("\n\n");
+}
+
 function getSessionId(): string {
   let id = localStorage.getItem(SESSION_KEY);
   if (!id) {
@@ -52,6 +61,7 @@ export function useChat() {
 
     setState((prev) => ({
       ...prev,
+      isLoading: true,
       answer: "",
       isAnswerEmpty: true,
       statusText: "Генерация вопроса…",
@@ -64,6 +74,7 @@ export function useChat() {
       hasLoadedQuestion.current = true;
       setState((prev) => ({
         ...prev,
+        isLoading: false,
         questionNumber: String(data.number),
         questionText: data.question,
         lastQuestion: data.question,
@@ -72,6 +83,7 @@ export function useChat() {
     } catch (err) {
       setState((prev) => ({
         ...prev,
+        isLoading: false,
         questionText: "",
         statusText: "",
         error: err instanceof Error ? err.message : "Не удалось загрузить вопрос",
@@ -89,7 +101,7 @@ export function useChat() {
 
   const sendAnswer = useCallback(async () => {
     const { userAnswer, sessionId, lastQuestion, isLoading } = state;
-    if (!userAnswer.trim() || isLoading) return;
+    if (!userAnswer.trim() || !lastQuestion || isLoading) return;
 
     setState((prev) => ({
       ...prev,
@@ -98,17 +110,11 @@ export function useChat() {
       error: null,
     }));
 
-    // If lastQuestion is empty, this is a NEW question (user types their own question)
-    // Otherwise, this is an ANSWER to the previously loaded question
-    const isNewQuestion = !lastQuestion;
-    const message = isNewQuestion ? userAnswer : userAnswer;
+    const message = formatInterviewAnswerRequest(lastQuestion, userAnswer);
 
     try {
       const data = await chatApi.send(message, sessionId);
 
-      // After response:
-      // - If was a new question, lastQuestion becomes that question
-      // - If was an answer, lastQuestion stays the same (the question we're answering)
       setState((prev) => ({
         ...prev,
         isLoading: false,
@@ -116,8 +122,7 @@ export function useChat() {
         answer: data.answer,
         isAnswerEmpty: false,
         lastAnswer: data.answer,
-        lastQuestion: isNewQuestion ? userAnswer : prev.lastQuestion,
-        // Keep userAnswer so user can type follow-up
+        lastQuestion: prev.lastQuestion,
       }));
     } catch (err) {
       setState((prev) => ({

@@ -3,4 +3,6 @@ export interface QuizViewProps {
   onLevelChange: (level: "junior" | "middle" | "senior") => void;
   onStart: () => void;
   isLoading: boolean;
+  onBack?: () => void;
+  onShowStats?: React.ReactNode;
 }

@@ -16,6 +16,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.core.config import get_settings
 from src.core.logger import configure_logging
+from src.db.database import (
+    create_all_tables,
+    dispose_engine,
+    init_engine,
+    is_db_available,
+)
 from src.features.chat.api.router import router as chat_router
 from src.features.chat.domain.ingest import sync_interview_index
 from src.features.chat.domain.services import SessionStore
@@ -24,6 +30,7 @@ from src.features.chat.providers.ollama import OllamaClient
 from src.features.design.api.router import router as design_router
 from src.features.quiz.api.router import router as quiz_router
 from src.features.sobes.api.router import router as sobes_router
+from src.features.stats.api.router import router as stats_router
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -38,13 +45,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if not await llm.ping():
         logger.warning("Ollama недоступна по %s", settings.ollama_url)
 
-    await qdrant.ensure_collection()
-
     try:
-        state = await sync_interview_index(settings, qdrant)
-        logger.info("Состояние индекса: %s", state)
+        await qdrant.ensure_collection()
     except Exception:
-        logger.exception("Первая индексация docx не удалась")
+        # API всё ещё может отдавать случайные вопросы и конфигурацию без Qdrant.
+        # RAG-запросы вернут понятную ошибку до восстановления сервиса.
+        logger.exception("Не удалось подготовить коллекцию Qdrant")
+
+    # --- PostgreSQL (user statistics) ---
+    try:
+        init_engine(settings)
+        if getattr(settings, "database_auto_create", True):
+            await create_all_tables()
+        if not await is_db_available():
+            logger.warning("PostgreSQL недоступна, эндпоинты статистики вернут 503")
+        else:
+            logger.info("PostgreSQL готова: статистика ответов активна")
+    except Exception:
+        logger.exception("Не удалось инициализировать БД (PostgreSQL). Статистика будет недоступна.")
 
     app.state.settings = settings
     app.state.llm = llm
@@ -56,6 +74,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
 
     stop = asyncio.Event()
+
+    async def initial_ingest() -> None:
+        """Первичная индексация не должна задерживать готовность HTTP API."""
+        try:
+            state = await sync_interview_index(settings, qdrant)
+            logger.info("Состояние начальной индексации: %s", state)
+        except Exception:
+            logger.exception("Первая индексация docx не удалась")
 
     async def periodic_ingest_loop() -> None:
         while not stop.is_set():
@@ -72,17 +98,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 except Exception:
                     logger.exception("Периодическая индексация не удалась")
 
+    initial_ingest_task = asyncio.create_task(initial_ingest())
     task = asyncio.create_task(periodic_ingest_loop())
     yield
     stop.set()
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
+    for background_task in (initial_ingest_task, task):
+        background_task.cancel()
+        try:
+            await background_task
+        except asyncio.CancelledError:
+            pass
 
     await qdrant.close()
     await llm.close()
+    await dispose_engine()
 
 
 app = FastAPI(
@@ -108,6 +137,7 @@ app.include_router(chat_router, prefix="/api")
 app.include_router(quiz_router, prefix="/api")
 app.include_router(sobes_router, prefix="/api")
 app.include_router(design_router, prefix="/api")
+app.include_router(stats_router, prefix="/api")
 
 # Frontend is served by a separate service (see docker-compose.yml)
 # CORS allows the frontend at http://localhost:3000 to call /api/*

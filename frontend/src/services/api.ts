@@ -1,12 +1,30 @@
 const API_BASE = "/api";
 
+let _username: string | null = null;
+
+export function setApiUsername(name: string | null): void {
+  _username = name && name.trim() ? name.trim() : null;
+}
+
+export function getApiUsername(): string | null {
+  return _username;
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string> | undefined),
+  };
+  if (_username) {
+    // HTTP headers must contain only ISO-8859-1 characters.  User names can
+    // contain Cyrillic and other Unicode characters, so transport them as
+    // percent-encoded UTF-8 and decode them on the API side.
+    headers["X-Username"] = encodeURIComponent(_username);
+  }
+
   const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
     ...options,
+    headers,
   });
 
   if (!response.ok) {
@@ -262,4 +280,119 @@ export const designApi = {
         explanation: string;
       }[];
     }>(`/design/results/${sessionId}`),
+};
+
+// Stats API
+export interface StatsBreakdown {
+  feature: string;
+  total: number;
+  correct: number;
+  partial: number;
+  incorrect: number;
+  accuracy_percent: number;
+  pass_rate_percent: number;
+}
+
+export interface QuizAnswerRow {
+  id: string;
+  category: "correct" | "partial" | "incorrect";
+  question_text: string;
+  user_answer: string;
+  correct_answer: string;
+  is_correct: boolean;
+  explanation: string;
+  level?: string;
+  answered_at: string;
+}
+
+export interface SobesAnswerRow {
+  id: string;
+  category: "correct" | "partial" | "incorrect";
+  question_text: string;
+  topic: string;
+  user_answer: string;
+  reference_answer: string;
+  score_percent: number;
+  is_counted: boolean;
+  techlead_explanation: string;
+  covered_points: string[];
+  missed_points: string[];
+  level?: string;
+  answered_at: string;
+}
+
+export interface DesignAnswerRow {
+  id: string;
+  category: "correct" | "partial" | "incorrect";
+  scenario_id: string;
+  step_id: string;
+  step_title: string;
+  user_answer: string;
+  score_percent: number;
+  rubric: Record<string, number>;
+  techlead_explanation: string;
+  covered_points: string[];
+  missed_points: string[];
+  hint_used: boolean;
+  level?: string;
+  answered_at: string;
+}
+
+export const statsApi = {
+  me: () =>
+    request<{
+      id: string;
+      username: string;
+      display_name: string;
+      created_at: string;
+      last_seen_at: string;
+    }>("/users/me"),
+
+  overview: () =>
+    request<{
+      user: { id: string; username: string; display_name: string };
+      features: Record<string, StatsBreakdown>;
+    }>("/stats/overview"),
+
+  forFeature: (feature: string) => request<StatsBreakdown>(`/stats/${feature}`),
+
+  quizAnswers: (opts: { onlyIncorrect?: boolean; onlyPartial?: boolean; limit?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.onlyIncorrect) params.set("only_incorrect", "true");
+    if (opts.onlyPartial) params.set("only_partial", "true");
+    if (opts.limit) params.set("limit", String(opts.limit));
+    const q = params.toString();
+    return request<{ feature: string; answers: QuizAnswerRow[]; limit: number; offset: number }>(
+      `/stats/quiz/answers${q ? `?${q}` : ""}`,
+    );
+  },
+
+  sobesAnswers: (opts: { onlyIncorrect?: boolean; onlyPartial?: boolean; limit?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.onlyIncorrect) params.set("only_incorrect", "true");
+    if (opts.onlyPartial) params.set("only_partial", "true");
+    if (opts.limit) params.set("limit", String(opts.limit));
+    const q = params.toString();
+    return request<{ feature: string; answers: SobesAnswerRow[]; limit: number; offset: number }>(
+      `/stats/sobes/answers${q ? `?${q}` : ""}`,
+    );
+  },
+
+  designAnswers: (opts: { onlyIncorrect?: boolean; onlyPartial?: boolean; limit?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.onlyIncorrect) params.set("only_incorrect", "true");
+    if (opts.onlyPartial) params.set("only_partial", "true");
+    if (opts.limit) params.set("limit", String(opts.limit));
+    const q = params.toString();
+    return request<{ feature: string; answers: DesignAnswerRow[]; limit: number; offset: number }>(
+      `/stats/design/answers${q ? `?${q}` : ""}`,
+    );
+  },
+
+  chatPairs: (limit = 10) =>
+    request<{
+      feature: string;
+      pairs: Array<{ user_message: string; assistant_answer: string; created_at: string }>;
+      total: number;
+    }>(`/stats/chat/answers?limit=${limit}`),
 };

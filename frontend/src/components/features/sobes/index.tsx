@@ -1,9 +1,23 @@
-import React from "react";
+import React, { useState } from "react";
 import { SobesSetupView, SobesQuestionView, SobesAnswerView, SobesResultsView } from "./presentation";
 import { useSobes } from "./useSobes";
+import { StatsButton } from "@/components/features/_shared/StatsButton";
+import { StatsView } from "@/components/features/_shared/StatsView";
 
-export const SobesContainer: React.FC = () => {
+interface Props {
+  onBack?: () => void;
+}
+
+export const SobesContainer: React.FC<Props> = ({ onBack }) => {
   const sobes = useSobes();
+  const [showStats, setShowStats] = useState(false);
+
+  if (showStats) {
+    return <StatsView mode="sobes" onBack={() => setShowStats(false)} title="Собеседование" />;
+  }
+
+  const handleBack = onBack ?? sobes.goBack;
+  const statsButton = <StatsButton onClick={() => setShowStats(true)} />;
 
   switch (sobes.view) {
     case "setup":
@@ -15,9 +29,10 @@ export const SobesContainer: React.FC = () => {
           onLevelChange={sobes.setLevel}
           onTopicToggle={sobes.toggleTopic}
           onStart={sobes.startSobes}
-          onBack={sobes.goBack}
+          onBack={handleBack}
           isLoading={sobes.isLoading}
           error={sobes.error}
+          onShowStats={statsButton}
         />
       );
     case "question":
@@ -32,7 +47,8 @@ export const SobesContainer: React.FC = () => {
           onSubmit={sobes.submitAnswer}
           onSkip={sobes.skipQuestion}
           onRepeat={sobes.repeatQuestion}
-          onBack={sobes.goBack}
+          onBack={handleBack}
+          onShowStats={statsButton}
         />
       ) : null;
     case "answer":
@@ -42,12 +58,18 @@ export const SobesContainer: React.FC = () => {
           userAnswer={sobes.userAnswer}
           answer={sobes.lastAnswer}
           onNext={sobes.nextQuestion}
-          onBack={sobes.goBack}
+          onBack={handleBack}
+          onShowStats={statsButton}
         />
       ) : null;
     case "results":
       return sobes.results ? (
-        <SobesResultsView results={sobes.results} onRestart={sobes.restart} onBack={sobes.goBack} />
+        <SobesResultsView
+          results={sobes.results}
+          onRestart={sobes.restart}
+          onBack={handleBack}
+          onShowStats={statsButton}
+        />
       ) : null;
     default:
       return null;

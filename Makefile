@@ -1,4 +1,4 @@
-.PHONY: help install dev-backend dev-frontend build-frontend build test lint clean
+.PHONY: help install dev-backend dev-frontend build-frontend build test lint clean db-migrate db-revision
 
 help:
 	@echo "Available targets:"
@@ -7,8 +7,10 @@ help:
 	@echo "  dev-frontend     Run frontend dev server (http://localhost:3000)"
 	@echo "  build-frontend   Build frontend into backend/static/"
 	@echo "  test             Run all tests"
-	@echo "  lint             Run ruff + tsc"
+	@echo "  lint             ruff + tsc"
 	@echo "  clean            Remove build artifacts"
+	@echo "  db-migrate       Apply Alembic migrations"
+	@echo "  db-revision      Create a new Alembic revision (use msg=\"...\")"
 
 install:
 	uv sync
@@ -32,6 +34,12 @@ test:
 lint:
 	uv run ruff check backend/ tests/
 	cd frontend && npx tsc --noEmit
+
+db-migrate:
+	cd backend && uv run alembic upgrade head
+
+db-revision:
+	cd backend && uv run alembic revision --autogenerate -m "$(msg)"
 
 clean:
 	rm -rf backend/static

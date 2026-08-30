@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from typing import Annotated
+
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
 from src.core.config import Settings
+from src.core.deps import decode_username_header
+from src.db.writer import persist_design_answer
 from src.features.chat.providers.ollama import OllamaClient
 from src.features.design.domain.models import (
     DesignAnswerRequest,
@@ -59,7 +63,12 @@ async def start(request: Request, body: DesignStartRequest):
 
 
 @router.post("/design/answer", response_model=DesignAnswerResponse)
-async def answer(request: Request, body: DesignAnswerRequest):
+async def answer(
+    request: Request,
+    body: DesignAnswerRequest,
+    background: BackgroundTasks,
+    x_username: Annotated[str | None, Header(alias="X-Username")] = None,
+):
     settings: Settings = request.app.state.settings
     llm: OllamaClient = request.app.state.llm
     service = DesignService(settings, llm, _store_get())
@@ -69,6 +78,40 @@ async def answer(request: Request, body: DesignAnswerRequest):
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    # Сохраняем в статистику
+    username = decode_username_header(x_username) or None
+    if username:
+        sess = _store_get().get(body.session_id)
+        if sess is not None:
+            # Определяем заголовок шага, scenario_id и level
+            try:
+                scenario = service._pick_scenario(sess.level_requested, sess.scenario_id)  # type: ignore[attr-defined]
+                step_obj = next((st for st in scenario.steps if st.id == body.step_id), None)
+                step_title = step_obj.title if step_obj else ""
+                scenario_id = scenario.id
+            except Exception:
+                step_title = ""
+                scenario_id = sess.scenario_id
+
+            background.add_task(
+                persist_design_answer,
+                username=username,
+                external_session_id=body.session_id,
+                scenario_id=scenario_id,
+                step_id=body.step_id,
+                step_title=step_title,
+                user_answer=body.user_answer,
+                score_percent=score,
+                rubric=rubric,
+                pass_threshold=int(getattr(settings, "design_pass_threshold_percent", 50)),
+                covered_points=list(covered or []),
+                missed_points=list(missed or []),
+                techlead_explanation=expl,
+                hint_used=body.step_id in sess.hinted_steps,
+                level=sess.level_requested,
+            )
+
     return DesignAnswerResponse(
         score_percent=score,
         rubric=rubric,

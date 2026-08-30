@@ -1,0 +1,444 @@
+"""Repository layer: thin wrappers over SQLAlchemy session for stats.
+
+Зачем нужен отдельный слой:
+- централизует SQL и валидацию категорий;
+- позволяет BackgroundTasks вызывать запись без знания моделей;
+- упрощает юнит-тестирование (легко подменить на in-memory).
+
+Все методы принимают `AsyncSession` явно — это удобно как для FastAPI Depends,
+так и для фоновых задач, где мы открываем сессию вручную через `session_factory()`.
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from collections.abc import Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import and_, func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.db.models import (
+    AnswerCategory,
+    ChatMessage,
+    DesignAnswer,
+    Feature,
+    FeatureSession,
+    QuizAnswer,
+    SobesAnswer,
+    User,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def normalize_username(name: str) -> tuple[str, str]:
+    """Возвращает (username, display_name) — нормализованное и отображаемое имя."""
+    raw = (name or "").strip()
+    if not raw:
+        raise ValueError("Username must not be empty")
+    display = raw
+    username = raw.lower()
+    return username, display
+
+
+@dataclass
+class StatsBreakdown:
+    """Агрегированные счётчики по категориям для одной фичи."""
+
+    feature: Feature
+    total: int
+    correct: int
+    partial: int
+    incorrect: int
+
+    @property
+    def accuracy_percent(self) -> float:
+        """Точность: правильные + половина частично правильных, в процентах."""
+        if self.total == 0:
+            return 0.0
+        score = self.correct + 0.5 * self.partial
+        return round(score * 100.0 / self.total, 1)
+
+    @property
+    def pass_rate_percent(self) -> float:
+        """Просто процент «зачтённых» ответов (correct + partial)."""
+        if self.total == 0:
+            return 0.0
+        return round((self.correct + self.partial) * 100.0 / self.total, 1)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "feature": self.feature.value,
+            "total": self.total,
+            "correct": self.correct,
+            "partial": self.partial,
+            "incorrect": self.incorrect,
+            "accuracy_percent": self.accuracy_percent,
+            "pass_rate_percent": self.pass_rate_percent,
+        }
+
+
+class UsersRepository:
+    """Операции с пользователями."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def get_or_create(self, raw_name: str) -> User:
+        """Возвращает существующего или создаёт нового пользователя по нормализованному имени."""
+        username, display = normalize_username(raw_name)
+        result = await self.session.execute(select(User).where(User.username == username))
+        user = result.scalar_one_or_none()
+        if user is not None:
+            # touch last_seen
+            user.last_seen_at = datetime.utcnow()
+            await self.session.flush()
+            return user
+
+        user = User(username=username, display_name=display)
+        self.session.add(user)
+        await self.session.flush()
+        return user
+
+
+class SessionsRepository:
+    """Операции с сессиями фич."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def get_or_create(
+        self,
+        user_id: uuid.UUID,
+        feature: Feature,
+        external_id: str,
+        level: str | None = None,
+        extra: dict | None = None,
+    ) -> FeatureSession:
+        """Возвращает существующую или создаёт новую запись о сессии."""
+        result = await self.session.execute(
+            select(FeatureSession).where(
+                and_(
+                    FeatureSession.feature == feature,
+                    FeatureSession.external_id == external_id,
+                    FeatureSession.user_id == user_id,
+                )
+            )
+        )
+        sess = result.scalar_one_or_none()
+        if sess is not None:
+            return sess
+
+        sess = FeatureSession(
+            user_id=user_id,
+            feature=feature,
+            external_id=external_id,
+            level=level,
+            extra=extra,
+        )
+        self.session.add(sess)
+        await self.session.flush()
+        return sess
+
+    async def mark_ended(self, session_pk: uuid.UUID) -> None:
+        await self.session.execute(
+            update(FeatureSession).where(FeatureSession.id == session_pk).values(ended_at=datetime.utcnow())
+        )
+
+
+def categorize(score_percent: int, pass_threshold: int) -> AnswerCategory:
+    """Возвращает категорию ответа по проценту и порогу."""
+    if score_percent <= 0:
+        return AnswerCategory.INCORRECT
+    if score_percent >= pass_threshold:
+        return AnswerCategory.CORRECT
+    return AnswerCategory.PARTIAL
+
+
+class QuizAnswersRepository:
+    """Запись и чтение ответов квиза."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def add(
+        self,
+        *,
+        user_id: uuid.UUID,
+        session_pk: uuid.UUID | None,
+        question_text: str,
+        user_answer: str,
+        correct_answer: str,
+        is_correct: bool,
+        explanation: str = "",
+        level: str | None = None,
+    ) -> QuizAnswer:
+        category = AnswerCategory.CORRECT if is_correct else AnswerCategory.INCORRECT
+        record = QuizAnswer(
+            user_id=user_id,
+            session_pk=session_pk,
+            question_text=question_text,
+            user_answer=user_answer,
+            correct_answer=correct_answer,
+            is_correct=is_correct,
+            category=category,
+            explanation=explanation,
+            level=level,
+        )
+        self.session.add(record)
+        await self.session.flush()
+        return record
+
+
+class SobesAnswersRepository:
+    """Запись и чтение ответов собеседования."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def add(
+        self,
+        *,
+        user_id: uuid.UUID,
+        session_pk: uuid.UUID | None,
+        question_text: str,
+        topic: str,
+        user_answer: str,
+        reference_answer: str = "",
+        score_percent: int,
+        is_counted: bool,
+        pass_threshold: int,
+        techlead_explanation: str = "",
+        covered_points: list[str] | None = None,
+        missed_points: list[str] | None = None,
+        level: str | None = None,
+    ) -> SobesAnswer:
+        category = categorize(score_percent, pass_threshold)
+        record = SobesAnswer(
+            user_id=user_id,
+            session_pk=session_pk,
+            question_text=question_text,
+            topic=topic,
+            user_answer=user_answer,
+            reference_answer=reference_answer,
+            score_percent=score_percent,
+            is_counted=is_counted,
+            category=category,
+            techlead_explanation=techlead_explanation,
+            covered_points=covered_points,
+            missed_points=missed_points,
+            level=level,
+        )
+        self.session.add(record)
+        await self.session.flush()
+        return record
+
+
+class DesignAnswersRepository:
+    """Запись и чтение ответов системного дизайна."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def add(
+        self,
+        *,
+        user_id: uuid.UUID,
+        session_pk: uuid.UUID | None,
+        scenario_id: str,
+        step_id: str,
+        step_title: str = "",
+        user_answer: str,
+        score_percent: int,
+        rubric: dict[str, int] | None = None,
+        pass_threshold: int,
+        covered_points: list[str] | None = None,
+        missed_points: list[str] | None = None,
+        techlead_explanation: str = "",
+        hint_used: bool = False,
+        level: str | None = None,
+    ) -> DesignAnswer:
+        category = categorize(score_percent, pass_threshold)
+        record = DesignAnswer(
+            user_id=user_id,
+            session_pk=session_pk,
+            scenario_id=scenario_id,
+            step_id=step_id,
+            step_title=step_title,
+            user_answer=user_answer,
+            score_percent=score_percent,
+            rubric=rubric,
+            category=category,
+            covered_points=covered_points,
+            missed_points=missed_points,
+            techlead_explanation=techlead_explanation,
+            hint_used=hint_used,
+            level=level,
+        )
+        self.session.add(record)
+        await self.session.flush()
+        return record
+
+
+class ChatMessagesRepository:
+    """Запись сообщений чата."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def add(
+        self,
+        *,
+        user_id: uuid.UUID,
+        session_pk: uuid.UUID | None,
+        session_key: str,
+        role: str,
+        content: str,
+        meta: dict | None = None,
+    ) -> ChatMessage:
+        record = ChatMessage(
+            user_id=user_id,
+            session_pk=session_pk,
+            session_key=session_key,
+            role=role,
+            content=content,
+            meta=meta,
+        )
+        self.session.add(record)
+        await self.session.flush()
+        return record
+
+
+class StatsRepository:
+    """Агрегированная статистика для пользователя."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def _counts(self, model: type, user_id: uuid.UUID) -> dict[AnswerCategory, int]:
+        result = await self.session.execute(
+            select(model.category, func.count()).where(model.user_id == user_id).group_by(model.category)
+        )
+        rows = result.all()
+        out = {cat: 0 for cat in AnswerCategory}
+        for cat, count in rows:
+            out[cat] = int(count)
+        return out
+
+    async def breakdown(self, user_id: uuid.UUID, feature: Feature) -> StatsBreakdown:
+        if feature is Feature.QUIZ:
+            model = QuizAnswer
+        elif feature is Feature.SOBES:
+            model = SobesAnswer
+        elif feature is Feature.DESIGN:
+            model = DesignAnswer
+        elif feature is Feature.CHAT:
+            # В чате нет правильности, считаем только сообщения
+            total_q = await self.session.scalar(
+                select(func.count()).select_from(ChatMessage).where(ChatMessage.user_id == user_id)
+            )
+            return StatsBreakdown(
+                feature=feature,
+                total=int(total_q or 0),
+                correct=0,
+                partial=0,
+                incorrect=0,
+            )
+        else:
+            raise ValueError(f"Unknown feature: {feature}")
+
+        counts = await self._counts(model, user_id)
+        total = sum(counts.values())
+        return StatsBreakdown(
+            feature=feature,
+            total=total,
+            correct=counts[AnswerCategory.CORRECT],
+            partial=counts[AnswerCategory.PARTIAL],
+            incorrect=counts[AnswerCategory.INCORRECT],
+        )
+
+    async def list_recent(
+        self,
+        user_id: uuid.UUID,
+        feature: Feature,
+        *,
+        only_incorrect: bool = False,
+        only_partial: bool = False,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Sequence[Any]:
+        if feature is Feature.CHAT:
+            result = await self.session.execute(
+                select(ChatMessage)
+                .where(ChatMessage.user_id == user_id)
+                .order_by(ChatMessage.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+            return result.scalars().all()
+
+        if feature is Feature.QUIZ:
+            model = QuizAnswer
+        elif feature is Feature.SOBES:
+            model = SobesAnswer
+        elif feature is Feature.DESIGN:
+            model = DesignAnswer
+        else:
+            raise ValueError(f"Unknown feature: {feature}")
+
+        stmt = select(model).where(model.user_id == user_id)
+        if only_incorrect:
+            stmt = stmt.where(model.category == AnswerCategory.INCORRECT)
+        if only_partial:
+            stmt = stmt.where(model.category == AnswerCategory.PARTIAL)
+        stmt = stmt.order_by(model.answered_at.desc())
+        stmt = stmt.limit(limit).offset(offset)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def list_chat_pairs(
+        self,
+        user_id: uuid.UUID,
+        *,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        """Возвращает последние N пар user/assistant для чат-режима."""
+        result = await self.session.execute(
+            select(ChatMessage)
+            .where(ChatMessage.user_id == user_id)
+            .order_by(ChatMessage.created_at.desc())
+            .limit(limit * 2)
+        )
+        rows = list(reversed(result.scalars().all()))
+        pairs: list[dict[str, Any]] = []
+        i = 0
+        while i < len(rows) and len(pairs) < limit:
+            if rows[i].role == "user" and i + 1 < len(rows) and rows[i + 1].role == "assistant":
+                pairs.append(
+                    {
+                        "user_message": rows[i].content,
+                        "assistant_answer": rows[i + 1].content,
+                        "created_at": rows[i].created_at.isoformat(),
+                    }
+                )
+                i += 2
+            else:
+                i += 1
+        return pairs
+
+
+__all__ = [
+    "ChatMessagesRepository",
+    "DesignAnswersRepository",
+    "QuizAnswersRepository",
+    "SessionsRepository",
+    "SobesAnswersRepository",
+    "StatsBreakdown",
+    "StatsRepository",
+    "UsersRepository",
+    "normalize_username",
+]

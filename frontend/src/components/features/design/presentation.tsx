@@ -16,7 +16,19 @@ export const DesignSetupView: React.FC<{
   onBack: () => void;
   isLoading: boolean;
   error: string | null;
-}> = ({ config, level, selectedScenarioId, onLevelChange, onScenarioSelect, onStart, onBack, isLoading, error }) => {
+  onShowStats?: React.ReactNode;
+}> = ({
+  config,
+  level,
+  selectedScenarioId,
+  onLevelChange,
+  onScenarioSelect,
+  onStart,
+  onBack,
+  isLoading,
+  error,
+  onShowStats,
+}) => {
   if (!config) {
     return (
       <div className={styles.container}>
@@ -24,6 +36,7 @@ export const DesignSetupView: React.FC<{
           <Button variant="secondary" onClick={onBack}>
             ← На главную
           </Button>
+          {onShowStats}
         </header>
         <div className={styles.loadingContainer}>Загрузка конфигурации...</div>
       </div>
@@ -39,6 +52,7 @@ export const DesignSetupView: React.FC<{
           ← На главную
         </Button>
         <h1 className={styles.title}>Системный дизайн</h1>
+        {onShowStats}
       </header>
 
       <div className={styles.setupCard}>
@@ -104,6 +118,7 @@ export const DesignQuestionView: React.FC<{
   onAnswerChange: (value: string) => void;
   onSubmit: () => void;
   onGetHint: () => void;
+  onShowStats?: React.ReactNode;
   onBack: () => void;
 }> = ({
   scenario,
@@ -117,6 +132,7 @@ export const DesignQuestionView: React.FC<{
   onSubmit,
   onGetHint,
   onBack,
+  onShowStats,
 }) => {
   const progressPercent = totalSteps ? Math.round(((stepIndex - 1) / totalSteps) * 100) : 0;
 
@@ -129,6 +145,7 @@ export const DesignQuestionView: React.FC<{
         <div className={styles.progress}>
           Шаг {stepIndex} из {totalSteps}
         </div>
+        {onShowStats}
       </header>
 
       <div className={styles.progressBar}>
@@ -190,13 +207,15 @@ export const DesignAnswerView: React.FC<{
   };
   onNext: () => void;
   onBack: () => void;
-}> = ({ scenario, step, stepIndex, userAnswer, answer, onNext, onBack }) => {
+  onShowStats?: React.ReactNode;
+}> = ({ scenario, step, stepIndex, userAnswer, answer, onNext, onBack, onShowStats }) => {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
         <Button variant="secondary" onClick={onBack}>
           ← На главную
         </Button>
+        {onShowStats}
       </header>
 
       <div className={styles.answerCard}>
@@ -272,7 +291,8 @@ export const DesignResultsView: React.FC<{
   };
   onRestart: () => void;
   onBack: () => void;
-}> = ({ results, onRestart, onBack }) => {
+  onShowStats?: React.ReactNode;
+}> = ({ results, onRestart, onBack, onShowStats }) => {
   const summaryText = results.summary_detail
     ? `${results.summary_detail.passed}/${results.summary_detail.steps} — ${results.summary_detail.avg_percent}%`
     : results.summary;
@@ -287,6 +307,7 @@ export const DesignResultsView: React.FC<{
         <Button variant="secondary" onClick={onBack}>
           ← На главную
         </Button>
+        {onShowStats}
       </header>
 
       <div className={styles.resultsCard}>

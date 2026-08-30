@@ -46,13 +46,17 @@ docker compose watch
 
 ---
 
-## Сервисы Docker Compose
+### Сервисы Docker Compose
 
 | Сервис | Порт | Описание |
 |---|---|---|
 | `qdrant` | 6333, 6334 | Векторная БД |
+| `postgres` | 5433 (хост) → 5432 (контейнер) | PostgreSQL — статистика ответов по пользователям |
 | `api` | 8000 | FastAPI бэкенд (uvicorn) |
 | `frontend` | 3000 | Vite dev server (проксирует `/api` на `api:8000`) |
+
+> Хост-порт 5433 используется только для отбного подключения (`psql -h localhost -p 5433`).
+> Внутри docker-сети `api` подключается к `postgres:5432` по имени сервиса.
 
 ### Схема запросов
 
@@ -80,6 +84,8 @@ docker compose watch
 | `INTERVIEW_DOCX_PATH` | `/app/src/interview_questions.docx` | Файл вопросов |
 | `SYSTEM_PROMPT_PATH` | `/app/prompts/chat/system.md` | Системный промпт |
 | `DESIGN_SCENARIOS_PATH` | `/app/prompts/design/scenarios.yaml` | Сценарии дизайна |
+| `DATABASE_URL` | `postgresql+asyncpg://interview:interview@postgres:5432/interview` | Подключение к PostgreSQL |
+| `DATABASE_ECHO` | `false` | Логировать SQL-запросы |
 
 > Для Ollama на хосте с macOS/Windows: Docker Desktop → Settings → Resources → Network → включите `host.docker.internal`.
 
@@ -158,7 +164,30 @@ LLM-промпты хранятся в `backend/prompts/` в формате Mark
 
 ## API эндпоинты
 
-Все эндпоинты под префиксом `/api`.
+Все эндпоинты под префиксом `/api`. Эндпоинты статистики требуют заголовок `X-Username` с именем пользователя (имя нормализуется и сохраняется в БД).
+
+### Пользователь и статистика
+
+```bash
+# Профиль текущего пользователя
+curl http://localhost:8000/api/users/me -H "X-Username: alex"
+
+# Сводка по всем 4 режимам
+curl http://localhost:8000/api/stats/overview -H "X-Username: alex"
+
+# Статистика по одному режиму
+curl http://localhost:8000/api/stats/quiz -H "X-Username: alex"
+
+# Список ответов с фильтром
+curl 'http://localhost:8000/api/stats/quiz/answers?only_incorrect=true&limit=20' -H "X-Username: alex"
+```
+
+Категории ответов:
+- **correct** — правильный ответ (`is_correct == true` для quiz, `score_percent >= pass_threshold` для sobes/design);
+- **partial** — частично правильный (только для sobes/design, где `0 < score_percent < pass_threshold`);
+- **incorrect** — неправильный.
+
+В чате категорий нет — там сохраняется только история сообщений.
 
 ### Чат
 

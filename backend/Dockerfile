@@ -16,6 +16,10 @@ RUN uv sync --frozen --no-dev
 COPY backend/src ./src
 COPY backend/prompts ./prompts
 
+# Alembic (для миграций, если будем запускать через CLI)
+COPY backend/alembic.ini ./alembic.ini
+COPY backend/alembic ./alembic
+
 EXPOSE 8000
 
 CMD ["uv", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

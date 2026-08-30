@@ -1,6 +1,9 @@
+import type { ReactNode } from "react";
+
 export interface ChatViewProps {
   questionNumber: string;
   questionText: string;
+  isQuestionReady: boolean;
   answer: string;
   isAnswerEmpty: boolean;
   userAnswer: string;
@@ -13,6 +16,7 @@ export interface ChatViewProps {
   onSave: () => void;
   onBack: () => void;
   onReset?: () => void;
+  statsButton?: ReactNode;
 }
 
 export interface ChatContainerProps {

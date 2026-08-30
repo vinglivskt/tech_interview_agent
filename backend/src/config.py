@@ -43,6 +43,20 @@ class Settings(BaseSettings):
     vectorization_max_chunk_chars: int = Field(default=1000, ge=1, description="Макс. длина фрагмента")
     vectorization_overlap: int = Field(default=100, ge=0, description="Перекрытие соседних фрагментов")
 
+    # --- PostgreSQL (user statistics) ---
+    # Дефолт указывает на сервис `postgres` из docker-compose, чтобы
+    # `make dev-backend` без Docker требовал явной установки DATABASE_URL
+    # (либо поднять Postgres локально на тех же креденшелах).
+    database_url: str = Field(
+        default="postgresql+asyncpg://interview:interview@postgres:5432/interview",
+        description="URL подключения к PostgreSQL (asyncpg driver)",
+    )
+    database_echo: bool = Field(default=False, description="Логировать SQL-запросы SQLAlchemy")
+    database_auto_create: bool = Field(
+        default=True,
+        description="Автоматически создавать таблицы при старте, если они отсутствуют (для dev/MVP)",
+    )
+
     interview_docx_path: str = Field(
         default="/app/app/interview_questions.docx",
         description="Путь к docx-файлу с вопросами и ответами",
@@ -94,7 +108,9 @@ class Settings(BaseSettings):
     )
     sobes_max_explanation_len: int = Field(default=600, ge=50, description="Максимальная длина пояснения техлида")
     sobes_show_topic_hint: bool = Field(default=True, description="Показывать краткую подсказку по теме перед ответом")
-    sobes_enrich_questions: bool = Field(default=True, description="Обогащать «сухие» вопросы из базы через LLM перед показом кандидату")
+    sobes_enrich_questions: bool = Field(
+        default=True, description="Обогащать «сухие» вопросы из базы через LLM перед показом кандидату"
+    )
     sobes_topic_hints: dict[str, str] = Field(
         default_factory=lambda: {
             "python": "вспомни различия list/tuple/set/dict, мутабельность, ссылки vs копии, areas: GIL, ООП, итераторы/генераторы",

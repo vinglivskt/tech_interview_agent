@@ -1,69 +1,91 @@
 .app {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 2rem 1.25rem 3rem;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 3rem;
 }
 
 .home {
-  text-align: center;
+    text-align: center;
 }
 
 .hero {
-  margin-bottom: 2rem;
+    margin-bottom: 2rem;
 }
 
 .heroTitle {
-  font-size: 1.35rem;
-  font-weight: 600;
-  margin: 0 0 0.35rem;
-  letter-spacing: -0.02em;
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin: 0 0 0.35rem;
+    letter-spacing: -0.02em;
 }
 
 .heroSubtitle {
-  color: var(--muted);
-  font-size: 0.9rem;
-  margin-bottom: 1.5rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+}
+
+.heroHint {
+    margin: 0 0 1rem 0;
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.linkButton {
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    font: inherit;
+    text-decoration: underline;
+    padding: 0;
+}
+
+.linkButton:hover {
+    color: var(--accent-hover, #2563eb);
 }
 
 .modeGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  margin-top: 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1.5rem;
 }
 
 .modeCard {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.5rem 1.25rem;
-  cursor: pointer;
-  transition: border-color 0.2s, transform 0.1s;
-  text-align: left;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem 1.25rem;
+    cursor: pointer;
+    transition:
+        border-color 0.2s,
+        transform 0.1s;
+    text-align: left;
 }
 
 .modeCard:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
+    border-color: var(--accent);
+    transform: translateY(-2px);
 }
 
 .modeCard:active {
-  transform: translateY(0);
+    transform: translateY(0);
 }
 
 .modeIcon {
-  font-size: 2rem;
-  margin-bottom: 0.75rem;
-  display: block;
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+    display: block;
 }
 
 .modeTitle {
-  margin: 0 0 0.4rem;
-  font-size: 1rem;
+    margin: 0 0 0.4rem;
+    font-size: 1rem;
 }
 
 .modeDescription {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--muted);
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--muted);
 }

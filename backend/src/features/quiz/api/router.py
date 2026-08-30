@@ -1,8 +1,12 @@
 # API-роутер для quiz-режима.
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from typing import Annotated
 
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
+
+from src.core.deps import decode_username_header
+from src.db.writer import persist_quiz_answer
 from src.features.quiz.domain.models import (
     QuizAnswerRequest,
     QuizAnswerResponse,
@@ -25,6 +29,15 @@ def get_quiz_session_store() -> QuizSessionStore:
     if _quiz_session_store is None:
         _quiz_session_store = QuizSessionStore()
     return _quiz_session_store
+
+
+def _opt_username(
+    x_username: Annotated[str | None, Header(alias="X-Username")] = None,
+    username_h: Annotated[str | None, Header(alias="Username")] = None,
+) -> str | None:
+    """Опциональное имя пользователя (для записи статистики)."""
+    raw = decode_username_header(x_username or username_h)
+    return raw or None
 
 
 def _build_question_response(
@@ -78,10 +91,13 @@ async def start_quiz(
 async def submit_answer(
     request: Request,
     body: QuizAnswerRequest,
+    background: BackgroundTasks,
+    x_username: Annotated[str | None, Header(alias="X-Username")] = None,
 ):
     """
     Эндпоинт для отправки ответа на вопрос квиза.
     Возвращает правильность, объяснение и следующий вопрос (если есть).
+    Если передан `X-Username`, ответ дополнительно пишется в статистику пользователя.
     """
     settings = request.app.state.settings
     llm = request.app.state.llm
@@ -106,14 +122,39 @@ async def submit_answer(
 
     # Формируем ответ
     next_response = None
-    if next_question is not None:
-        session = session_store.get(body.session_id)
+    session = session_store.get(body.session_id)
+    if next_question is not None and session is not None:
         next_response = _build_question_response(
             session_id=body.session_id,
             question=next_question,
-            question_number=session.current_index + 1 if session else 0,
+            question_number=session.current_index + 1,
             total_questions=20,
         )
+
+    # Запись в статистику (фоновая задача; не блокирует ответ пользователю)
+    username = _opt_username(x_username)
+    if username and session is not None:
+        current_question = next(
+            (q for q in session.questions if q.question_id == body.question_id),
+            None,
+        )
+        if current_question is not None:
+            user_answer_text = (
+                current_question.options[body.selected_index]
+                if 0 <= body.selected_index < len(current_question.options)
+                else ""
+            )
+            background.add_task(
+                persist_quiz_answer,
+                username=username,
+                external_session_id=body.session_id,
+                question_text=current_question.question_text,
+                user_answer=user_answer_text,
+                correct_answer=current_question.correct_answer,
+                is_correct=is_correct,
+                explanation=explanation,
+                level=session.level,
+            )
 
     return QuizAnswerResponse(
         is_correct=is_correct,

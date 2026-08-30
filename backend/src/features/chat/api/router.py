@@ -1,9 +1,12 @@
 # tech_interview_agent/app/features/chat/api/router.py
 import random
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
+from src.core.deps import decode_username_header
+from src.db.writer import persist_chat_message
 from src.features.chat.api.models.save_qa_request import SaveQARequest
 from src.features.chat.domain.docx_repository import question_exists, save_question_answer
 from src.features.chat.domain.interview_docx import load_interview_qa
@@ -31,10 +34,13 @@ async def health(request: Request):
 async def chat_endpoint(
     request: Request,
     body: ChatRequest,
+    background: BackgroundTasks,
+    x_username: Annotated[str | None, Header(alias="X-Username")] = None,
 ):
     """
     Эндпоинт для общения с ассистентом.
     Проверяет длину сообщения, сохраняет историю, вызывает LLM и возвращает ответ.
+    Если передан `X-Username`, обе реплики (пользователя и ассистента) пишутся в статистику.
     """
     settings = request.app.state.settings
     sessions: SessionStore = request.app.state.sessions
@@ -64,6 +70,26 @@ async def chat_endpoint(
         {"role": "assistant", "content": answer},
     ]
     sessions.save(session_id, new_history)
+
+    # Запись в статистику (фоновая задача)
+    username = decode_username_header(x_username) or None
+    if username:
+        background.add_task(
+            persist_chat_message,
+            username=username,
+            session_key=session_id,
+            role="user",
+            content=message,
+            meta=None,
+        )
+        background.add_task(
+            persist_chat_message,
+            username=username,
+            session_key=session_id,
+            role="assistant",
+            content=answer,
+            meta=meta if isinstance(meta, dict) else None,
+        )
 
     return {"answer": answer, "meta": meta}
 

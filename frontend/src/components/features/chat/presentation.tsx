@@ -6,6 +6,7 @@ import styles from "./chat.module.css";
 export const ChatPresentation: React.FC<ChatViewProps> = ({
   questionNumber,
   questionText,
+  isQuestionReady,
   answer,
   isAnswerEmpty,
   userAnswer,
@@ -18,6 +19,7 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
   onSave,
   onBack,
   onReset,
+  statsButton,
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -33,6 +35,7 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
           ← На главную
         </Button>
         <h1 className={styles.title}>Интервью</h1>
+        {statsButton}
       </header>
 
       <p className={styles.subtitle} style={{ color: "var(--muted)", marginBottom: "1rem" }}>
@@ -42,7 +45,15 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
       <div className={styles.questionCard}>
         <div className={styles.questionBadge}>Вопрос №{questionNumber}</div>
         <div className={styles.questionText}>
-          {questionText ? <Markdown content={questionText} /> : "Здесь появится вопрос."}
+          {questionText ? (
+            <Markdown content={questionText} />
+          ) : isLoading ? (
+            "Загружаем вопрос…"
+          ) : error ? (
+            `Не удалось загрузить вопрос: ${error}`
+          ) : (
+            "Вопрос пока не загружен. Нажмите «Следующий вопрос» или обновите страницу."
+          )}
         </div>
       </div>
 
@@ -60,14 +71,14 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
       />
 
       <div className={styles.row}>
-        <Button onClick={onSend} disabled={isLoading || !userAnswer.trim()} loading={isLoading}>
+        <Button onClick={onSend} disabled={isLoading || !isQuestionReady || !userAnswer.trim()} loading={isLoading}>
           Отправить
         </Button>
         <span className={styles.status}>{statusText}</span>
       </div>
 
       <div className={`${styles.output} ${isAnswerEmpty ? styles.empty : ""} ${error ? styles.error : ""}`}>
-        {answer || "Ответ ассистента появится здесь."}
+        {error ? `Ошибка: ${error}` : answer || "Ответ ассистента появится здесь."}
       </div>
 
       <div className={styles.row}>

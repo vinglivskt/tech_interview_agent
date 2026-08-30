@@ -16,7 +16,19 @@ export const SobesSetupView: React.FC<{
   onBack: () => void;
   isLoading: boolean;
   error: string | null;
-}> = ({ config, level, selectedTopics, onLevelChange, onTopicToggle, onStart, onBack, isLoading, error }) => {
+  onShowStats?: React.ReactNode;
+}> = ({
+  config,
+  level,
+  selectedTopics,
+  onLevelChange,
+  onTopicToggle,
+  onStart,
+  onBack,
+  isLoading,
+  error,
+  onShowStats,
+}) => {
   if (!config) {
     return (
       <div className={styles.container}>
@@ -24,6 +36,7 @@ export const SobesSetupView: React.FC<{
           <Button variant="secondary" onClick={onBack}>
             ← На главную
           </Button>
+          {onShowStats}
         </header>
         <div className={styles.loadingContainer}>Загрузка конфигурации...</div>
       </div>
@@ -43,6 +56,7 @@ export const SobesSetupView: React.FC<{
           ← На главную
         </Button>
         <h1 className={styles.title}>Собеседование</h1>
+        {onShowStats}
       </header>
 
       <div className={styles.setupCard}>
@@ -119,6 +133,7 @@ export const SobesQuestionView: React.FC<{
   onSkip: () => void;
   onRepeat: () => void;
   onBack: () => void;
+  onShowStats?: React.ReactNode;
 }> = ({
   question,
   questionIndex,
@@ -130,6 +145,7 @@ export const SobesQuestionView: React.FC<{
   onSkip,
   onRepeat,
   onBack,
+  onShowStats,
 }) => {
   const progressPercent = totalPlanned
     ? Math.max(0, Math.min(100, Math.round(((questionIndex - 1) / totalPlanned) * 100)))
@@ -145,6 +161,7 @@ export const SobesQuestionView: React.FC<{
         <div className={styles.progress}>
           Вопрос {questionIndex} из {totalPlanned}
         </div>
+        {onShowStats}
       </header>
 
       <div className={styles.progressBar}>
@@ -207,13 +224,15 @@ export const SobesAnswerView: React.FC<{
   };
   onNext: () => void;
   onBack: () => void;
-}> = ({ question, userAnswer, answer, onNext, onBack }) => {
+  onShowStats?: React.ReactNode;
+}> = ({ question, userAnswer, answer, onNext, onBack, onShowStats }) => {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
         <Button variant="secondary" onClick={onBack}>
           ← На главную
         </Button>
+        {onShowStats}
       </header>
 
       <div className={styles.answerCard}>
@@ -275,7 +294,8 @@ export const SobesResultsView: React.FC<{
   };
   onRestart: () => void;
   onBack: () => void;
-}> = ({ results, onRestart, onBack }) => {
+  onShowStats?: React.ReactNode;
+}> = ({ results, onRestart, onBack, onShowStats }) => {
   const summaryText = results.summary_detail
     ? `${results.summary_detail.counted}/${results.summary_detail.total} — ${results.summary_detail.avg_percent}%`
     : results.summary;
@@ -286,6 +306,7 @@ export const SobesResultsView: React.FC<{
         <Button variant="secondary" onClick={onBack}>
           ← На главную
         </Button>
+        {onShowStats}
       </header>
 
       <div className={styles.resultsCard}>
