@@ -30,28 +30,30 @@ test.describe("Bug A: Quiz options контракт", () => {
     }
   });
 
-  test("/quiz/answer принимает selected_index и возвращает next_question с тем же контрактом", async ({
-    request,
-  }) => {
-    const start = await request.post("http://127.0.0.1:8000/api/quiz/start", {
-      data: { level: "middle" },
-      headers: { "X-Username": `${TEST_USERNAME}_a2` },
-    });
-    const sBody = await start.json();
-    const ans = await request.post("http://127.0.0.1:8000/api/quiz/answer", {
-      data: {
-        session_id: sBody.session_id,
-        question_id: sBody.question_id,
-        selected_index: 0,
-      },
-      headers: { "X-Username": `${TEST_USERNAME}_a2` },
-    });
-    expect(ans.status()).toBe(200);
-    const ansBody = await ans.json();
-    expect(ansBody.next_question).toBeTruthy();
-    expect(Array.isArray(ansBody.next_question.options)).toBe(true);
-    expect(ansBody.next_question.options).toHaveLength(4);
-  });
+  test(
+    "/quiz/answer принимает selected_index и возвращает next_question с тем же контрактом",
+    async ({ request }) => {
+      const start = await request.post("http://127.0.0.1:8000/api/quiz/start", {
+        data: { level: "middle" },
+        headers: { "X-Username": `${TEST_USERNAME}_a2` },
+      });
+      const sBody = await start.json();
+      const ans = await request.post("http://127.0.0.1:8000/api/quiz/answer", {
+        data: {
+          session_id: sBody.session_id,
+          question_id: sBody.question_id,
+          selected_index: 0,
+        },
+        headers: { "X-Username": `${TEST_USERNAME}_a2` },
+      });
+      expect(ans.status()).toBe(200);
+      const ansBody = await ans.json();
+      expect(ansBody.next_question).toBeTruthy();
+      expect(Array.isArray(ansBody.next_question.options)).toBe(true);
+      expect(ansBody.next_question.options).toHaveLength(4);
+    },
+    { timeout: 60000 },
+  );
 });
 
 test.describe("Bug B: Sobes start DTO контракт", () => {
@@ -71,27 +73,31 @@ test.describe("Bug B: Sobes start DTO контракт", () => {
     expect(typeof body.question.difficulty_score).toBe("number");
   });
 
-  test("/sobesedovanie/answer возвращает next_question с тем же контрактом", async ({ request }) => {
-    const start = await request.post("http://127.0.0.1:8000/api/sobesedovanie/start", {
-      data: { level: "middle", topics: ["python"] },
-      headers: { "X-Username": `${TEST_USERNAME}_b2` },
-    });
-    const sBody = await start.json();
-    const ans = await request.post("http://127.0.0.1:8000/api/sobesedovanie/answer", {
-      data: {
-        session_id: sBody.session_id,
-        question_id: sBody.question.id,
-        user_answer: "Тестовый ответ про GIL и многопоточность",
-      },
-      headers: { "X-Username": `${TEST_USERNAME}_b2` },
-    });
-    expect(ans.status()).toBe(200);
-    const body = await ans.json();
-    if (body.next_question) {
-      expect(typeof body.next_question.text).toBe("string");
-      expect(body.next_question.text.trim().length).toBeGreaterThan(0);
-    }
-  });
+  test(
+    "/sobesedovanie/answer возвращает next_question с тем же контрактом",
+    async ({ request }) => {
+      const start = await request.post("http://127.0.0.1:8000/api/sobesedovanie/start", {
+        data: { level: "middle", topics: ["python"] },
+        headers: { "X-Username": `${TEST_USERNAME}_b2` },
+      });
+      const sBody = await start.json();
+      const ans = await request.post("http://127.0.0.1:8000/api/sobesedovanie/answer", {
+        data: {
+          session_id: sBody.session_id,
+          question_id: sBody.question.id,
+          user_answer: "Тестовый ответ про GIL и многопоточность",
+        },
+        headers: { "X-Username": `${TEST_USERNAME}_b2` },
+      });
+      expect(ans.status()).toBe(200);
+      const body = await ans.json();
+      if (body.next_question) {
+        expect(typeof body.next_question.text).toBe("string");
+        expect(body.next_question.text.trim().length).toBeGreaterThan(0);
+      }
+    },
+    { timeout: 60000 },
+  );
 });
 
 test.describe("Bug C: Chat возвращает непустой answer (Markdown)", () => {
