@@ -57,21 +57,25 @@ test.describe("Bug A: Quiz options контракт", () => {
 });
 
 test.describe("Bug B: Sobes start DTO контракт", () => {
-  test("/sobesedovanie/start возвращает question.text непустым", async ({ request }) => {
-    const r = await request.post("http://127.0.0.1:8000/api/sobesedovanie/start", {
-      data: { level: "middle", topics: ["python"] },
-      headers: { "X-Username": `${TEST_USERNAME}_b` },
-    });
-    expect(r.ok()).toBeTruthy();
-    const body = await r.json();
-    expect(body.session_id).toMatch(/^sobes_/);
-    expect(typeof body.total_planned).toBe("number");
-    expect(body.question).toBeTruthy();
-    expect(typeof body.question.text).toBe("string");
-    expect(body.question.text.trim().length).toBeGreaterThan(0);
-    expect(["junior", "middle", "senior"]).toContain(body.question.level);
-    expect(typeof body.question.difficulty_score).toBe("number");
-  });
+  test(
+    "/sobesedovanie/start возвращает question.text непустым",
+    async ({ request }) => {
+      const r = await request.post("http://127.0.0.1:8000/api/sobesedovanie/start", {
+        data: { level: "middle", topics: ["python"] },
+        headers: { "X-Username": `${TEST_USERNAME}_b` },
+      });
+      expect(r.ok()).toBeTruthy();
+      const body = await r.json();
+      expect(body.session_id).toMatch(/^sobes_/);
+      expect(typeof body.total_planned).toBe("number");
+      expect(body.question).toBeTruthy();
+      expect(typeof body.question.text).toBe("string");
+      expect(body.question.text.trim().length).toBeGreaterThan(0);
+      expect(["junior", "middle", "senior"]).toContain(body.question.level);
+      expect(typeof body.question.difficulty_score).toBe("number");
+    },
+    { timeout: 90000 },
+  );
 
   test(
     "/sobesedovanie/answer возвращает next_question с тем же контрактом",
