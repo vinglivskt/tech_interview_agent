@@ -78,7 +78,13 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
       </div>
 
       <div className={`${styles.output} ${isAnswerEmpty ? styles.empty : ""} ${error ? styles.error : ""}`}>
-        {error ? `Ошибка: ${error}` : answer || "Ответ ассистента появится здесь."}
+        {error ? (
+          <Markdown content={`Ошибка: ${error}`} />
+        ) : answer ? (
+          <Markdown content={answer} />
+        ) : (
+          "Ответ ассистента появится здесь."
+        )}
       </div>
 
       <div className={styles.row}>

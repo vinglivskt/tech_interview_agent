@@ -42,6 +42,17 @@ export function useDesign() {
   const startDesign = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    // Полный сброс state от предыдущего запуска, чтобы не показывать
+    // старые шаги и разборы (в том числе от других режимов).
+    setSessionId(null);
+    setScenario(null);
+    setStep(null);
+    setStepIndex(1);
+    setTotalSteps(0);
+    setUserAnswer("");
+    setHint(null);
+    setLastAnswer(null);
+    setResults(null);
     try {
       const data = await designApi.start(level, selectedScenarioId);
       setSessionId(data.session_id);
@@ -49,9 +60,6 @@ export function useDesign() {
       setStep(data.step);
       setTotalSteps(data.total_steps);
       setStepIndex(1);
-      setUserAnswer("");
-      setHint(null);
-      setLastAnswer(null);
       setView("question");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка запуска");
@@ -79,6 +87,9 @@ export function useDesign() {
     if (!sessionId || !step || !userAnswer.trim()) return;
 
     setIsLoading(true);
+    // Сбрасываем предыдущий разбор, чтобы на экране не висел старый,
+    // если запрос упадёт.
+    setLastAnswer(null);
     try {
       const data = await designApi.answer(sessionId, step.id, userAnswer);
       setLastAnswer(data);
@@ -93,6 +104,8 @@ export function useDesign() {
       }
     } catch (err) {
       alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+      // Возвращаем пользователя к шагу, чтобы он мог попробовать ещё раз.
+      setView("question");
     } finally {
       setIsLoading(false);
     }

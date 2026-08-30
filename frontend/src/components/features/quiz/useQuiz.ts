@@ -7,7 +7,8 @@ interface QuizQuestion {
   session_id: string;
   question_id: string;
   question_text: string;
-  options: { index: number; text: string }[];
+  // Бэкенд отдаёт варианты ответа простым массивом строк; индекс = порядковый номер.
+  options: string[];
   question_number: number;
   total_questions: number;
 }
@@ -37,10 +38,14 @@ export function useQuiz() {
   const startQuiz = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    // Полный сброс state от предыдущего запуска, чтобы не показывать
+    // старые вопросы и результаты.
+    setQuestion(null);
+    setSelectedOption(null);
+    setResults(null);
     try {
       const data = await quizApi.start(level);
       setQuestion(data);
-      setSelectedOption(null);
       setView("question");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка запуска квиза");
@@ -58,6 +63,7 @@ export function useQuiz() {
     if (selectedOption === null || !question) return;
 
     setIsLoading(true);
+    setError(null);
     try {
       const data = await quizApi.answer(question.session_id, question.question_id, selectedOption);
 
@@ -71,6 +77,7 @@ export function useQuiz() {
         setSelectedOption(null);
       }
     } catch (err) {
+      setError(err instanceof Error ? err.message : "Неизвестная ошибка");
       alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
     } finally {
       setIsLoading(false);

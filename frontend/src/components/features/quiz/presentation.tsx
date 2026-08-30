@@ -1,5 +1,5 @@
 import React from "react";
-import { Button } from "@/components/ui";
+import { Button, Markdown } from "@/components/ui";
 import type { QuizViewProps } from "./types";
 import styles from "./quiz.module.css";
 
@@ -59,7 +59,7 @@ export const QuizQuestionView: React.FC<{
     question_text: string;
     question_number: number;
     total_questions: number;
-    options: { index: number; text: string }[];
+    options: string[];
   };
   selectedOption: number | null;
   onSelectOption: (index: number) => void;
@@ -91,19 +91,19 @@ export const QuizQuestionView: React.FC<{
         <p className={styles.questionText}>{question.question_text}</p>
 
         <div className={styles.options}>
-          {question.options.map((opt) => (
+          {question.options.map((opt, idx) => (
             <div
-              key={opt.index}
-              className={`${styles.option} ${selectedOption === opt.index ? styles.selected : ""}`}
-              onClick={() => onSelectOption(opt.index)}
+              key={idx}
+              className={`${styles.option} ${selectedOption === idx ? styles.selected : ""}`}
+              onClick={() => onSelectOption(idx)}
             >
               <input
                 type="radio"
                 name="quiz-option"
-                checked={selectedOption === opt.index}
-                onChange={() => onSelectOption(opt.index)}
+                checked={selectedOption === idx}
+                onChange={() => onSelectOption(idx)}
               />
-              <label>{opt.text}</label>
+              <label>{opt}</label>
             </div>
           ))}
         </div>
@@ -172,9 +172,8 @@ export const QuizResultsView: React.FC<{
                   <p>
                     <span className={styles.label}>Правильный ответ:</span> {escapeHtml(r.correct_answer)}
                   </p>
-                  <p>
-                    <span className={styles.label}>Объяснение:</span> {r.explanation}
-                  </p>
+                  <div className={styles.label}>Объяснение:</div>
+                  <Markdown content={r.explanation} />
                 </>
               )}
             </div>

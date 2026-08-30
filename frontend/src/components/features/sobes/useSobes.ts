@@ -41,15 +41,22 @@ export function useSobes() {
 
     setIsLoading(true);
     setError(null);
+    // Полный сброс state от предыдущего запуска, чтобы не показывать
+    // старые разборы (в том числе чужих режимов — chat/quiz/design).
+    setSessionId(null);
+    setQuestion(null);
+    setQuestionIndex(1);
+    setTotalPlanned(0);
+    setUserAnswer("");
+    setLastAnswer(null);
+    setNextQuestion(null);
+    setResults(null);
     try {
       const data = await sobesApi.start(level, selectedTopics);
       setSessionId(data.session_id);
       setQuestion(data.question);
       setTotalPlanned(data.total_planned);
       setQuestionIndex(1);
-      setUserAnswer("");
-      setLastAnswer(null);
-      setNextQuestion(null);
       setView("question");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка запуска");
@@ -63,6 +70,9 @@ export function useSobes() {
     if (!sessionId || !question || !userAnswer.trim()) return;
 
     setIsLoading(true);
+    // Сбрасываем предыдущий разбор, чтобы на экране не висел старый,
+    // если запрос упадёт.
+    setLastAnswer(null);
     try {
       const data = await sobesApi.answer(sessionId, question.id, userAnswer);
       setLastAnswer(data);
@@ -75,6 +85,9 @@ export function useSobes() {
       }
     } catch (err) {
       alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+      // Возвращаем пользователя к вопросу, чтобы он мог попробовать ещё раз,
+      // а не висел старый разбор от предыдущего ответа.
+      setView("question");
     } finally {
       setIsLoading(false);
     }

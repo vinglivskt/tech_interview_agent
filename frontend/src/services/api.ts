@@ -61,7 +61,8 @@ export const quizApi = {
       session_id: string;
       question_id: string;
       question_text: string;
-      options: { index: number; text: string }[];
+      // Бэкенд отдаёт варианты как простой массив строк.
+      options: string[];
       question_number: number;
       total_questions: number;
     }>("/quiz/start", {
@@ -78,7 +79,7 @@ export const quizApi = {
         session_id: string;
         question_id: string;
         question_text: string;
-        options: { index: number; text: string }[];
+        options: string[];
         question_number: number;
         total_questions: number;
       } | null;
