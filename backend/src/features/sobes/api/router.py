@@ -31,6 +31,24 @@ async def get_config(request: Request):
     }
 
 
+def _build_qdto(settings, q) -> SobesQuestionDTO:
+    """Строит DTO из SobesQuestion, используя обогащённый текст если он есть."""
+    text = getattr(q, "text_enriched", None) or q.text
+    return SobesQuestionDTO(
+        id=q.id,
+        number=q.number,
+        text=text,
+        topic=q.topic,
+        level=q.level,  # type: ignore[arg-type]
+        difficulty_score=q.difficulty_score,
+        topic_hint=(
+            getattr(settings, "sobes_topic_hints", {}).get(q.topic)
+            if getattr(settings, "sobes_show_topic_hint", True)
+            else None
+        ),
+    )
+
+
 _s_store: SobesSessionStore | None = None
 
 
@@ -68,19 +86,7 @@ async def answer(request: Request, body: SobesAnswerRequest):
 
     next_q_dto: SobesQuestionDTO | None = None
     if next_q is not None:
-        next_q_dto = SobesQuestionDTO(
-            id=next_q.id,
-            number=next_q.number,
-            text=next_q.text,
-            topic=next_q.topic,
-            level=next_q.level,  # type: ignore[arg-type]
-            difficulty_score=next_q.difficulty_score,
-            topic_hint=(
-                getattr(settings, "sobes_topic_hints", {}).get(next_q.topic)
-                if getattr(settings, "sobes_show_topic_hint", True)
-                else None
-            ),
-        )
+        next_q_dto = _build_qdto(settings, next_q)
 
     return SobesAnswerResponse(
         score_percent=percent,
@@ -126,19 +132,7 @@ async def skip(request: Request, body: SobesSkipRequest):
 
     next_q_dto: SobesQuestionDTO | None = None
     if next_q is not None:
-        next_q_dto = SobesQuestionDTO(
-            id=next_q.id,
-            number=next_q.number,
-            text=next_q.text,
-            topic=next_q.topic,
-            level=next_q.level,  # type: ignore[arg-type]
-            difficulty_score=next_q.difficulty_score,
-            topic_hint=(
-                getattr(settings, "sobes_topic_hints", {}).get(next_q.topic)
-                if getattr(settings, "sobes_show_topic_hint", True)
-                else None
-            ),
-        )
+        next_q_dto = _build_qdto(settings, next_q)
     return SobesSkipResponse(next_question=next_q_dto, is_last=is_last)
 
 
@@ -152,17 +146,5 @@ async def repeat(request: Request, body: SobesRepeatRequest):
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    qdto = SobesQuestionDTO(
-        id=cur.id,
-        number=cur.number,
-        text=cur.text,
-        topic=cur.topic,
-        level=cur.level,  # type: ignore[arg-type]
-        difficulty_score=cur.difficulty_score,
-        topic_hint=(
-            getattr(settings, "sobes_topic_hints", {}).get(cur.topic)
-            if getattr(settings, "sobes_show_topic_hint", True)
-            else None
-        ),
-    )
+    qdto = _build_qdto(settings, cur)
     return SobesRepeatResponse(question=qdto)

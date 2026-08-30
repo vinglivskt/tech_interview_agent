@@ -81,6 +81,7 @@ class SobesQuestion:
     topic: str
     level: str
     difficulty_score: float
+    text_enriched: str | None = None  # обогащённый вариант вопроса (отложенно заполняется LLM)
 
 
 @dataclass

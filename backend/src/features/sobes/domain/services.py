@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from src.core.config import Settings
 from src.features.chat.domain.interview_docx import InterviewQA
 from src.features.chat.providers.ollama import OllamaClient
+from src.features.quiz.domain.question_enricher import enrich_question
 from src.features.sobes.domain.classification import ClassifiedQA, classify_batch
 from src.features.sobes.domain.models import (
     SobesAnswerRecord,
@@ -108,6 +109,51 @@ class SobesService:
         self._settings = settings
         self._llm = llm
         self._store = store or SobesSessionStore()
+        # Локальный кеш «номер вопроса -> текст ответа» для обогащения.
+        self._answer_cache: dict[int, str] = {}
+
+    def _get_answer_for_number(self, number: int) -> str:
+        """Достаёт эталонный ответ из docx по номеру вопроса (с ленивой загрузкой)."""
+        if number in self._answer_cache:
+            return self._answer_cache[number]
+        try:
+            items, _ = load_qa(self._settings)
+        except Exception:
+            return ""
+        for qa in items:
+            if qa.number == number:
+                self._answer_cache[number] = qa.answer
+                return qa.answer
+        return ""
+
+    async def _maybe_enrich(self, q: SobesQuestion) -> None:
+        """Лениво обогащает вопрос через LLM, если флаг включён и вопрос ещё не обогащён."""
+        if not getattr(self._settings, "sobes_enrich_questions", False):
+            return
+        if q.text_enriched is not None:
+            return
+        answer = self._get_answer_for_number(q.number)
+        if not answer:
+            return
+        enriched = await enrich_question(self._llm, q.text, answer)
+        if enriched and enriched != q.text:
+            q.text_enriched = enriched
+
+    def _build_dto(self, q: SobesQuestion) -> SobesQuestionDTO:
+        """Строит DTO вопроса, используя обогащённый текст если он уже есть."""
+        return SobesQuestionDTO(
+            id=q.id,
+            number=q.number,
+            text=q.text_enriched or q.text,
+            topic=q.topic,
+            level=q.level,  # type: ignore[arg-type]
+            difficulty_score=q.difficulty_score,
+            topic_hint=(
+                getattr(self._settings, "sobes_topic_hints", {}).get(q.topic)
+                if getattr(self._settings, "sobes_show_topic_hint", True)
+                else None
+            ),
+        )
 
     async def start(self, level: SobesLevel, topics: list[str] | None = None) -> tuple[SobesSession, SobesQuestionDTO]:
         index = await _ensure_classified_index(self._settings, self._llm)
@@ -131,19 +177,9 @@ class SobesService:
         self._store.save(sess)
 
         first = selected[0]
-        return sess, SobesQuestionDTO(
-            id=first.id,
-            number=first.number,
-            text=first.text,
-            topic=first.topic,
-            level=first.level,  # type: ignore[arg-type]  # уровень вопроса по классификации
-            difficulty_score=first.difficulty_score,
-            topic_hint=(
-                getattr(self._settings, "sobes_topic_hints", {}).get(first.topic)
-                if getattr(self._settings, "sobes_show_topic_hint", True)
-                else None
-            ),
-        )
+        await self._maybe_enrich(first)
+        self._store.save(sess)
+        return sess, self._build_dto(first)
 
     async def answer(
         self, session_id: str, question_id: str, user_answer: str
@@ -200,6 +236,10 @@ class SobesService:
         # следующий вопрос
         is_last = sess.current_index >= sess.planned_total or sess.current_index >= len(sess.questions)
         next_q = None if is_last else sess.questions[sess.current_index]
+        # лениво обогащаем следующий вопрос, чтобы фронт получил развёрнутую формулировку
+        if next_q is not None:
+            await self._maybe_enrich(next_q)
+            self._store.save(sess)
         return percent, counted, expl, covered, missed, next_q, is_last
 
     def results(self, session_id: str) -> tuple[str, str, dict, list[str], list[str], list[dict], list[dict]]:

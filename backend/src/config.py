@@ -94,6 +94,7 @@ class Settings(BaseSettings):
     )
     sobes_max_explanation_len: int = Field(default=600, ge=50, description="Максимальная длина пояснения техлида")
     sobes_show_topic_hint: bool = Field(default=True, description="Показывать краткую подсказку по теме перед ответом")
+    sobes_enrich_questions: bool = Field(default=True, description="Обогащать «сухие» вопросы из базы через LLM перед показом кандидату")
     sobes_topic_hints: dict[str, str] = Field(
         default_factory=lambda: {
             "python": "вспомни различия list/tuple/set/dict, мутабельность, ссылки vs копии, areas: GIL, ООП, итераторы/генераторы",

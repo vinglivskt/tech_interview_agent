@@ -12,6 +12,7 @@ from random import Random
 from src.core.config import Settings
 from src.features.chat.domain.interview_docx import InterviewQA, load_interview_qa
 from src.features.chat.providers.ollama import OllamaClient
+from src.features.quiz.domain.question_enricher import enrich_question
 from src.features.quiz.domain.quiz_generator import generate_wrong_answers
 
 logger = logging.getLogger(__name__)
@@ -229,7 +230,8 @@ class QuizService:
         Формирует вопрос квиза: берёт ответ из базы как правильный,
         генерирует 3 неправильных через LLM, перемешивает варианты.
         """
-        correct_answer = qa.answer.strip()
+        full_answer = qa.answer.strip()
+        correct_answer = full_answer
 
         # Если ответ слишком длинный — берём первое предложение
         if len(correct_answer) > 150:
@@ -260,13 +262,21 @@ class QuizService:
         rng = Random(uuid.uuid4().int % (2**32))
         rng.shuffle(indexed_options)
 
+        # Обогащаем вопрос — переформулируем в стиле техлида на основе ответа.
+        # Если обогащение не удалось — отдаём исходный вопрос.
+        enriched_question = await enrich_question(
+            self._llm,
+            qa.question,
+            full_answer,
+        )
+
         # Находим новый индекс правильного ответа
         correct_index = next(i for i, (_, opt) in enumerate(indexed_options) if opt == correct_answer_normalized)
         shuffled_options = [opt for _, opt in indexed_options]
 
         return QuizQuestion(
             question_id=f"q_{question_index}_{uuid.uuid4().hex[:8]}",
-            question_text=qa.question,
+            question_text=enriched_question,
             options=shuffled_options,
             correct_index=correct_index,
             correct_answer=correct_answer_normalized,
