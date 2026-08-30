@@ -79,9 +79,9 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
         >
           💾 Сохранить в Word
         </Button>
-        {onReset && !isAnswerEmpty && (
-          <Button variant="secondary" onClick={onReset} disabled={isLoading}>
-            Новый вопрос
+        {onReset && (
+          <Button variant="success" onClick={onReset} disabled={isLoading}>
+            Следующий вопрос
           </Button>
         )}
       </div>
