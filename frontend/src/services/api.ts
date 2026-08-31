@@ -37,10 +37,10 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 // Chat API
 export const chatApi = {
-  send: (message: string, sessionId?: string) =>
+  send: (message: string, sessionId?: string, questionType?: "answer" | "direct_question") =>
     request<{ answer: string; meta: Record<string, unknown> }>("/chat", {
       method: "POST",
-      body: JSON.stringify({ message, session_id: sessionId }),
+      body: JSON.stringify({ message, session_id: sessionId, question_type: questionType }),
     }),
 
   saveQA: (question: string, correctAnswer: string, sessionId?: string) =>
@@ -207,7 +207,6 @@ export const sobesApi = {
       method: "POST",
       body: JSON.stringify({ session_id: sessionId }),
     }),
-
 };
 
 // Design API

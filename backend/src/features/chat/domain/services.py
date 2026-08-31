@@ -51,6 +51,20 @@ def _load_system_prompt(settings: Any) -> str:
         raise RuntimeError(f"Failed to load system prompt from {prompt_path}: {e}") from e
 
 
+def _load_question_prompt(settings: Any) -> str:
+    """
+    Загружает промпт для режима «Задать вопрос» (без Evaluate-формата).
+    :param settings: настройки приложения
+    :return: содержимое файла промпта
+    """
+    prompt_path = Path(settings.system_prompt_path).parent / "question.md"
+    try:
+        return prompt_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        # Fallback: используем system.md если question.md нет
+        return _load_system_prompt(settings)
+
+
 def _build_history_messages(
     history: list[dict[str, str]] | None,
     limit: int = 12,
@@ -117,6 +131,7 @@ async def run_chat(
     history_limit: int | None = None,
     *,
     embedder: EmbeddingGateway | None = None,
+    question_type: str = "answer",
 ) -> tuple[str, dict[str, Any]]:
     """
     Основная функция общения с ассистентом с использованием RAG.
@@ -176,15 +191,25 @@ async def run_chat(
     )
 
     # Load system prompt from markdown file
-    base_prompt = _load_system_prompt(settings)
-    system_prompt = (
-        f"{base_prompt}\n\n"
-        "Контекст из векторной базы:\n"
-        f"{rag_context}\n\n"
-        "Если используешь сведения из базы, укажи источник в формате 'ответ №N'. "
-        "Используй только один источник и не объединяй ответы с разными номерами. "
-        f"Найденный номер: {refs}."
-    )
+    if question_type == "direct_question":
+        # Для прямых вопросов используем отдельный промпт (без Evaluate-формата)
+        base_prompt = _load_question_prompt(settings)
+        system_prompt = (
+            f"{base_prompt}\n\nКонтекст из векторной базы:\n{rag_context}\n\n"(
+                f"Если используешь сведения из базы, укажи источник в формате 'ответ №{refs}'." if refs != "нет" else ""
+            )
+        ).strip()
+    else:
+        # Для Evaluate-формата используем стандартный промпт
+        base_prompt = _load_system_prompt(settings)
+        system_prompt = (
+            f"{base_prompt}\n\n"
+            "Контекст из векторной базы:\n"
+            f"{rag_context}\n\n"
+            "Если используешь сведения из базы, укажи источник в формате 'ответ №N'. "
+            "Используй только один источник и не объединяй ответы с разными номерами. "
+            f"Найденный номер: {refs}."
+        )
 
     effective_limit = history_limit if history_limit is not None else getattr(settings, "session_history_limit", 20)
 

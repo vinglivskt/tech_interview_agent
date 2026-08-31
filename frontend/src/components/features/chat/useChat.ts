@@ -145,9 +145,9 @@ export function useChat() {
     }));
 
     try {
-      // При своём вопросе отправляем напрямую (без формата интервью),
-      // чтобы получить прямой ответ, а не Evaluate-discussion.
-      const data = await chatApi.send(customQuestion.trim(), sessionId);
+      // При своём вопросе отправляем с questionType=direct_question
+      // чтобы получить прямой ответ без Evaluate-формата.
+      const data = await chatApi.send(customQuestion.trim(), sessionId, "direct_question");
       hasLoadedQuestion.current = true;
       setState((prev) => ({
         ...prev,
