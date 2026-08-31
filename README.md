@@ -1,6 +1,6 @@
 # tech_interview_agent
 
-FastAPI-приложение «интервью-ассистент» с RAG (Qdrant) и генерацией ответов через LLM (Ollama). Фронтенд на React (Vite).
+Подготовка к техническому собеседованию в формате реального интервью. Четыре режима работы: тестирование, устное собеседование, системный дизайн и диалог с ассистентом. Бэкенд на FastAPI + Qdrant (RAG) + Ollama, фронтенд на React (Vite).
 
 ---
 
@@ -46,17 +46,27 @@ docker compose watch
 
 ---
 
+## Режимы работы
+
+| Режим | Описание |
+|---|---|
+| **Тестирование** | Выбор из 4 вариантов ответа. LLM оценивает с учётом правдоподобности неправильных. |
+| **Собеседование** | Свободный ответ текстом. LLM оценивает по критериям (Понимание, Глубина, Точность) и выставляет уровень. |
+| **Системный дизайн** | Пошаговый сценарий (URL Shortener, Chat, etc.). Оценивается структура ответа и полнота. |
+| **Интервью** | Диалог с ассистентом. Задаёте вопрос — получаете разбор + оценку вашего ответа. |
+
+---
+
+## Архитектура
+
 ### Сервисы Docker Compose
 
 | Сервис | Порт | Описание |
 |---|---|---|
-| `qdrant` | 6333, 6334 | Векторная БД |
+| `qdrant` | 6333, 6334 | Векторная БД для RAG |
 | `postgres` | 5433 (хост) → 5432 (контейнер) | PostgreSQL — статистика ответов по пользователям |
 | `api` | 8000 | FastAPI бэкенд (uvicorn) |
 | `frontend` | 3000 | Vite dev server (проксирует `/api` на `api:8000`) |
-
-> Хост-порт 5433 используется только для отбного подключения (`psql -h localhost -p 5433`).
-> Внутри docker-сети `api` подключается к `postgres:5432` по имени сервиса.
 
 ### Схема запросов
 
@@ -97,16 +107,17 @@ docker compose watch
 tech_interview_agent/
 ├─ backend/
 │  ├─ Dockerfile            # Python + uv, только API
-│  ├─ src/                  # Python код (FastAPI)
-│  │  ├─ main.py            # точка входа, lifespan
-│  │  ├─ config.py          # настройки (Settings)
-│  │  ├─ core/              # базовые интерфейсы, исключения
-│  │  └─ features/          # фичи (chat, quiz, sobes, design)
-│  │     ├─ chat/           # RAG-чат
-│  │     ├─ quiz/           # Тестирование
-│  │     ├─ sobes/          # Устное собеседование
-│  │     └─ design/         # Системный дизайн
-│  └─ prompts/              # промпты для LLM
+│  ├─ src/
+│  │  ├─ main.py           # точка входа, lifespan
+│  │  ├─ config.py         # настройки (Settings)
+│  │  ├─ core/             # базовые интерфейсы, исключения
+│  │  └─ features/
+│  │     ├─ chat/          # RAG-диалог (Интервью)
+│  │     ├─ quiz/          # Тестирование
+│  │     ├─ sobes/         # Устное собеседование
+│  │     ├─ design/        # Системный дизайн
+│  │     └─ stats/         # Статистика пользователя
+│  └─ prompts/             # промпты для LLM
 │     ├─ chat/system.md
 │     ├─ quiz/wrong_answers.md
 │     ├─ sobes/
@@ -115,19 +126,19 @@ tech_interview_agent/
 │     └─ design/scenarios.yaml
 │
 ├─ frontend/
-│  ├─ Dockerfile            # multi-stage (node build → nginx prod)
-│  ├─ nginx.conf            # прокси /api/ → backend
-│  ├─ vite.config.ts        # dev proxy /api → localhost:8000
-│  └─ src/                  # React приложение
+│  ├─ Dockerfile           # multi-stage (node build → nginx prod)
+│  ├─ nginx.conf          # прокси /api/ → backend
+│  ├─ vite.config.ts       # dev proxy /api → localhost:8000
+│  └─ src/
 │     ├─ components/
-│     │  ├─ features/       # chat, quiz, sobes, design
-│     │  └─ ui/             # Button, Card, Markdown, Spinner
-│     ├─ services/api.ts    # API клиент
+│     │  ├─ features/      # chat, quiz, sobes, design, _shared
+│     │  └─ ui/           # Button, Card, Markdown, Spinner
+│     ├─ services/api.ts  # API клиент
 │     └─ styles/
 │
-├─ tests/                   # 37 тестов
+├─ tests/                  # unit + integration
 ├─ docker-compose.yml
-├─ Makefile                 # удобные команды для разработки
+├─ Makefile
 └─ pyproject.toml
 ```
 
@@ -148,23 +159,23 @@ make clean              # удалить артефакты сборки
 
 ---
 
-## Промпты и конфигурация
+## Промпты
 
 LLM-промпты хранятся в `backend/prompts/` в формате Markdown. Конфигурации сценариев — в YAML.
 
 | Файл | Назначение |
 |---|---|
-| `chat/system.md` | Системный промпт RAG-чата |
-| `quiz/wrong_answers.md` | Генерация неправильных вариантов |
-| `sobes/classification.md` | Классификация вопросов |
-| `sobes/scoring.md` | Оценка ответов |
+| `chat/system.md` | Системный промпт диалога: разбор ответа пользователя, эталонный ответ, оценка |
+| `quiz/wrong_answers.md` | Генерация неправдоподобных неправильных вариантов |
+| `sobes/classification.md` | Классификация ответа (верно/частично/неверно) |
+| `sobes/scoring.md` | Оценка по критериям (Понимание, Глубина, Точность) |
 | `design/scenarios.yaml` | Сценарии системного дизайна |
 
 ---
 
 ## API эндпоинты
 
-Все эндпоинты под префиксом `/api`. Эндпоинты статистики требуют заголовок `X-Username` с именем пользователя (имя нормализуется и сохраняется в БД).
+Все эндпоинты под префиксом `/api`. Эндпоинты статистики требуют заголовок `X-Username`.
 
 ### Пользователь и статистика
 
@@ -178,18 +189,19 @@ curl http://localhost:8000/api/stats/overview -H "X-Username: alex"
 # Статистика по одному режиму
 curl http://localhost:8000/api/stats/quiz -H "X-Username: alex"
 
-# Список ответов с фильтром
+# Ответы с фильтром (quiz/sobes/design)
 curl 'http://localhost:8000/api/stats/quiz/answers?only_incorrect=true&limit=20' -H "X-Username: alex"
+
+# Диалоговые пары (chat)
+curl 'http://localhost:8000/api/stats/chat/pairs?limit=20' -H "X-Username: alex"
 ```
 
-Категории ответов:
-- **correct** — правильный ответ (`is_correct == true` для quiz, `score_percent >= pass_threshold` для sobes/design);
-- **partial** — частично правильный (только для sobes/design, где `0 < score_percent < pass_threshold`);
+**Категории ответов:**
+- **correct** — правильный;
+- **partial** — частично правильный (только sobes/design, `0 < score < pass_threshold`);
 - **incorrect** — неправильный.
 
-В чате категорий нет — там сохраняется только история сообщений.
-
-### Чат
+### Чат (Интервью)
 
 ```bash
 curl -X POST http://localhost:8000/api/chat \
@@ -197,21 +209,21 @@ curl -X POST http://localhost:8000/api/chat \
   -d '{"message": "Что такое GIL?", "session_id": "test"}'
 ```
 
-### Квиз
+### Квиз (Тестирование)
 
 ```bash
-# Старт
+# Старт сессии
 curl -X POST http://localhost:8000/api/quiz/start \
   -H "Content-Type: application/json" \
   -d '{"level": "middle"}'
 
-# Ответ
+# Ответ на вопрос
 curl -X POST http://localhost:8000/api/quiz/answer \
   -H "Content-Type: application/json" \
   -d '{"session_id": "...", "question_id": "...", "selected_index": 0}'
 ```
 
-### Собеседование (свободные ответы)
+### Собеседование
 
 ```bash
 # Старт
@@ -228,9 +240,15 @@ curl -X POST http://localhost:8000/api/sobesedovanie/answer \
 ### Системный дизайн
 
 ```bash
+# Старт
 curl -X POST http://localhost:8000/api/design/start \
   -H "Content-Type: application/json" \
   -d '{"level": "middle", "scenario_id": "url-shortener"}'
+
+# Ответ на шаг
+curl -X POST http://localhost:8000/api/design/answer \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "...", "step_id": "...", "user_answer": "..."}'
 ```
 
 ---
@@ -243,25 +261,25 @@ make test
 uv run pytest tests/ -v
 ```
 
-**37 тестов**: unit + интеграционные.
+Unit-тесты для парсеров, scoring-логики, API-роутеров.
 
 ---
 
 ## FAQ
 
-**Q: `docker compose watch` не работает?**
+**`docker compose watch` не работает?**
 - Требуется Docker Compose v2.24+: `docker compose version`
 - В Docker Desktop включите experimental features
 
-**Q: Фронт не подключается к API?**
-- Vite проксирует `/api/*` на `api:8000` через `VITE_API_URL` (см. `docker-compose.yml`)
+**Фронт не подключается к API?**
+- Vite проксирует `/api/*` на `api:8000` через `VITE_API_URL`
 - В локальной разработке (без Docker) — на `localhost:8000`
 
-**Q: Как обновить базу вопросов?**
+**Как обновить базу вопросов?**
 - Замените `interview_questions.docx` и перезапустите приложение (авто-ingest).
 
-**Q: Как изменить промпт?**
+**Как изменить промпт?**
 - Отредактируйте файл в `backend/prompts/`. В `docker compose watch` изменения подхватятся автоматически.
 
-**Q: Как добавить новый сценарий дизайна?**
+**Как добавить новый сценарий дизайна?**
 - Добавьте элемент в массив `scenarios` в `backend/prompts/design/scenarios.yaml`.
