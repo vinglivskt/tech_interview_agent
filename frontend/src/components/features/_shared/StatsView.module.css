@@ -39,7 +39,7 @@
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1rem;
 }
 
@@ -47,28 +47,39 @@
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 1.25rem;
+    padding: 1rem;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .cardTitle {
-    margin: 0 0 1rem 0;
+    margin: 0 0 0.75rem 0;
     font-size: 1rem;
+    overflow-wrap: normal;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .metrics {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
     margin-bottom: 1rem;
+    min-width: 0;
 }
 
 .metric {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     background: var(--bg);
     border-radius: 8px;
-    padding: 0.5rem;
+    padding: 0.6rem 0.5rem;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
 }
 
 .metric_correct .metricValue {
@@ -84,16 +95,28 @@
 }
 
 .metricValue {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 600;
     color: var(--text);
+    line-height: 1.1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .metricLabel {
     font-size: 0.7rem;
     color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
+    margin-top: 0.15rem;
+    text-align: center;
+    line-height: 1.1;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .accuracy {
@@ -127,6 +150,10 @@
     margin: 0.5rem 0 0 0;
     font-size: 0.85rem;
     color: var(--muted);
+    overflow-wrap: normal;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .emptyText {
@@ -178,6 +205,7 @@
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.75rem;
+    min-width: 0;
 }
 
 .answerBadge {
@@ -208,13 +236,23 @@
     margin: 0;
     font-size: 0.95rem;
     font-weight: 500;
-    flex: 1;
-    min-width: 200px;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: normal;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .answerSubtitle {
     font-size: 0.8rem;
     color: var(--muted);
+    flex-basis: 100%;
+    margin-top: 0.25rem;
+    overflow-wrap: normal;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .answerBody p {

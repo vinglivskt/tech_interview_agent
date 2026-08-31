@@ -422,11 +422,13 @@ const SingleFeatureView: React.FC<{ feature: string; breakdown: StatsBreakdown }
             if (p.depth != null) gradeParts.push(`Глубина: ${p.depth}/5`);
             if (p.accuracy != null) gradeParts.push(`Точность: ${p.accuracy}/5`);
             const subtitle = gradeParts.length > 0 ? gradeParts.join(" · ") : "Оценка отсутствует";
+            // Заголовок карточки делаем коротким, чтобы подзаголовок влезал в одну строку.
+            const titleText = p.is_decline ? "Отказ от ответа" : "Диалог";
             return (
               <AnswerCard
                 key={i}
                 category={cat}
-                title={p.is_decline ? "Отказ от ответа" : "Диалог"}
+                title={titleText}
                 subtitle={`${new Date(p.created_at).toLocaleString()} · ${subtitle}`}
               >
                 <p>
