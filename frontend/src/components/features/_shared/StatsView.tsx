@@ -86,9 +86,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ mode, onBack, title }) => 
             <div className={styles.grid}>
               {(["quiz", "sobes", "design", "chat"] as const).map((feat) => {
                 const bd = overview[feat];
-                return (
-                  <ModeCard key={feat} feature={feat} breakdown={bd} />
-                );
+                return <ModeCard key={feat} feature={feat} breakdown={bd} />;
               })}
             </div>
           ) : (
@@ -109,28 +107,56 @@ const MODE_TITLES: Record<string, string> = {
 
 const ModeCard: React.FC<{ feature: string; breakdown: StatsBreakdown }> = ({ feature, breakdown }) => {
   const total = breakdown.total;
+  const isChat = feature === "chat";
   return (
     <div className={styles.card}>
       <h3 className={styles.cardTitle}>{MODE_TITLES[feature] ?? feature}</h3>
-      <div className={styles.metrics}>
-        <Metric label="Всего" value={total} />
-        <Metric label="Правильно" value={breakdown.correct} kind="correct" />
-        <Metric label="Частично" value={breakdown.partial} kind="partial" />
-        <Metric label="Неправильно" value={breakdown.incorrect} kind="incorrect" />
-      </div>
-      {total > 0 ? (
-        <div className={styles.accuracy}>
-          <div className={styles.accuracyBar}>
-            <div className={styles.barCorrect} style={{ width: `${(breakdown.correct / total) * 100}%` }} />
-            <div className={styles.barPartial} style={{ width: `${(breakdown.partial / total) * 100}%` }} />
-            <div className={styles.barIncorrect} style={{ width: `${(breakdown.incorrect / total) * 100}%` }} />
+      {isChat ? (
+        <>
+          <div className={styles.metrics}>
+            <Metric label="Всего" value={total} />
+            <Metric label="Правильно" value={breakdown.correct} kind="correct" />
+            <Metric label="Частично" value={breakdown.partial} kind="partial" />
+            <Metric label="Неправильно" value={breakdown.incorrect} kind="incorrect" />
           </div>
-          <p className={styles.accuracyText}>
-            Точность: <strong>{breakdown.accuracy_percent.toFixed(1)}%</strong>
-          </p>
-        </div>
+          {total > 0 ? (
+            <div className={styles.accuracy}>
+              <div className={styles.accuracyBar}>
+                <div className={styles.barCorrect} style={{ width: `${(breakdown.correct / total) * 100}%` }} />
+                <div className={styles.barPartial} style={{ width: `${(breakdown.partial / total) * 100}%` }} />
+                <div className={styles.barIncorrect} style={{ width: `${(breakdown.incorrect / total) * 100}%` }} />
+              </div>
+              <p className={styles.accuracyText}>
+                Точность: <strong>{breakdown.accuracy_percent.toFixed(1)}%</strong>
+              </p>
+            </div>
+          ) : (
+            <p className={styles.emptyText}>Пока нет диалогов. Задайте ассистенту вопрос.</p>
+          )}
+        </>
       ) : (
-        <p className={styles.emptyText}>Пока нет данных. Пройдите, пожалуйста, этот режим.</p>
+        <>
+          <div className={styles.metrics}>
+            <Metric label="Всего" value={total} />
+            <Metric label="Правильно" value={breakdown.correct} kind="correct" />
+            <Metric label="Частично" value={breakdown.partial} kind="partial" />
+            <Metric label="Неправильно" value={breakdown.incorrect} kind="incorrect" />
+          </div>
+          {total > 0 ? (
+            <div className={styles.accuracy}>
+              <div className={styles.accuracyBar}>
+                <div className={styles.barCorrect} style={{ width: `${(breakdown.correct / total) * 100}%` }} />
+                <div className={styles.barPartial} style={{ width: `${(breakdown.partial / total) * 100}%` }} />
+                <div className={styles.barIncorrect} style={{ width: `${(breakdown.incorrect / total) * 100}%` }} />
+              </div>
+              <p className={styles.accuracyText}>
+                Точность: <strong>{breakdown.accuracy_percent.toFixed(1)}%</strong>
+              </p>
+            </div>
+          ) : (
+            <p className={styles.emptyText}>Пока нет данных. Пройдите, пожалуйста, этот режим.</p>
+          )}
+        </>
       )}
     </div>
   );
@@ -225,13 +251,15 @@ const SingleFeatureView: React.FC<{ feature: string; breakdown: StatsBreakdown }
 
       <div className={styles.answers}>
         {feature === "quiz" &&
-          (answers as Array<{
-            category: "correct" | "partial" | "incorrect";
-            question_text: string;
-            user_answer: string;
-            correct_answer: string;
-            explanation: string;
-          }>).map((a, i) => (
+          (
+            answers as Array<{
+              category: "correct" | "partial" | "incorrect";
+              question_text: string;
+              user_answer: string;
+              correct_answer: string;
+              explanation: string;
+            }>
+          ).map((a, i) => (
             <AnswerCard key={i} category={a.category} title={a.question_text}>
               <p>
                 <strong>Ваш ответ:</strong> {a.user_answer}
@@ -248,18 +276,25 @@ const SingleFeatureView: React.FC<{ feature: string; breakdown: StatsBreakdown }
           ))}
 
         {feature === "sobes" &&
-          (answers as Array<{
-            category: "correct" | "partial" | "incorrect";
-            question_text: string;
-            topic: string;
-            user_answer: string;
-            reference_answer: string;
-            score_percent: number;
-            covered_points: string[];
-            missed_points: string[];
-            techlead_explanation: string;
-          }>).map((a, i) => (
-            <AnswerCard key={i} category={a.category} title={a.question_text} subtitle={`Тема: ${a.topic} · Оценка: ${a.score_percent}%`}>
+          (
+            answers as Array<{
+              category: "correct" | "partial" | "incorrect";
+              question_text: string;
+              topic: string;
+              user_answer: string;
+              reference_answer: string;
+              score_percent: number;
+              covered_points: string[];
+              missed_points: string[];
+              techlead_explanation: string;
+            }>
+          ).map((a, i) => (
+            <AnswerCard
+              key={i}
+              category={a.category}
+              title={a.question_text}
+              subtitle={`Тема: ${a.topic} · Оценка: ${a.score_percent}%`}
+            >
               <p>
                 <strong>Ваш ответ:</strong> {a.user_answer}
               </p>
@@ -297,18 +332,20 @@ const SingleFeatureView: React.FC<{ feature: string; breakdown: StatsBreakdown }
           ))}
 
         {feature === "design" &&
-          (answers as Array<{
-            category: "correct" | "partial" | "incorrect";
-            scenario_id: string;
-            step_title: string;
-            user_answer: string;
-            score_percent: number;
-            rubric: Record<string, number>;
-            covered_points: string[];
-            missed_points: string[];
-            techlead_explanation: string;
-            hint_used: boolean;
-          }>).map((a, i) => (
+          (
+            answers as Array<{
+              category: "correct" | "partial" | "incorrect";
+              scenario_id: string;
+              step_title: string;
+              user_answer: string;
+              score_percent: number;
+              rubric: Record<string, number>;
+              covered_points: string[];
+              missed_points: string[];
+              techlead_explanation: string;
+              hint_used: boolean;
+            }>
+          ).map((a, i) => (
             <AnswerCard
               key={i}
               category={a.category}
@@ -359,23 +396,62 @@ const SingleFeatureView: React.FC<{ feature: string; breakdown: StatsBreakdown }
           ))}
 
         {feature === "chat" &&
-          (answers as Array<{ user_message: string; assistant_answer: string; created_at: string }>).map((p, i) => (
-            <AnswerCard key={i} category="correct" title="Диалог" subtitle={new Date(p.created_at).toLocaleString()}>
-              <p>
-                <strong>Вопрос:</strong> {p.user_message}
-              </p>
-              <p>
-                <strong>Ответ ассистента:</strong> {p.assistant_answer}
-              </p>
-            </AnswerCard>
-          ))}
+          (
+            answers as Array<{
+              user_message: string;
+              assistant_answer: string;
+              created_at: string;
+              score_percent: number | null;
+              category: "correct" | "partial" | "incorrect" | null;
+              is_decline: boolean | null;
+              has_grade: boolean | null;
+              comprehension: number | null;
+              depth: number | null;
+              accuracy: number | null;
+              level: string | null;
+            }>
+          ).map((p, i) => {
+            const cat: "correct" | "partial" | "incorrect" | "neutral" =
+              p.category === "correct" || p.category === "partial" || p.category === "incorrect"
+                ? p.category
+                : "neutral";
+            const gradeParts: string[] = [];
+            if (p.score_percent != null) gradeParts.push(`Оценка: ${p.score_percent}%`);
+            if (p.level) gradeParts.push(`Уровень: ${p.level}`);
+            if (p.comprehension != null) gradeParts.push(`Понимание: ${p.comprehension}/5`);
+            if (p.depth != null) gradeParts.push(`Глубина: ${p.depth}/5`);
+            if (p.accuracy != null) gradeParts.push(`Точность: ${p.accuracy}/5`);
+            const subtitle = gradeParts.length > 0 ? gradeParts.join(" · ") : "Оценка отсутствует";
+            return (
+              <AnswerCard
+                key={i}
+                category={cat}
+                title={p.is_decline ? "Отказ от ответа" : "Диалог"}
+                subtitle={`${new Date(p.created_at).toLocaleString()} · ${subtitle}`}
+              >
+                <p>
+                  <strong>Вопрос:</strong> {p.user_message}
+                </p>
+                <p>
+                  <strong>Ответ ассистента:</strong> {p.assistant_answer}
+                </p>
+              </AnswerCard>
+            );
+          })}
       </div>
     </div>
   );
 };
 
+const ANSWER_BADGE: Record<"correct" | "partial" | "incorrect" | "neutral", string> = {
+  correct: "✓ Правильно",
+  partial: "~ Частично",
+  incorrect: "✗ Неправильно",
+  neutral: "💬 Диалог",
+};
+
 const AnswerCard: React.FC<{
-  category: "correct" | "partial" | "incorrect";
+  category: "correct" | "partial" | "incorrect" | "neutral";
   title: string;
   subtitle?: string;
   children: React.ReactNode;
@@ -383,9 +459,7 @@ const AnswerCard: React.FC<{
   return (
     <div className={`${styles.answerCard} ${styles[`answerCard_${category}`]}`}>
       <div className={styles.answerHeader}>
-        <span className={`${styles.answerBadge} ${styles[`badge_${category}`]}`}>
-          {category === "correct" ? "✓ Правильно" : category === "partial" ? "~ Частично" : "✗ Неправильно"}
-        </span>
+        <span className={`${styles.answerBadge} ${styles[`badge_${category}`]}`}>{ANSWER_BADGE[category]}</span>
         <h4 className={styles.answerTitle}>{title}</h4>
         {subtitle && <span className={styles.answerSubtitle}>{subtitle}</span>}
       </div>
@@ -394,7 +468,11 @@ const AnswerCard: React.FC<{
   );
 };
 
-const Metric: React.FC<{ label: string; value: number; kind?: "correct" | "partial" | "incorrect" }> = ({ label, value, kind }) => (
+const Metric: React.FC<{ label: string; value: number; kind?: "correct" | "partial" | "incorrect" }> = ({
+  label,
+  value,
+  kind,
+}) => (
   <div className={`${styles.metric} ${kind ? styles[`metric_${kind}`] : ""}`}>
     <span className={styles.metricValue}>{value}</span>
     <span className={styles.metricLabel}>{label}</span>

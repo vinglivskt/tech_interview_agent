@@ -213,10 +213,28 @@ async def run_chat(
     docx_path = Path(getattr(settings, "interview_docx_path", ""))
     in_base = question_exists(docx_path, user_message) if docx_path.exists() else False
 
+    # Парсим оценку из текста ассистента (если он её выставил) и определяем категорию
+    # для статистики. Если пользователь явно отказался отвечать — score_percent=0.
+    from src.features.chat.domain.scoring_parser import grade_user_response
+
+    grade = grade_user_response(
+        user_message=user_message,
+        assistant_text=text,
+        pass_threshold=int(getattr(settings, "sobes_pass_threshold_percent", 50)),
+    )
+
     meta: dict[str, Any] = {
         "used_rag": bool(hits),
         "retrieved_chunks": len(selected_hits),
         "answer_numbers": numbers,
         "suggest_save": not in_base,
+        "score_percent": grade["score_percent"],
+        "category": grade["category"],
+        "is_decline": grade["is_decline"],
+        "has_grade": grade["has_grade"],
+        "comprehension": grade["comprehension"],
+        "depth": grade["depth"],
+        "accuracy": grade["accuracy"],
+        "level": grade["level"],
     }
     return text, meta

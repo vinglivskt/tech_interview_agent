@@ -337,16 +337,39 @@ class StatsRepository:
         elif feature is Feature.DESIGN:
             model = DesignAnswer
         elif feature is Feature.CHAT:
-            # В чате нет правильности, считаем только сообщения
-            total_q = await self.session.scalar(
-                select(func.count()).select_from(ChatMessage).where(ChatMessage.user_id == user_id)
+            # В чате оценка хранится в ``meta`` сообщений ассистента.
+            # Считаем оценённые диалоги (те, где ассистент выставил блок оценки
+            # или пользователь явно отказался отвечать).
+            result = await self.session.execute(
+                select(ChatMessage.meta, ChatMessage.role).where(
+                    (ChatMessage.user_id == user_id) & (ChatMessage.role == "assistant")
+                )
             )
+            correct = partial = incorrect = no_grade = 0
+            for meta, _role in result.all():
+                if not isinstance(meta, dict):
+                    # Совсем старые сообщения без meta — считаем «без оценки».
+                    no_grade += 1
+                    continue
+                if not meta.get("has_grade") and not meta.get("is_decline"):
+                    no_grade += 1
+                    continue
+                cat = meta.get("category")
+                if cat == AnswerCategory.CORRECT.value:
+                    correct += 1
+                elif cat == AnswerCategory.PARTIAL.value:
+                    partial += 1
+                elif cat == AnswerCategory.INCORRECT.value:
+                    incorrect += 1
+                else:
+                    no_grade += 1
+            total = correct + partial + incorrect
             return StatsBreakdown(
                 feature=feature,
-                total=int(total_q or 0),
-                correct=0,
-                partial=0,
-                incorrect=0,
+                total=total,
+                correct=correct,
+                partial=partial,
+                incorrect=incorrect,
             )
         else:
             raise ValueError(f"Unknown feature: {feature}")
@@ -406,7 +429,12 @@ class StatsRepository:
         *,
         limit: int = 10,
     ) -> list[dict[str, Any]]:
-        """Возвращает последние N пар user/assistant для чат-режима."""
+        """Возвращает последние N пар user/assistant для чат-режима.
+
+        Каждая пара содержит оценку из ``meta`` сообщения ассистента
+        (score_percent, category, level, ...). Если ассистент не выставил
+        оценку (например, при «не знаю» в chat-промте) — поля остаются None.
+        """
         result = await self.session.execute(
             select(ChatMessage)
             .where(ChatMessage.user_id == user_id)
@@ -418,11 +446,20 @@ class StatsRepository:
         i = 0
         while i < len(rows) and len(pairs) < limit:
             if rows[i].role == "user" and i + 1 < len(rows) and rows[i + 1].role == "assistant":
+                meta = rows[i + 1].meta or {}
                 pairs.append(
                     {
                         "user_message": rows[i].content,
                         "assistant_answer": rows[i + 1].content,
                         "created_at": rows[i].created_at.isoformat(),
+                        "score_percent": meta.get("score_percent"),
+                        "category": meta.get("category"),
+                        "is_decline": meta.get("is_decline"),
+                        "has_grade": meta.get("has_grade"),
+                        "comprehension": meta.get("comprehension"),
+                        "depth": meta.get("depth"),
+                        "accuracy": meta.get("accuracy"),
+                        "level": meta.get("level"),
                     }
                 )
                 i += 2
