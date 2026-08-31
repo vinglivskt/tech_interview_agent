@@ -194,11 +194,10 @@ async def run_chat(
     if question_type == "direct_question":
         # Для прямых вопросов используем отдельный промпт (без Evaluate-формата)
         base_prompt = _load_question_prompt(settings)
-        system_prompt = (
-            f"{base_prompt}\n\nКонтекст из векторной базы:\n{rag_context}\n\n"(
-                f"Если используешь сведения из базы, укажи источник в формате 'ответ №{refs}'." if refs != "нет" else ""
-            )
-        ).strip()
+        refs_hint = (
+            f"Если используешь сведения из базы, укажи источник в формате 'ответ №{refs}'." if refs != "нет" else ""
+        )
+        system_prompt = f"{base_prompt}\n\nКонтекст из векторной базы:\n{rag_context}\n\n{refs_hint}".strip()
     else:
         # Для Evaluate-формата используем стандартный промпт
         base_prompt = _load_system_prompt(settings)
