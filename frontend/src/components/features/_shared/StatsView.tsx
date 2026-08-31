@@ -24,6 +24,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ mode, onBack, title }) => 
   const [me, setMe] = useState<{ display_name: string; username: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMode, setSelectedMode] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +56,9 @@ export const StatsView: React.FC<StatsViewProps> = ({ mode, onBack, title }) => 
     };
   }, []);
 
-  const heading = title ?? MODE_LABELS[mode] ?? "Статистика";
+  const heading = selectedMode
+    ? (MODE_TITLES[selectedMode] ?? selectedMode)
+    : (title ?? MODE_LABELS[mode] ?? "Статистика");
 
   return (
     <div className={styles.container}>
@@ -82,11 +85,18 @@ export const StatsView: React.FC<StatsViewProps> = ({ mode, onBack, title }) => 
 
       {overview && !loading && !error && (
         <>
-          {mode === "overall" ? (
+          {selectedMode ? (
+            <>
+              <Button variant="secondary" onClick={() => setSelectedMode(null)} style={{ marginBottom: "16px" }}>
+                ← К обзору режимов
+              </Button>
+              <SingleFeatureView feature={selectedMode} breakdown={overview[selectedMode]} />
+            </>
+          ) : mode === "overall" ? (
             <div className={styles.grid}>
               {(["quiz", "sobes", "design", "chat"] as const).map((feat) => {
                 const bd = overview[feat];
-                return <ModeCard key={feat} feature={feat} breakdown={bd} />;
+                return <ModeCard key={feat} feature={feat} breakdown={bd} onClick={() => setSelectedMode(feat)} />;
               })}
             </div>
           ) : (
@@ -105,12 +115,17 @@ const MODE_TITLES: Record<string, string> = {
   chat: "Интервью",
 };
 
-const ModeCard: React.FC<{ feature: string; breakdown: StatsBreakdown }> = ({ feature, breakdown }) => {
+const ModeCard: React.FC<{ feature: string; breakdown: StatsBreakdown; onClick?: () => void }> = ({
+  feature,
+  breakdown,
+  onClick,
+}) => {
   const total = breakdown.total;
   const isChat = feature === "chat";
   return (
-    <div className={styles.card}>
+    <div className={styles.card} onClick={onClick} style={{ cursor: onClick ? "pointer" : undefined }}>
       <h3 className={styles.cardTitle}>{MODE_TITLES[feature] ?? feature}</h3>
+      {onClick && <p className={styles.cardHint}>Нажмите для подробностей →</p>}
       {isChat ? (
         <>
           <div className={styles.metrics}>
