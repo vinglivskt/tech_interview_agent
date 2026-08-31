@@ -207,6 +207,7 @@ export const sobesApi = {
       method: "POST",
       body: JSON.stringify({ session_id: sessionId }),
     }),
+
 };
 
 // Design API

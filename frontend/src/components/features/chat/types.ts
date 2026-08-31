@@ -11,7 +11,13 @@ export interface ChatViewProps {
   saveStatus: string;
   isLoading: boolean;
   error: string | null;
+  customQuestion: string;
+  isCustomMode: boolean;
   onAnswerChange: (value: string) => void;
+  onCustomQuestionChange: (value: string) => void;
+  onEnterCustomMode: () => void;
+  onCancelCustomMode: () => void;
+  onSubmitCustomQuestion: () => void;
   onSend: () => void;
   onSave: () => void;
   onBack: () => void;

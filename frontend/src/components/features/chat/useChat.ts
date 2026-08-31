@@ -34,6 +34,8 @@ export interface ChatState {
   sessionId: string;
   lastQuestion: string;
   lastAnswer: string;
+  customQuestion: string;
+  isCustomMode: boolean;
 }
 
 export function useChat() {
@@ -50,14 +52,14 @@ export function useChat() {
     sessionId: getSessionId(),
     lastQuestion: "",
     lastAnswer: "",
+    customQuestion: "",
+    isCustomMode: false,
   });
 
-  // Use ref to track if question was loaded - avoids stale closure issues
   const hasLoadedQuestion = useRef(false);
 
   const loadRandomQuestion = useCallback(async () => {
-    // Don't reload if we already have a question pending
-    if (hasLoadedQuestion.current && state.questionText) return;
+    if (hasLoadedQuestion.current && state.questionText && !state.isCustomMode) return;
 
     setState((prev) => ({
       ...prev,
@@ -79,6 +81,7 @@ export function useChat() {
         questionText: data.question,
         lastQuestion: data.question,
         statusText: "",
+        isCustomMode: false,
       }));
     } catch (err) {
       setState((prev) => ({
@@ -89,15 +92,85 @@ export function useChat() {
         error: err instanceof Error ? err.message : "Не удалось загрузить вопрос",
       }));
     }
-  }, [state.questionText]);
+  }, [state.questionText, state.isCustomMode]);
 
   useEffect(() => {
     loadRandomQuestion();
-  }, []); // Only on mount
+  }, []);
 
   const setUserAnswer = useCallback((userAnswer: string) => {
     setState((prev) => ({ ...prev, userAnswer }));
   }, []);
+
+  const setCustomQuestion = useCallback((customQuestion: string) => {
+    setState((prev) => ({ ...prev, customQuestion }));
+  }, []);
+
+  const enterCustomMode = useCallback(() => {
+    hasLoadedQuestion.current = true;
+    setState((prev) => ({
+      ...prev,
+      questionNumber: "—",
+      questionText: "",
+      answer: "",
+      isAnswerEmpty: true,
+      userAnswer: "",
+      saveStatus: "",
+      error: null,
+      isCustomMode: true,
+      customQuestion: "",
+      lastQuestion: "",
+    }));
+  }, []);
+
+  const cancelCustomMode = useCallback(() => {
+    hasLoadedQuestion.current = false;
+    setState((prev) => ({
+      ...prev,
+      isCustomMode: false,
+      customQuestion: "",
+    }));
+    loadRandomQuestion();
+  }, [loadRandomQuestion]);
+
+  const submitCustomQuestion = useCallback(async () => {
+    const { customQuestion, sessionId, isLoading } = state;
+    if (!customQuestion.trim() || isLoading) return;
+
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      statusText: "Загрузка…",
+      error: null,
+    }));
+
+    try {
+      // При своём вопросе отправляем напрямую (без формата интервью),
+      // чтобы получить прямой ответ, а не Evaluate-discussion.
+      const data = await chatApi.send(customQuestion.trim(), sessionId);
+      hasLoadedQuestion.current = true;
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        statusText: "",
+        answer: data.answer,
+        isAnswerEmpty: false,
+        lastQuestion: customQuestion.trim(),
+        lastAnswer: data.answer,
+        questionText: customQuestion.trim(),
+        questionNumber: "—",
+        userAnswer: "",
+        isCustomMode: false,
+      }));
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        statusText: "",
+        error: err instanceof Error ? err.message : "Ошибка отправки",
+      }));
+    }
+  }, [state]);
 
   const sendAnswer = useCallback(async () => {
     const { userAnswer, sessionId, lastQuestion, isLoading } = state;
@@ -178,14 +251,19 @@ export function useChat() {
       error: null,
       lastQuestion: "",
       lastAnswer: "",
+      customQuestion: "",
+      isCustomMode: false,
     }));
-    // Load new random question
     loadRandomQuestion();
   }, [loadRandomQuestion]);
 
   return {
     ...state,
     setUserAnswer,
+    setCustomQuestion,
+    enterCustomMode,
+    cancelCustomMode,
+    submitCustomQuestion,
     sendAnswer,
     saveToWord,
     loadRandomQuestion,

@@ -300,9 +300,9 @@ class SobesService:
         sess = self._store.get(session_id)
         if not sess:
             raise ValueError("Сессия не найдена или истекла")
-        # сдвигаем индекс вперёд, не добавляя ответа
         sess.current_index += 1
         self._store.save(sess)
         is_last = sess.current_index >= sess.planned_total or sess.current_index >= len(sess.questions)
         next_q = None if is_last else sess.questions[sess.current_index]
         return next_q, is_last
+
