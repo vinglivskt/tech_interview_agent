@@ -81,6 +81,26 @@ async def stats_for_feature(
     return bd.to_dict()
 
 
+@router.delete("/stats/{feature}")
+async def clear_feature_stats(
+    feature: Feature,
+    current: Annotated[CurrentUser, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, Any]:
+    """Очищает всю статистику пользователя по указанному режиму.
+
+    Возвращает количество удалённых записей.
+    """
+    await _require_db()
+    repo = StatsRepository(session)
+    deleted = await repo.clear_feature(current.user.id, feature)
+    return {
+        "feature": feature.value,
+        "deleted": deleted,
+        "status": "cleared",
+    }
+
+
 @router.get("/stats/{feature}/answers")
 async def list_recent_answers(
     feature: Feature,

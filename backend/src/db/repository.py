@@ -467,6 +467,30 @@ class StatsRepository:
                 i += 1
         return pairs
 
+    async def clear_feature(self, user_id: uuid.UUID, feature: Feature) -> int:
+        """Удаляет все записи пользователя в указанном режиме.
+
+        Возвращает количество удалённых строк.
+        """
+        from sqlalchemy import delete
+
+        if feature is Feature.CHAT:
+            model = ChatMessage
+        elif feature is Feature.QUIZ:
+            model = QuizAnswer
+        elif feature is Feature.SOBES:
+            model = SobesAnswer
+        elif feature is Feature.DESIGN:
+            model = DesignAnswer
+        else:
+            raise ValueError(f"Unknown feature: {feature}")
+
+        result = await self.session.execute(
+            delete(model).where(model.user_id == user_id)
+        )
+        await self.session.commit()
+        return int(result.rowcount or 0)
+
 
 __all__ = [
     "ChatMessagesRepository",

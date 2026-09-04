@@ -355,6 +355,11 @@ export const statsApi = {
 
   forFeature: (feature: string) => request<StatsBreakdown>(`/stats/${feature}`),
 
+  clearFeature: (feature: string) =>
+    request<{ feature: string; deleted: number; status: string }>(`/stats/${feature}`, {
+      method: "DELETE",
+    }),
+
   quizAnswers: (opts: { onlyIncorrect?: boolean; onlyPartial?: boolean; limit?: number } = {}) => {
     const params = new URLSearchParams();
     if (opts.onlyIncorrect) params.set("only_incorrect", "true");

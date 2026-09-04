@@ -181,6 +181,10 @@ const SingleFeatureView: React.FC<{ feature: string; breakdown: StatsBreakdown }
   const [filter, setFilter] = useState<"all" | "incorrect" | "partial">("incorrect");
   const [answers, setAnswers] = useState<unknown[]>([]);
   const [loadingAnswers, setLoadingAnswers] = useState(false);
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearMessage, setClearMessage] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -234,7 +238,7 @@ const SingleFeatureView: React.FC<{ feature: string; breakdown: StatsBreakdown }
     return () => {
       cancelled = true;
     };
-  }, [feature, filter]);
+  }, [feature, filter, reloadKey]);
 
   return (
     <div>
@@ -251,6 +255,55 @@ const SingleFeatureView: React.FC<{ feature: string; breakdown: StatsBreakdown }
           <Button variant={filter === "all" ? "primary" : "secondary"} onClick={() => setFilter("all")}>
             Все
           </Button>
+        </div>
+      )}
+
+      {/* Кнопка очистки статистики (только в режиме одного feature) */}
+      <div className={styles.filterBar} style={{ marginTop: "0.5rem" }}>
+        {!confirmingClear ? (
+          <Button variant="secondary" onClick={() => setConfirmingClear(true)}>
+            🗑 Очистить статистику «{MODE_LABELS[feature] ?? feature}»
+          </Button>
+        ) : (
+          <span style={{ display: "inline-flex", gap: "0.5rem", alignItems: "center" }}>
+            <strong>Вы действительно хотите очистить статистику «{MODE_LABELS[feature] ?? feature}»?</strong>
+            <Button
+              variant="primary"
+              onClick={async () => {
+                setClearing(true);
+                setClearMessage(null);
+                try {
+                  const r = await statsApi.clearFeature(feature);
+                  setClearMessage(`✅ Удалено записей: ${r.deleted}`);
+                  setConfirmingClear(false);
+                  setReloadKey((k) => k + 1);
+                } catch (e) {
+                  setClearMessage(`❌ Ошибка: ${e instanceof Error ? e.message : "неизвестно"}`);
+                } finally {
+                  setClearing(false);
+                }
+              }}
+              disabled={clearing}
+              loading={clearing}
+            >
+              Да, очистить
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setConfirmingClear(false);
+                setClearMessage(null);
+              }}
+              disabled={clearing}
+            >
+              Отмена
+            </Button>
+          </span>
+        )}
+      </div>
+      {clearMessage && (
+        <div className={styles.emptyText} style={{ marginTop: "0.5rem" }}>
+          {clearMessage}
         </div>
       )}
 
