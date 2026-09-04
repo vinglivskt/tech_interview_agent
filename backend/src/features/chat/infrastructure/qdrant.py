@@ -30,9 +30,7 @@ logger = logging.getLogger(__name__)
 _CHUNK_ID_NS = uuid.UUID("a1b2c3d4-e5f6-4789-a012-3456789abcde")
 
 
-def point_id_for_chunk(
-    *, source_file: str, question_number: int, chunk_index: int, chunk: str
-) -> str:
+def point_id_for_chunk(*, source_file: str, question_number: int, chunk_index: int, chunk: str) -> str:
     """
     Стабильный id точки для фрагмента текста.
 
@@ -72,9 +70,7 @@ class QdrantService(VectorStoreGateway):
             return
         await self._client.create_collection(
             collection_name=self.collection,
-            vectors_config=VectorParams(
-                size=self._settings.embedding_dim, distance=Distance.COSINE
-            ),
+            vectors_config=VectorParams(size=self._settings.embedding_dim, distance=Distance.COSINE),
             shard_number=max(1, self._settings.qdrant_shard_number),
             replication_factor=max(1, self._settings.qdrant_replication_factor),
         )
@@ -125,7 +121,7 @@ class QdrantService(VectorStoreGateway):
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """
-        Ищет ближайшие векторы и возвращает их payloads.
+        Ищет ближайшие векторы и возвращает их payloads вместе со score.
         """
         res = await self._client.query_points(
             collection_name=self.collection,
@@ -137,7 +133,11 @@ class QdrantService(VectorStoreGateway):
         out: list[dict[str, Any]] = []
         for hit in res.points:
             if hit.payload:
-                out.append(dict(hit.payload))
+                payload = dict(hit.payload)
+                # Добавляем score (cosine similarity) в payload для фильтрации
+                if hit.score is not None:
+                    payload["_score"] = float(hit.score)
+                out.append(payload)
         return out
 
     async def delete_by_payload_kind(self, kind: str, *, doc_hash: str | None = None) -> None:

@@ -67,6 +67,36 @@ class Settings(BaseSettings):
     )
     ingest_interval_hours: float = Field(default=1.0, gt=0, description="Период проверки обновления файла")
     interview_top_k: int = Field(default=5, ge=1, le=20, description="Сколько фрагментов доставать из Qdrant")
+    fuzzy_ratio_threshold: int = Field(
+        default=85,
+        ge=0,
+        le=100,
+        description="Минимальный порог fuzzy-схожести (0–100) для привязки ответа к источнику №N в RAG",
+    )
+    rag_score_threshold: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Минимальный cosine similarity из RAG (0–1), ниже которого хит отбрасывается",
+    )
+    rag_high_score_threshold: float = Field(
+        default=0.85,
+        ge=0.0,
+        le=1.0,
+        description="Высокий cosine similarity (0–1), при котором источник приводится",
+    )
+    min_text_ratio_for_source: float = Field(
+        default=60.0,
+        ge=0.0,
+        le=100.0,
+        description="Минимальный text ratio (0-100) для приведения источника, страховка от ложных RAG-хитов",
+    )
+    suggest_save_fuzzy_min: float = Field(
+        default=75.0,
+        ge=0.0,
+        le=100.0,
+        description="Минимальный fuzzy ratio (0-100) чтобы считать вопрос существующим в docx (без предложения сохранить)",
+    )
 
     cors_allow_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:8000", "http://127.0.0.1:8000"],

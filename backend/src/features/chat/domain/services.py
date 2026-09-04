@@ -7,6 +7,8 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
+from rapidfuzz import fuzz
+
 from src.core.interfaces.embeddings import EmbeddingGateway
 from src.core.interfaces.llm import LLMGateway
 from src.core.interfaces.vectorstore import VectorStoreGateway
@@ -163,13 +165,36 @@ async def run_chat(
     except Exception:
         hits = []
 
-    # Выбираем один единственный номер ответа (первый из самых релевантных хитов)
-    selected_number: int | None = None
+    # Из хитов RAG выбираем наиболее релевантный вопрос.
+    # Логика:
+    #   - Берём хит с максимальным RAG score.
+    #   - Источник приводится ТОЛЬКО если RAG score >= rag_high_score_threshold (0.85+).
+    #     Это защищает от ложных срабатываний типа CSS-псевдоэлементы vs @classmethod,
+    #     которые семантически близки но фактически разные вопросы.
+    rag_score_threshold = getattr(settings, "rag_score_threshold", 0.5)
+    rag_high_score = getattr(settings, "rag_high_score_threshold", 0.85)
+
+    best_rag_score = 0.0
+    best_answer_number: int | None = None
+
     for hit in hits:
         an = hit.get("answer_number")
-        if isinstance(an, int):
-            selected_number = an
-            break
+        qt = hit.get("question_text")
+        if not isinstance(an, int) or not isinstance(qt, str):
+            continue
+        hit_score_raw = hit.get("_score")
+        hit_score = float(hit_score_raw) if hit_score_raw is not None else 0.0
+        if hit_score < rag_score_threshold:
+            continue
+        if hit_score > best_rag_score:
+            best_rag_score = hit_score
+            best_answer_number = an
+
+    # Источник показываем только если RAG score очень высокий
+    if best_answer_number is not None and best_rag_score >= rag_high_score:
+        selected_number: int | None = best_answer_number
+    else:
+        selected_number = None
 
     selected_hits = hits if selected_number is None else [h for h in hits if h.get("answer_number") == selected_number]
 
@@ -194,10 +219,13 @@ async def run_chat(
     if question_type == "direct_question":
         # Для прямых вопросов используем отдельный промпт (без Evaluate-формата)
         base_prompt = _load_question_prompt(settings)
-        refs_hint = (
-            f"Если используешь сведения из базы, укажи источник в формате 'ответ №{refs}'." if refs != "нет" else ""
-        )
-        system_prompt = f"{base_prompt}\n\nКонтекст из векторной базы:\n{rag_context}\n\n{refs_hint}".strip()
+        if refs != "нет":
+            # Явно сообщаем LLM номер найденного релевантного вопроса
+            refs_hint = f"\n\nНайденный релевантный номер: {refs}. Укажи в конце: 'Источники: ответ №{refs}'."
+        else:
+            # RAG ничего не нашёл — явно говорим LLM НЕ придумывать источник
+            refs_hint = "\n\nНайденный релевантный номер: нет. НЕ указывай источники в ответе."
+        system_prompt = f"{base_prompt}\n\nКонтекст из векторной базы:\n{rag_context}{refs_hint}"
     else:
         # Для Evaluate-формата используем стандартный промпт
         base_prompt = _load_system_prompt(settings)
@@ -231,11 +259,46 @@ async def run_chat(
 
     if selected_number is not None and "ответ №" not in text.lower():
         text = f"{text}\n\nИсточники: ответ №{selected_number}"
+    elif selected_number is None:
+        # Если backend решил что вопрос не из RAG — удаляем все выдуманные LLM источники
+        import re
+
+        # Удаляем любые строки, начинающиеся с "Источник" / "Источники"
+        # (включая варианты: "Источники: ответ №1", "Источники: нет ...",
+        # "### Источники: ответ №1", "**Источники:** ...")
+        lines = text.split("\n")
+        cleaned: list[str] = []
+        for line in lines:
+            if re.search(r"Источники?\s*:", line, re.IGNORECASE):
+                continue
+            cleaned.append(line)
+        text = "\n".join(cleaned).rstrip()
 
     # Проверяем, есть ли этот вопрос в базе docx
-    # Если нет — предлагаем сохранить ответ
+    # Используем двойную проверку: точное совпадение И fuzzy-ratio >= 75%.
+    # Это защищает от случая "Что такое GIL?" vs "В чем основная задача GIL?"
+    # — формально разные, но семантически один и тот же вопрос.
     docx_path = Path(getattr(settings, "interview_docx_path", ""))
-    in_base = question_exists(docx_path, user_message) if docx_path.exists() else False
+    if docx_path.exists():
+        in_base_exact = question_exists(docx_path, user_message)
+        if in_base_exact:
+            in_base = True
+        else:
+            # Дополнительно: fuzzy-поиск среди всех вопросов в docx
+            try:
+                from src.features.chat.domain.docx_repository import load_interview_qa
+
+                items = load_interview_qa(docx_path)
+                fuzzy_min = getattr(settings, "suggest_save_fuzzy_min", 75.0)
+                user_lower = user_message.strip().lower()
+                in_base = any(
+                    fuzz.token_set_ratio(user_lower, item.question.strip().lower()) >= fuzzy_min
+                    for item in items
+                )
+            except Exception:
+                in_base = False
+    else:
+        in_base = False
 
     # Парсим оценку из текста ассистента (если он её выставил) и определяем категорию
     # для статистики. Если пользователь явно отказался отвечать — score_percent=0.
