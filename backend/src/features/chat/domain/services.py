@@ -274,6 +274,37 @@ async def run_chat(
             cleaned.append(line)
         text = "\n".join(cleaned).rstrip()
 
+    # Для прямых вопросов делаем самопроверку: LLM перепроверяет свой ответ.
+    # Это повышает качество ответа перед предложением сохранить в docx.
+    if question_type == "direct_question" and not selected_number:
+        try:
+            verify_messages = messages + [
+                {"role": "assistant", "content": text},
+                {
+                    "role": "user",
+                    "content": (
+                        "Проверь свой предыдущий ответ на фактические ошибки и неточности. "
+                        "ВАЖНО: верни ПОЛНЫЙ исправленный ответ, а не только замечания. "
+                        "Если всё верно — верни ответ как есть (можно с коротким предисловием 'Ответ корректен:'). "
+                        "Не пиши 'Все утверждения корректны' — верни сам текст ответа."
+                    ),
+                },
+            ]
+            verified = (await llm.generate(verify_messages)).strip()
+            # Берём проверенный ответ, только если он не сильно короче оригинала
+            if verified and len(verified) >= len(text) * 0.5:
+                # Если LLM вернул только "всё ок" без ответа — оставляем оригинал
+                if len(verified) < 100 and any(
+                    phrase in verified.lower()
+                    for phrase in ["всё верно", "всё корректно", "оставить без изменений", "ответ корректен"]
+                ):
+                    pass  # используем оригинал text
+                else:
+                    text = verified
+        except Exception:
+            # При ошибке самопроверки оставляем оригинальный ответ
+            pass
+
     # Проверяем, есть ли этот вопрос в базе docx
     # Используем двойную проверку: точное совпадение И fuzzy-ratio >= 75%.
     # Это защищает от случая "Что такое GIL?" vs "В чем основная задача GIL?"
@@ -292,8 +323,7 @@ async def run_chat(
                 fuzzy_min = getattr(settings, "suggest_save_fuzzy_min", 75.0)
                 user_lower = user_message.strip().lower()
                 in_base = any(
-                    fuzz.token_set_ratio(user_lower, item.question.strip().lower()) >= fuzzy_min
-                    for item in items
+                    fuzz.token_set_ratio(user_lower, item.question.strip().lower()) >= fuzzy_min for item in items
                 )
             except Exception:
                 in_base = False

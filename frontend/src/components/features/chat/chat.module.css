@@ -102,12 +102,7 @@
 
 .saveBtn {
     margin-top: 0.75rem;
-    display: none;
     background: linear-gradient(180deg, #10b981, #059669);
-}
-
-.saveBtn.visible {
-    display: inline-block;
 }
 
 .saveStatus {

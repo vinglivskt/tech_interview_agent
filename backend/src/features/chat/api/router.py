@@ -75,6 +75,19 @@ async def chat_endpoint(
     # Запись в статистику (фоновая задача)
     username = decode_username_header(x_username) or None
     if username:
+        # Для прямых вопросов пользователя не оцениваем (это не ответ на вопрос из RAG).
+        # Помечаем в meta как kind=custom_question и не пишем score_percent/comprehension/...
+        stats_meta = None
+        if isinstance(meta, dict) and body.question_type == "direct_question":
+            stats_meta = {
+                "kind": "custom_question",
+                "used_rag": meta.get("used_rag", False),
+                "suggest_save": meta.get("suggest_save", False),
+                "answer_numbers": meta.get("answer_numbers", []),
+            }
+        elif isinstance(meta, dict):
+            stats_meta = meta
+
         background.add_task(
             persist_chat_message,
             username=username,
@@ -89,7 +102,7 @@ async def chat_endpoint(
             session_key=session_id,
             role="assistant",
             content=answer,
-            meta=meta if isinstance(meta, dict) else None,
+            meta=stats_meta,
         )
 
     return {"answer": answer, "meta": meta}
