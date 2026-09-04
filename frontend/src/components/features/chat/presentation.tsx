@@ -17,6 +17,7 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
   error,
   customQuestion,
   isCustomMode,
+  suggestSave,
   onAnswerChange,
   onCustomQuestionChange,
   onEnterCustomMode,
@@ -93,6 +94,13 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
         </div>
       )}
 
+      {/* Подсказка, что можно сохранить вопрос в docx */}
+      {suggestSave && answer && (
+        <div className={styles.saveStatus} style={{ marginBottom: "0.75rem" }}>
+          💡 Этого вопроса нет в базе. Сохраните его в Word, чтобы он попал в RAG для будущих тренировок.
+        </div>
+      )}
+
       {/* Кнопка «Задать свой вопрос» — только когда НЕ в режиме custom */}
       {!isCustomMode && (
         <div className={styles.row} style={{ marginTop: "0.75rem" }}>
@@ -140,11 +148,11 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
       <div className={styles.row}>
         <Button
           className={`${styles.saveBtn} ${saveStatus ? styles.visible : ""}`}
-          variant="success"
+          variant={suggestSave ? "success" : "secondary"}
           onClick={onSave}
           disabled={isLoading || !answer}
         >
-          💾 Сохранить в Word
+          {suggestSave ? "💾 Сохранить в Word" : "💾 Сохранить"}
         </Button>
         {onReset && !isCustomMode && (
           <Button variant="success" onClick={onReset} disabled={isLoading}>

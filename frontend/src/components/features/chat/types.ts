@@ -13,6 +13,7 @@ export interface ChatViewProps {
   error: string | null;
   customQuestion: string;
   isCustomMode: boolean;
+  suggestSave: boolean;
   onAnswerChange: (value: string) => void;
   onCustomQuestionChange: (value: string) => void;
   onEnterCustomMode: () => void;

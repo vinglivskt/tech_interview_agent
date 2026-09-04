@@ -36,6 +36,7 @@ export interface ChatState {
   lastAnswer: string;
   customQuestion: string;
   isCustomMode: boolean;
+  suggestSave: boolean;
 }
 
 export function useChat() {
@@ -54,6 +55,7 @@ export function useChat() {
     lastAnswer: "",
     customQuestion: "",
     isCustomMode: false,
+    suggestSave: false,
   });
 
   const hasLoadedQuestion = useRef(false);
@@ -120,6 +122,7 @@ export function useChat() {
       isCustomMode: true,
       customQuestion: "",
       lastQuestion: "",
+      suggestSave: false,
     }));
   }, []);
 
@@ -149,6 +152,7 @@ export function useChat() {
       // чтобы получить прямой ответ без Evaluate-формата.
       const data = await chatApi.send(customQuestion.trim(), sessionId, "direct_question");
       hasLoadedQuestion.current = true;
+      const meta = data.meta || {};
       setState((prev) => ({
         ...prev,
         isLoading: false,
@@ -161,6 +165,7 @@ export function useChat() {
         questionNumber: "—",
         userAnswer: "",
         isCustomMode: false,
+        suggestSave: Boolean(meta.suggest_save),
       }));
     } catch (err) {
       setState((prev) => ({
@@ -187,6 +192,7 @@ export function useChat() {
 
     try {
       const data = await chatApi.send(message, sessionId);
+      const meta = data.meta || {};
 
       setState((prev) => ({
         ...prev,
@@ -196,6 +202,7 @@ export function useChat() {
         isAnswerEmpty: false,
         lastAnswer: data.answer,
         lastQuestion: prev.lastQuestion,
+        suggestSave: Boolean(meta.suggest_save),
       }));
     } catch (err) {
       setState((prev) => ({
@@ -253,6 +260,7 @@ export function useChat() {
       lastAnswer: "",
       customQuestion: "",
       isCustomMode: false,
+      suggestSave: false,
     }));
     loadRandomQuestion();
   }, [loadRandomQuestion]);
