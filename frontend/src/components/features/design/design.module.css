@@ -58,6 +58,9 @@
     flex-direction: column;
     gap: 0.5rem;
     margin-top: 0.75rem;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
 }
 
 .scenarioCard {
@@ -81,6 +84,13 @@
 .scenarioCard h4 {
     margin: 0;
     font-size: 0.95rem;
+}
+
+.scenarioCard p {
+    margin: 0.35rem 0 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: var(--muted);
 }
 
 .noScenarios {

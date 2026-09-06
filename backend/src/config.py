@@ -170,6 +170,15 @@ class Settings(BaseSettings):
         default="prompts/design/scenarios.yaml",
         description="Путь к YAML-файлу со сценариями системного дизайна",
     )
+    design_library_path: str = Field(
+        default="prompts/design/library.yaml",
+        description="Путь к YAML-файлу с библиотекой сценариев системного дизайна",
+    )
+    design_ingest_state_path: str = Field(
+        default="data/design_ingest_state.json",
+        description="Путь к файлу состояния RAG-индексации библиотеки дизайна",
+    )
+    design_rag_top_k: int = Field(default=4, ge=1, le=20, description="Сколько фрагментов RAG подмешивать в оценку")
     design_max_tokens: int = Field(default=800, ge=1)
 
     @field_validator(
@@ -198,7 +207,14 @@ class Settings(BaseSettings):
             return [str(item).strip() for item in value if str(item).strip()]
         raise TypeError("cors_allow_origins must be a list[str] or comma-separated string")
 
-    @field_validator("interview_docx_path", "ingest_state_path", "design_scenarios_path", mode="before")
+    @field_validator(
+        "interview_docx_path",
+        "ingest_state_path",
+        "design_scenarios_path",
+        "design_library_path",
+        "design_ingest_state_path",
+        mode="before",
+    )
     @classmethod
     def _strip_paths(cls, value: str) -> str:
         if isinstance(value, str):

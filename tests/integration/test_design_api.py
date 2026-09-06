@@ -3,8 +3,24 @@ from contextlib import asynccontextmanager
 
 import pytest
 from fastapi.testclient import TestClient
+from src.db.repository import DesignScenariosRepository
 
 from backend.src.main import app
+
+
+class FakeSessionContext:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class FakeSessionMaker:
+    """Имитирует async_sessionmaker: config()/start() работают без PostgreSQL."""
+
+    def __call__(self) -> FakeSessionContext:
+        return FakeSessionContext()
 
 
 class DummyLLM:
@@ -26,8 +42,38 @@ class DummyLLM:
         )
 
 
+async def _list_brief(_self, **kwargs):
+    return [
+        {
+            "id": "movie-seat-booking",
+            "title": "Movie Seat Booking",
+            "level": "middle",
+            "category": "ecommerce",
+            "primary_pattern": "event-driven + state machine",
+            "summary": "Резервирование мест в кинотеатре с конкурентным доступом.",
+            "is_detailed": False,
+        }
+    ]
+
+
+async def _list_categories(_self, **kwargs):
+    return [{"id": "ecommerce", "count": 1}]
+
+
+async def _get(_self, scenario_id, **kwargs):
+    return None
+
+
+async def _get_random(_self, **kwargs):
+    return None
+
+
+async def _count(_self, **kwargs):
+    return 1
+
+
 @pytest.fixture
-def client():
+def client(monkeypatch):
     @asynccontextmanager
     async def _lifespan(application):
         application.state.settings = type(
@@ -40,25 +86,65 @@ def client():
                 "design_max_explanation_len": 600,
                 "design_max_tokens": 800,
                 "design_scenarios_path": "backend/prompts/design/scenarios.yaml",
+                "design_library_path": "backend/prompts/design/library.yaml",
             },
         )()
         application.state.llm = DummyLLM()
         yield
+
+    # Заменяем БД: фабрика сессий + методы репозитория (без PostgreSQL).
+    monkeypatch.setattr(
+        "src.features.design.domain.services.session_factory",
+        FakeSessionMaker,
+    )
+    monkeypatch.setattr(DesignScenariosRepository, "list_brief", _list_brief)
+    monkeypatch.setattr(DesignScenariosRepository, "list_categories", _list_categories)
+    monkeypatch.setattr(DesignScenariosRepository, "get", _get)
+    monkeypatch.setattr(DesignScenariosRepository, "get_random", _get_random)
+    monkeypatch.setattr(DesignScenariosRepository, "count", _count)
 
     app.router.lifespan_context = _lifespan
     with TestClient(app) as test_client:
         yield test_client
 
 
+def test_design_config_returns_expanded_library(client):
+    config = client.get("/api/design/config")
+    assert config.status_code == 200
+
+    payload = config.json()
+    scenarios = payload["scenarios"]
+    ids = {row["id"] for row in scenarios}
+    # Детальные сценарии из scenarios.yaml
+    assert {"url-shortener", "news-feed", "object-storage"} <= ids
+    # Расширенная библиотека тем
+    assert len(ids) >= 100
+    # is_detailed выставляется только для сценариев с шагами
+    by_id = {row["id"]: row for row in scenarios}
+    assert by_id["url-shortener"]["is_detailed"] is True
+    assert by_id["movie-seat-booking"]["is_detailed"] is False
+    # Краткое описание рядом с названием
+    assert by_id["movie-seat-booking"]["summary"]
+    assert by_id["url-shortener"]["summary"]
+    assert all("summary" in row for row in scenarios)
+
+    category_ids = {cat["id"] for cat in payload["categories"]}
+    assert {"cdn", "geo", "kafka", "pattern", "ecommerce"} <= category_ids
+    assert payload["total_scenarios"] == len(ids)
+    assert payload["levels"] == ["junior", "middle", "senior"]
+
+
 def test_design_config_and_happy_path_with_hint_penalty(client):
     config = client.get("/api/design/config")
     assert config.status_code == 200
-    assert {row["id"] for row in config.json()["scenarios"]} == {"url-shortener", "news-feed", "object-storage"}
 
-    started = client.post("/api/design/start", json={"level": "junior", "scenario_id": "url-shortener"})
+    started = client.post(
+        "/api/design/start", json={"level": "junior", "scenario_id": "url-shortener"}
+    )
     assert started.status_code == 200
     data = started.json()
     session_id, step = data["session_id"], data["step"]
+    assert step["id"] == "clarify"
 
     hint = client.post("/api/design/hint", json={"session_id": session_id, "step_id": step["id"]})
     assert hint.status_code == 200
@@ -66,7 +152,11 @@ def test_design_config_and_happy_path_with_hint_penalty(client):
 
     answer = client.post(
         "/api/design/answer",
-        json={"session_id": session_id, "step_id": step["id"], "user_answer": "Мой продуманный ответ"},
+        json={
+            "session_id": session_id,
+            "step_id": step["id"],
+            "user_answer": "Мой продуманный ответ",
+        },
     )
     assert answer.status_code == 200
     assert answer.json()["score_percent"] == 70  # 80 от LLM минус штраф за подсказку

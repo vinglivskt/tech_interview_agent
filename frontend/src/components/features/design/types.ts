@@ -1,6 +1,6 @@
 export interface DesignConfig {
   levels: string[];
-  scenarios: { id: string; title: string; level: string }[];
+  scenarios: { id: string; title: string; level: string; summary: string; category?: string }[];
   hint_penalty_percent: number;
 }
 

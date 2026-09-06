@@ -25,6 +25,7 @@ from src.db.models import (
     AnswerCategory,
     ChatMessage,
     DesignAnswer,
+    DesignScenario,
     Feature,
     FeatureSession,
     QuizAnswer,
@@ -485,16 +486,149 @@ class StatsRepository:
         else:
             raise ValueError(f"Unknown feature: {feature}")
 
-        result = await self.session.execute(
-            delete(model).where(model.user_id == user_id)
-        )
+        result = await self.session.execute(delete(model).where(model.user_id == user_id))
         await self.session.commit()
         return int(result.rowcount or 0)
+
+
+class DesignScenariosRepository:
+    """Репозиторий сценариев системного дизайна (долговременное хранилище в PostgreSQL)."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def count(self) -> int:
+        """Возвращает общее число сценариев в БД."""
+        result = await self.session.execute(select(func.count(DesignScenario.id)))
+        return int(result.scalar_one() or 0)
+
+    async def list_brief(self, *, level: str | None = None, category: str | None = None) -> list[dict[str, Any]]:
+        """Возвращает краткие карточки сценариев (id, title, level, category, primary_pattern)."""
+        stmt = select(
+            DesignScenario.id,
+            DesignScenario.title,
+            DesignScenario.level,
+            DesignScenario.category,
+            DesignScenario.primary_pattern,
+            DesignScenario.summary,
+            DesignScenario.is_detailed,
+        )
+        if level:
+            stmt = stmt.where(DesignScenario.level == level)
+        if category:
+            stmt = stmt.where(DesignScenario.category == category)
+        stmt = stmt.order_by(DesignScenario.category, DesignScenario.title)
+        result = await self.session.execute(stmt)
+        return [
+            {
+                "id": row.id,
+                "title": row.title,
+                "level": row.level,
+                "category": row.category,
+                "primary_pattern": row.primary_pattern,
+                "summary": row.summary or "",
+                "is_detailed": bool(row.is_detailed),
+            }
+            for row in result.all()
+        ]
+
+    async def list_categories(self) -> list[dict[str, Any]]:
+        """Возвращает список категорий со счётчиком сценариев (отсортирован по убыванию)."""
+        stmt = (
+            select(DesignScenario.category, func.count(DesignScenario.id))
+            .group_by(DesignScenario.category)
+            .order_by(func.count(DesignScenario.id).desc(), DesignScenario.category)
+        )
+        result = await self.session.execute(stmt)
+        return [{"id": row[0], "count": int(row[1])} for row in result.all()]
+
+    async def get(self, scenario_id: str) -> DesignScenario | None:
+        """Возвращает ORM-сценарий по id или None."""
+        result = await self.session.execute(select(DesignScenario).where(DesignScenario.id == scenario_id))
+        return result.scalar_one_or_none()
+
+    async def get_random(
+        self,
+        *,
+        level: str | None = None,
+        category: str | None = None,
+        exclude_ids: Sequence[str] = (),
+    ) -> DesignScenario | None:
+        """Возвращает случайный сценарий по фильтрам (исключая ``exclude_ids``)."""
+        stmt = select(DesignScenario)
+        if level:
+            stmt = stmt.where(DesignScenario.level == level)
+        if category:
+            stmt = stmt.where(DesignScenario.category == category)
+        if exclude_ids:
+            stmt = stmt.where(DesignScenario.id.notin_(list(exclude_ids)))
+        stmt = stmt.order_by(func.random()).limit(1)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def upsert_many(self, rows: list[dict[str, Any]]) -> int:
+        """Вставляет/обновляет сценарии. Возвращает количество обработанных строк."""
+        if not rows:
+            return 0
+        # Нормализация JSON-полей
+        normalized: list[dict[str, Any]] = []
+        for row in rows:
+            normalized.append(
+                {
+                    "id": str(row["id"]),
+                    "title": str(row["title"]),
+                    "level": str(row["level"]),
+                    "category": str(row.get("category", "basics")),
+                    "primary_pattern": str(row.get("primary_pattern", "")),
+                    "summary": str(row.get("summary", "")),
+                    "requirements": list(row.get("requirements", []) or []),
+                    "nfr": list(row.get("nfr", []) or []),
+                    "constraints": list(row.get("constraints", []) or []),
+                    "baseline_load": dict(row.get("baseline_load", {}) or {}),
+                    "topics": list(row.get("topics", []) or []),
+                    "tags": list(row.get("tags", []) or []),
+                    "steps": list(row.get("steps", []) or []),
+                    "acceptance_criteria": list(row.get("acceptance_criteria", []) or []),
+                    "evolution": list(row.get("evolution", []) or []),
+                    "failure_questions": list(row.get("failure_questions", []) or []),
+                    "advanced_questions": list(row.get("advanced_questions", []) or []),
+                    "is_detailed": bool(row.get("is_detailed", False)),
+                }
+            )
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+        stmt = pg_insert(DesignScenario).values(normalized)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[DesignScenario.id],
+            set_={
+                "title": stmt.excluded.title,
+                "level": stmt.excluded.level,
+                "category": stmt.excluded.category,
+                "primary_pattern": stmt.excluded.primary_pattern,
+                "summary": stmt.excluded.summary,
+                "requirements": stmt.excluded.requirements,
+                "nfr": stmt.excluded.nfr,
+                "constraints": stmt.excluded.constraints,
+                "baseline_load": stmt.excluded.baseline_load,
+                "topics": stmt.excluded.topics,
+                "tags": stmt.excluded.tags,
+                "steps": stmt.excluded.steps,
+                "acceptance_criteria": stmt.excluded.acceptance_criteria,
+                "evolution": stmt.excluded.evolution,
+                "failure_questions": stmt.excluded.failure_questions,
+                "advanced_questions": stmt.excluded.advanced_questions,
+                "is_detailed": stmt.excluded.is_detailed,
+                "updated_at": func.now(),
+            },
+        )
+        await self.session.execute(stmt)
+        return len(normalized)
 
 
 __all__ = [
     "ChatMessagesRepository",
     "DesignAnswersRepository",
+    "DesignScenariosRepository",
     "QuizAnswersRepository",
     "SessionsRepository",
     "SobesAnswersRepository",

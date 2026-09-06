@@ -19,6 +19,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -221,11 +222,51 @@ class ApiRequestLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now, nullable=False)
 
 
+class DesignScenario(Base):
+    """Карточка сценария системного дизайна.
+
+    Долговременное хранилище в PostgreSQL. Полные сценарии с пошаговыми
+    ``steps`` (URL Shortener, News Feed, Object Storage) остаются в YAML —
+    они перекрывают (``override``) карточки из БД по ``id``. Карточки без
+    ``steps`` используются как «темы» с эволюцией архитектуры: ``DesignService``
+    генерирует для них динамические шаги.
+    """
+
+    __tablename__ = "design_scenarios"
+    __table_args__ = (
+        Index("ix_design_scenarios_level", "level"),
+        Index("ix_design_scenarios_category", "category"),
+        Index("ix_design_scenarios_pattern", "primary_pattern"),
+    )
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    title: Mapped[str] = mapped_column(String(256), nullable=False)
+    level: Mapped[str] = mapped_column(String(32), nullable=False)
+    category: Mapped[str] = mapped_column(String(64), nullable=False)
+    primary_pattern: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    requirements: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    nfr: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    constraints: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    baseline_load: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    topics: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    tags: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    steps: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    acceptance_criteria: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    evolution: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    failure_questions: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    advanced_questions: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    is_detailed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now, nullable=False)
+
+
 __all__ = [
     "AnswerCategory",
     "ApiRequestLog",
     "ChatMessage",
     "DesignAnswer",
+    "DesignScenario",
     "Feature",
     "FeatureSession",
     "QuizAnswer",

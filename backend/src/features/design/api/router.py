@@ -11,14 +11,16 @@ from src.features.chat.providers.ollama import OllamaClient
 from src.features.design.domain.models import (
     DesignAnswerRequest,
     DesignAnswerResponse,
+    DesignCategoryDTO,
     DesignConfigResponse,
     DesignHintRequest,
     DesignHintResponse,
     DesignResultsResponse,
+    DesignScenarioBriefDTO,
+    DesignScenarioDetailDTO,
     DesignStartRequest,
     DesignStartResponse,
 )
-from src.features.design.domain.scenarios import load_scenarios
 from src.features.design.domain.services import DesignService, DesignSessionStore
 
 router = APIRouter()
@@ -36,11 +38,13 @@ def _store_get() -> DesignSessionStore:
 @router.get("/design/config", response_model=DesignConfigResponse)
 async def config(request: Request):
     settings: Settings = request.app.state.settings
-    scens = load_scenarios(settings)
-    scenarios = [{"id": s.id, "title": s.title, "level": s.level} for s in scens]
+    service = DesignService(settings, request.app.state.llm, _store_get())
+    levels, scenarios, categories, total = await service.config()
     return DesignConfigResponse(
-        levels=getattr(settings, "design_levels", ["junior", "middle", "senior"]),
-        scenarios=scenarios,
+        levels=levels,  # type: ignore[arg-type]
+        scenarios=[DesignScenarioBriefDTO(**s) for s in scenarios],
+        categories=[DesignCategoryDTO(**c) for c in categories],
+        total_scenarios=total,
         hint_penalty_percent=getattr(settings, "design_hint_penalty_percent", 10),
     )
 
@@ -51,7 +55,7 @@ async def start(request: Request, body: DesignStartRequest):
     llm: OllamaClient = request.app.state.llm
     service = DesignService(settings, llm, _store_get())
     try:
-        sess, scenario_info, step_info = await service.start(body.level, body.scenario_id)
+        sess, scenario_info, step_info = await service.start(body.level, body.scenario_id, body.category, body.random)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return DesignStartResponse(
@@ -73,23 +77,29 @@ async def answer(
     llm: OllamaClient = request.app.state.llm
     service = DesignService(settings, llm, _store_get())
     try:
-        score, rubric, covered, missed, expl, next_step, is_last = await service.answer(
-            body.session_id, body.step_id, body.user_answer
-        )
+        (
+            score,
+            rubric,
+            covered,
+            missed,
+            expl,
+            next_step,
+            is_last,
+            failure_questions,
+            advanced_questions,
+        ) = await service.answer(body.session_id, body.step_id, body.user_answer)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    # Сохраняем в статистику
     username = decode_username_header(x_username) or None
     if username:
         sess = _store_get().get(body.session_id)
         if sess is not None:
-            # Определяем заголовок шага, scenario_id и level
             try:
-                scenario = service._pick_scenario(sess.level_requested, sess.scenario_id)  # type: ignore[attr-defined]
-                step_obj = next((st for st in scenario.steps if st.id == body.step_id), None)
+                scen = await service._scenario_by_id_for_session(sess)  # type: ignore[attr-defined]
+                step_obj = next((st for st in scen.steps if st.id == body.step_id), None)
                 step_title = step_obj.title if step_obj else ""
-                scenario_id = scenario.id
+                scenario_id = scen.id
             except Exception:
                 step_title = ""
                 scenario_id = sess.scenario_id
@@ -120,6 +130,8 @@ async def answer(
         techlead_explanation=expl,
         next_step=next_step,  # type: ignore[arg-type]
         is_last=is_last,
+        failure_questions=failure_questions,
+        advanced_questions=advanced_questions,
     )
 
 
@@ -141,7 +153,7 @@ async def results(request: Request, session_id: str):
     llm: OllamaClient = request.app.state.llm
     service = DesignService(settings, llm, _store_get())
     try:
-        summary, by_rubric, strengths, weaknesses, details, verdict = service.results(session_id)
+        summary, by_rubric, strengths, weaknesses, details, verdict = await service.results(session_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return DesignResultsResponse(
@@ -152,3 +164,14 @@ async def results(request: Request, session_id: str):
         details=details,
         verdict_level=verdict,  # type: ignore[arg-type]
     )
+
+
+@router.get("/design/scenarios/{scenario_id}", response_model=DesignScenarioDetailDTO)
+async def scenario_detail(request: Request, scenario_id: str):
+    settings: Settings = request.app.state.settings
+    llm: OllamaClient = request.app.state.llm
+    service = DesignService(settings, llm, _store_get())
+    detail = await service.scenario_detail(scenario_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Сценарий не найден")
+    return DesignScenarioDetailDTO(**detail)

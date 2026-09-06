@@ -19,7 +19,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from src.db.database import session_factory
@@ -27,6 +29,7 @@ from src.db.models import Feature
 from src.db.repository import (
     ChatMessagesRepository,
     DesignAnswersRepository,
+    DesignScenariosRepository,
     QuizAnswersRepository,
     SessionsRepository,
     SobesAnswersRepository,
@@ -220,9 +223,79 @@ async def persist_chat_message(
     await _open_and_commit(_work)
 
 
+def load_design_scenarios_seed(path: str | Path) -> list[dict[str, Any]]:
+    """Парсит файл с описанием сценариев и возвращает список словарей для upsert.
+
+    Поддерживает два формата:
+    - JSON-массив ``[ { ... }, ... ]`` или объект ``{"scenarios": [...]}``;
+    - YAML с тем же набором полей (для удобства редактирования).
+
+    Каждый элемент должен содержать как минимум ``id`` и ``title``; остальные
+    поля опциональны и нормализуются в ``DesignScenariosRepository.upsert_many``.
+    """
+    p = Path(path)
+    if not p.exists():
+        return []
+    text = p.read_text(encoding="utf-8")
+    if p.suffix.lower() in {".yaml", ".yml"}:
+        import yaml
+
+        data = yaml.safe_load(text)
+    else:
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            # fallback на YAML, если файл не строгий JSON
+            import yaml
+
+            data = yaml.safe_load(text)
+    if isinstance(data, dict):
+        rows = data.get("scenarios", [])
+    elif isinstance(data, list):
+        rows = data
+    else:
+        rows = []
+    return [row for row in rows if isinstance(row, dict) and row.get("id")]
+
+
+async def seed_design_scenarios_from_file(path: str | Path) -> int:
+    """Загружает сценарии из файла в таблицу ``design_scenarios``.
+
+    Возвращает количество вставленных/обновлённых строк. Безопасно вызывать
+    несколько раз: ``ON CONFLICT DO UPDATE`` по ``id``.
+    """
+    rows = load_design_scenarios_seed(path)
+    if not rows:
+        return 0
+
+    async def _work(session) -> None:
+        repo = DesignScenariosRepository(session)
+        await repo.upsert_many(rows)
+
+    await _open_and_commit(_work)
+    return len(rows)
+
+
+async def count_design_scenarios() -> int:
+    """Текущее число сценариев в БД (для health/seed-проверок)."""
+
+    async def _work(session) -> None:
+        repo = DesignScenariosRepository(session)
+        await repo.count()
+
+    # Чтобы вернуть значение, делаем прямую сессию (не через commit-обёртку)
+    factory = session_factory()
+    async with factory() as session:
+        repo = DesignScenariosRepository(session)
+        return await repo.count()
+
+
 __all__ = [
+    "count_design_scenarios",
+    "load_design_scenarios_seed",
     "persist_chat_message",
     "persist_design_answer",
     "persist_quiz_answer",
     "persist_sobes_answer",
+    "seed_design_scenarios_from_file",
 ]

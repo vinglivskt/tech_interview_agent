@@ -6,7 +6,7 @@ import styles from "./design.module.css";
 export const DesignSetupView: React.FC<{
   config: {
     levels: string[];
-    scenarios: { id: string; title: string; level: string }[];
+    scenarios: { id: string; title: string; level: string; summary: string }[];
     hint_penalty_percent: number;
   } | null;
   level: string;
@@ -67,19 +67,35 @@ export const DesignSetupView: React.FC<{
         <label className={styles.label} htmlFor="design-scenario" style={{ marginTop: "0.9rem" }}>
           Сценарий
         </label>
-        <select
-          id="design-scenario"
-          className={styles.select}
-          value={selectedScenarioId}
-          onChange={(e) => onScenarioSelect(e.target.value)}
-        >
-          <option value="">Любой подходящий</option>
-          {filteredScenarios.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.title}
-            </option>
-          ))}
-        </select>
+        <div id="design-scenario" data-testid="design-scenario-list" className={styles.scenariosList}>
+          <div
+            className={`${styles.scenarioCard} ${selectedScenarioId === "" ? styles.selected : ""}`}
+            onClick={() => onScenarioSelect("")}
+            role="button"
+            tabIndex={0}
+          >
+            <h4>Любой подходящий</h4>
+            <p>Автоматический выбор темы соответствующего уровня.</p>
+          </div>
+          {filteredScenarios.map((s) => {
+            const active = selectedScenarioId === s.id;
+            return (
+              <div
+                key={s.id}
+                className={`${styles.scenarioCard} ${active ? styles.selected : ""}`}
+                onClick={() => onScenarioSelect(active ? "" : s.id)}
+                role="button"
+                tabIndex={0}
+              >
+                <h4>{s.title}</h4>
+                {s.summary ? <p>{s.summary}</p> : null}
+              </div>
+            );
+          })}
+        </div>
+        {filteredScenarios.length === 0 && (
+          <p className={styles.noScenarios}>Сценариев для этого уровня пока нет.</p>
+        )}
 
         <div className={styles.meta} style={{ marginTop: "0.5rem" }}>
           Подсказка снижает балл шага на {config.hint_penalty_percent}%.

@@ -93,7 +93,8 @@ docker compose watch
 | `QDRANT_COLLECTION` | `interview_qa` | Коллекция Qdrant |
 | `INTERVIEW_DOCX_PATH` | `/app/src/interview_questions.docx` | Файл вопросов |
 | `SYSTEM_PROMPT_PATH` | `/app/prompts/chat/system.md` | Системный промпт |
-| `DESIGN_SCENARIOS_PATH` | `/app/prompts/design/scenarios.yaml` | Сценарии дизайна |
+| `DESIGN_SCENARIOS_PATH` | `/app/prompts/design/scenarios.yaml` | Детальные сценарии дизайна (со steps) |
+| `DESIGN_LIBRARY_PATH` | `/app/prompts/design/library.yaml` | Библиотека тем дизайна (seed в PostgreSQL при старте) |
 | `DATABASE_URL` | `postgresql+asyncpg://interview:interview@postgres:5432/interview` | Подключение к PostgreSQL |
 | `DATABASE_ECHO` | `false` | Логировать SQL-запросы |
 
@@ -123,7 +124,9 @@ tech_interview_agent/
 │     ├─ sobes/
 │     │  ├─ classification.md
 │     │  └─ scoring.md
-│     └─ design/scenarios.yaml
+│     └─ design/
+│        ├─ scenarios.yaml  # детальные сценарии со steps (url-shortener, news-feed, object-storage)
+│        └─ library.yaml    # библиотека из ~120 тем системного дизайна (загружается в PostgreSQL)
 │
 ├─ frontend/
 │  ├─ Dockerfile           # multi-stage (node build → nginx prod)
@@ -169,7 +172,8 @@ LLM-промпты хранятся в `backend/prompts/` в формате Mark
 | `quiz/wrong_answers.md` | Генерация неправдоподобных неправильных вариантов |
 | `sobes/classification.md` | Классификация ответа (верно/частично/неверно) |
 | `sobes/scoring.md` | Оценка по критериям (Понимание, Глубина, Точность) |
-| `design/scenarios.yaml` | Сценарии системного дизайна |
+| `design/scenarios.yaml` | Детальные сценарии системного дизайна (полные интервью-лесенки со steps) |
+| `design/library.yaml` | Библиотека тем системного дизайна: ~120 карточек по 19 категориям и 3 уровням |
 
 ---
 
@@ -245,8 +249,31 @@ curl -X POST http://localhost:8000/api/sobesedovanie/answer \
 
 ### Системный дизайн
 
+Темы берутся из двух источников:
+- `library.yaml` — библиотека из ~120 карточек по 19 категориям и уровням `junior`/`middle`/`senior`.
+  При старте приложение загружает её в PostgreSQL (`design_scenarios`). В `GET /api/design/config`
+  карточки видны в списке тем и категорий.
+- `scenarios.yaml` — детальные сценарии с готовыми шагами интервью (`steps`). Если id совпадает
+  с карточкой библиотеки — детальный сценарий перекрывает карточку (например, `url-shortener`).
+
+Сценарий можно выбрать вручную (`scenario_id`), либо получить случайный по уровню и категории:
+`{"level": "middle", "category": "kafka", "random": true}`. Случайный выбор идёт из PostgreSQL
+(сначала по фильтру уровня/категории, при пустом результате — fallback на YAML-слой).
+Если у карточки нет готовых шагов — сессия строится по «лесенке»: `clarify → evolve-1..N → failure
+(→ advanced для senior)`.
+
 ```bash
-# Старт
+# Случайная тема уровня senior (без ручного выбора)
+curl -X POST http://localhost:8000/api/design/start \
+  -H "Content-Type: application/json" \
+  -d '{"level": "senior", "random": true}'
+
+# Случайная тема из категории Kafka
+curl -X POST http://localhost:8000/api/design/start \
+  -H "Content-Type: application/json" \
+  -d '{"level": "middle", "category": "kafka", "random": true}'
+
+# Ручной выбор конкретного сценария
 curl -X POST http://localhost:8000/api/design/start \
   -H "Content-Type: application/json" \
   -d '{"level": "middle", "scenario_id": "url-shortener"}'
@@ -256,6 +283,8 @@ curl -X POST http://localhost:8000/api/design/answer \
   -H "Content-Type: application/json" \
   -d '{"session_id": "...", "step_id": "...", "user_answer": "..."}'
 ```
+
+Список всех тем и категорий: `GET /api/design/config` (у детальных сценариев `is_detailed: true`).
 
 ---
 
@@ -288,4 +317,5 @@ Unit-тесты для парсеров, scoring-логики, API-роутер�
 - Отредактируйте файл в `backend/prompts/`. В `docker compose watch` изменения подхватятся автоматически.
 
 **Как добавить новый сценарий дизайна?**
-- Добавьте элемент в массив `scenarios` в `backend/prompts/design/scenarios.yaml`.
+- Полные сценарии интервью (со шагами `steps`) — добавьте элемент в массив `scenarios` в `backend/prompts/design/scenarios.yaml`.
+- Простые карточки тем (шаги строятся автоматически, тема доступна в `GET /api/design/config`) — добавьте элемент в `backend/prompts/design/library.yaml`. При следующем старте приложение загрузит её в PostgreSQL.

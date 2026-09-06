@@ -22,6 +22,7 @@ from src.db.database import (
     init_engine,
     is_db_available,
 )
+from src.db.writer import seed_design_scenarios_from_file
 from src.features.chat.api.router import router as chat_router
 from src.features.chat.domain.ingest import sync_interview_index
 from src.features.chat.domain.services import SessionStore
@@ -82,6 +83,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.info("Состояние начальной индексации: %s", state)
         except Exception:
             logger.exception("Первая индексация docx не удалась")
+
+        # Сид библиотеки сценариев системного дизайна в PostgreSQL
+        try:
+            library_path = getattr(settings, "design_library_path", "prompts/design/library.yaml")
+            inserted = await seed_design_scenarios_from_file(library_path)
+            logger.info("Сид библиотеки дизайна: обновлено строк=%s (path=%s)", inserted, library_path)
+        except Exception:
+            logger.exception("Сид библиотеки дизайна не удался")
 
     async def periodic_ingest_loop() -> None:
         while not stop.is_set():

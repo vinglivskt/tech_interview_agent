@@ -214,7 +214,7 @@ export const designApi = {
   getConfig: () =>
     request<{
       levels: string[];
-      scenarios: { id: string; title: string; level: string }[];
+      scenarios: { id: string; title: string; level: string; summary: string }[];
       hint_penalty_percent: number;
     }>("/design/config"),
 

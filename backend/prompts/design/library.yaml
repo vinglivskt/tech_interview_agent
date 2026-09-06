@@ -1,0 +1,4347 @@
+# Библиотека сценариев системного дизайна (файл-дамп для PostgreSQL).
+#
+# Этот файл читается при старте через seed_design_scenarios_from_file()
+# и загружается в таблицу design_scenarios (INSERT ... ON CONFLICT DO UPDATE по id).
+# Пустые steps -> сервис генерирует динамические шаги по evolution:
+#   clarify -> evolve-1..N -> failure -> advanced (для senior).
+#
+# Каждая тема: id, title, level (junior|middle|senior), category, primary_pattern,
+# summary, requirements, nfr, constraints, baseline_load, topics, tags,
+# steps (обычно пустой), acceptance_criteria, evolution[{id,name,summary,diagram,prompts}],
+# failure_questions, advanced_questions.
+
+scenarios:
+  # ==========================================================================
+  # 1. БАЗОВЫЕ СИСТЕМЫ
+  # ==========================================================================
+
+  - id: url-shortener
+    title: "URL Shortener"
+    level: junior
+    category: basics
+    primary_pattern: id-generation-cache
+    summary: >
+      Публичный сервис коротких ссылок: пользователь вставляет длинный URL,
+      получает короткий код, по нему происходит редирект с минимальной задержкой.
+    requirements:
+      - Создание короткой ссылки для длинного URL
+      - Быстрый редирект по короткому коду
+      - Базовая статистика переходов (аналитика)
+    nfr:
+      - p99 редиректа не более 100 мс
+      - Высокая доступность на чтение; запись можно деградировать
+    constraints:
+      - Короткий код уникальный и предсказуемой длины
+      - Статистика может обновляться асинхронно
+    baseline_load:
+      rps: 1500
+      dau: 100000
+      storage_gb: 100
+    topics: [api, db, cache, consistency, analytics]
+    steps: []
+    acceptance_criteria:
+      - Чёткая HLA с кэшем перед БД
+      - Обоснована генерация кода (Base62, коллизии)
+      - Описана асинхронная аналитика
+    evolution:
+      - id: l1
+        name: Одиночная БД
+        summary: Один инстанс API пишет и читает из одного PostgreSQL (URL -> short_code).
+        diagram: "Client → API → PostgreSQL"
+        prompts:
+          - Нарисуйте write path и read path на одной БД.
+          - Как хранить маппинг code -> url и гарантировать уникальность?
+      - id: l2
+        name: Балансировщик
+        summary: Добавляем балансировщик и несколько stateless API-инстансов.
+        diagram: "Client → LB → API(xN) → PostgreSQL"
+        prompts:
+          - Почему API стал stateless и что теперь хранится только в БД?
+          - Что сломается первым при росте нагрузки с одной БД?
+      - id: l3
+        name: Кэш Redis
+        summary: Кэш хит-поверхностных чтений редиректа для снижения нагрузки на БД.
+        diagram: "Client → LB → API → Redis → PostgreSQL"
+        prompts:
+          - Какая стратегия кэша (cache-aside) и какой TTL?
+          - Что произойдёт при падении Redis и как защититься от cache stampede?
+      - id: l4
+        name: Асинхронная аналитика
+        summary: События переходов уходят в Kafka, воркеры агрегируют в отдельную аналитическую БД.
+        diagram: "API → Kafka → Workers → Analytics DB"
+        prompts:
+          - Зачем выносить аналитику из основного read/write path?
+          - Как обрабатываются дубликаты событий и потерянные события?
+      - id: l5
+        name: Кластеры и отказоустойчивость
+        summary: Кластер Redis + реплики PostgreSQL + CDN/edge для самых горячих ссылок.
+        diagram: "Client → CDN → LB → API → Redis Cluster → DB Cluster + Kafka"
+        prompts:
+          - Какой компонент сломается первым при нагрузке x100 и что предлагаете?
+          - Как обеспечить глобальную задержку p99?
+    failure_questions:
+      - PostgreSQL достигла предела. Что делаем?
+      - Redis упал. Что произойдёт и как восстановимся?
+      - Два пользователя сгенерировали одинаковый короткий код. Как избежать коллизии?
+      - Kafka доставила событие перехода дважды. Что произойдёт со статистикой?
+    advanced_questions:
+      - Как выберете алгоритм генерации ID (последовательный vs случайный vs хеш URL) и почему?
+      - Как масштабировать аналитику на потоки в миллионы событий в секунду?
+      - Какие есть ограничения CDN-кэширования редиректов и как их обойти?
+
+  - id: pastebin
+    title: "Pastebin / текстовая вставка"
+    level: junior
+    category: basics
+    primary_pattern: object-storage-ttl
+    summary: >
+      Сервис хранения больших текстовых вставок с короткой ссылкой,
+      TTL и expiration. Чтения сильно преобладают над записью.
+    requirements:
+      - Загрузка текста любого размера
+      - Получение текста по короткому ключу
+      - TTL и автоматическое удаление устаревших вставок
+    nfr:
+      - p99 чтения пасты не более 200 мс
+      - Высокая доступность чтения
+    constraints:
+      - Вставки должны удаляться по истечении срока
+      - Крупный контент не должен блокировать автора
+    baseline_load:
+      rps: 300
+      dau: 10000
+      pct_single_file_gb: 10
+    topics: [storage, ttl, cache, db, async]
+    steps: []
+    acceptance_criteria:
+      - Стратегия хранения больших текстов
+      - Механизм TTL/expiration
+      - Кэш чтения и его инвалидация
+    evolution: []
+    failure_questions:
+      - Пользователь загрузил текст 1 ГБ. Что произойдёт со временем ответа?
+      - Тысячи вставок истекают одновременно. Как это массово удалять?
+      - Кэш переполнен. Какие строки выселятся первыми?
+    advanced_questions:
+      - Как сделать выгрузку пасты устойчивой к всплескам больших файлов?
+      - Как считать квоты на одного пользователя?
+
+  - id: file-upload
+    title: "File Upload Service"
+    level: junior
+    category: basics
+    primary_pattern: object-storage-chunked
+    summary: >
+      Сервис загрузки файлов с поддержкой multipart, chunked и resumable
+      загрузки на объектное хранилище, с метаданными в БД и CDN на раздаче.
+    requirements:
+      - Загрузка файла целиком и по частям
+      - Докачка прерванной загрузки (resumable)
+      - Скачивание с CDN и метаданные (размер, тип, владелец)
+    nfr:
+      - Надёжная загрузка больших файлов без разрыва соединения
+      - Раздача через CDN с малым временем первого байта
+    constraints:
+      - Ограничения по размеру файла и числу активных загрузок
+      - Проверка на вирусы обязательна для исполняемых файлов
+    baseline_load:
+      max_file_gb: 50
+      concurrent_uploads: 1000
+    topics: [object_storage, upload, async_worker, cdn, metadata]
+    steps: []
+    acceptance_criteria:
+      - Механизм chunked/resumable-загрузки
+      - Роль вирусканнера и асинхронных воркеров
+      - CDN и инвалидация
+    evolution: []
+    failure_questions:
+      - Прерывание загрузки на середине. Как восстановить?
+      - Вирусканнер упал. Пропускаем проверку или блокируем скачивание?
+      - CDN отдал устаревшую версию файла после перезаписи. Как инвалидировать?
+    advanced_questions:
+      - Как выбирается число частей и генерируются presigned URL для прямой загрузки в S3?
+      - Как строить resumable upload по стандарту tus?
+
+  - id: image-hosting
+    title: "Image Hosting"
+    level: middle
+    category: basics
+    primary_pattern: async-image-processing
+    summary: >
+      Хостинг изображений с асинхронной обработкой (ресайз, превью, форматы),
+      объектным хранилищем, CDN-раздачей и инвалидацией кэша.
+    requirements:
+      - Загрузка изображений
+      - Генерация превью и адаптивных размеров
+      - Раздача через CDN
+    nfr:
+      - Загрузка завершается быстро, обработка — асинхронно
+      - p95 раздачи превью не более 100 мс
+    constraints:
+      - Преобразование - CPU-интенсивная задача, нужны воркеры
+      - Инвалидация CDN при перезаписи
+    baseline_load:
+      images_per_sec: 200
+      cdn_read_rps: 100000
+    topics: [async_workers, object_storage, cdn, cache_invalidation, queue]
+    steps: []
+    acceptance_criteria:
+      - Асинхронный пайплайн обработки изображений
+      - Очередь и ретраи воркеров
+      - CDN и инвалидация
+    evolution: []
+    failure_questions:
+      - Очередь обработки забита миллионами задач. Что будет с пользователем?
+      - Воркер упал на середине конвертации. Что дальше?
+      - Пользователь перезаписал изображение. Как обновить превью по всем CDN?
+    advanced_questions:
+      - Как выбрать формат (WebP/AVIF) и как управлять качеством под устройство?
+      - Как обеспечить детерминизм обработки при параллельных воркерах?
+
+  - id: api-rate-limiter
+    title: "API Rate Limiter"
+    level: middle
+    category: basics
+    primary_pattern: token-bucket
+    summary: >
+      Распределённый rate limiter поверх API: Fixed Window, Sliding Window,
+      Token Bucket, Leaky Bucket на Redis с атомарными операциями.
+    requirements:
+      - Ограничение числа запросов на пользователя/ключ
+      - Разные стратегии окна (fixed/sliding/token/leaky)
+      - Единое ограничение в кластере
+    nfr:
+      - Оверхе < 1 мс на проверку
+      - Любая нагрузка должна корректно ограничиваться
+    constraints:
+      - Точное соблюдение лимита при параллельных запросах
+      - Нельзя «одолжить» непотраченные лимиты у другого узла
+    baseline_load:
+      checks_per_sec: 100000
+      keys_total: 10000000
+    topics: [redis, atomic, distributed, race_condition, api]
+    steps: []
+    acceptance_criteria:
+      - Чёткое объяснение стратегий окна
+      - Как обеспечивается атомарность (INCR/Lua/Redis)
+      - Что с лимитом при падении Redis
+    evolution: []
+    failure_questions:
+      - Два API-узла одновременно проверяют лимит. Как избежать обхода?
+      - Redis недоступен. Пропускаем запросы или блокируем?
+      - ВАМ нужно точное окно без «бёрстов» в конце fixed window.
+    advanced_questions:
+      - Как реализовать token bucket на Redis с Lua за O(1)?
+      - Как оценивать память на хранение ключей всех пользователей?
+
+  - id: webhook-service
+    title: "Webhook Service"
+    level: middle
+    category: basics
+    primary_pattern: delivery-retry-dlq
+    summary: >
+      Сервис доставки webhook-событий: подписки, retry с exponential backoff,
+      dead-letter queue, идемпотентность и проверка подписи.
+    requirements:
+      - Подписка клиента на события
+      - Доставка события с гарантией at-least-once
+      - Retry с экспоненциальным backoff и DLQ
+      - Идемпотентность и подпись
+    nfr:
+      - Надёжность доставки важнее задержки
+      - Клиент может быть долго недоступен
+    constraints:
+      - Повторная доставка не должна ломать клиента
+      - Нельзя терять события в пределах заданного окна
+    baseline_load:
+      events_per_sec: 5000
+      subscribers: 100000
+    topics: [queue, retry, idempotency, security, dlq]
+    steps: []
+    acceptance_criteria:
+      - Пайплайн доставки и ретраев
+      - Идемпотентность и подпись
+      - DLQ и мониторинг недоставленных
+    evolution: []
+    failure_questions:
+      - Клиент вернул 500 десять раз подряд. Что делаем?
+      - Событие доставлено дважды. Как клиент это переживёт?
+      - RabbitMQ/Kafka упал. Какие события теряются?
+    advanced_questions:
+      - Как выбрать стратегию подтверждения доставки (ack/retry per subscriber)?
+      - Как гарантировать порядок доставки для одного клиента?
+
+  # ==========================================================================
+  # 2. READ-HEAVY НАГРУЗКА
+  # ==========================================================================
+
+  - id: news-feed
+    title: "News Feed"
+    level: middle
+    category: read-heavy
+    primary_pattern: fan-out
+    summary: >
+      Персональная лента публикаций подписок в социальной сети с миллионами
+      DAU и «звёздами» с десятками миллионов подписчиков.
+    requirements:
+      - Создание публикаций
+      - Подписки
+      - Персональная хронологическая лента
+      - Лайки и счётчики
+    nfr:
+      - p99 чтения ленты не более 200 мс
+      - Высокая доступность, свежесть новых публикаций
+    constraints:
+      - Допускается eventual consistency счётчиков
+      - Нужно решить проблему celebrity (fan-out на миллионы подписчиков)
+    baseline_load:
+      dau: 100000000
+      feed_reads_rps: 500000
+      posts_per_sec: 10000
+    topics: [fan_out, cache, ranking, redis, celebrity]
+    steps: []
+    acceptance_criteria:
+      - Fan-out on write vs on read vs hybrid
+      - Проблема celebrity и её решение
+      - Кэширование таймлайнов и пагинация
+    evolution:
+      - id: l1
+        name: Fan-out on read
+        summary: Лента собирается на лету запросом к постам подписок.
+        diagram: "Client → API → Read DB (посты друзей по запросу)"
+        prompts:
+          - Каковы плюсы и минусы собирания ленты на чтение?
+          - Что будет с задержкой для пользователя с 1000 подписок?
+      - id: l2
+        name: Fan-out on write
+        summary: При создании поста он раскладывается в ленты всех подписчиков в Redis.
+        diagram: "Write: API → Fan-out → Redis (ленты подписчиков)"
+        prompts:
+          - Что произойдёт при публикации поста «звезды» с 40 млн подписчиков?
+          - Сколько записей получится и как это решается (pull для celebrity)?
+      - id: l3
+        name: Hybrid
+        summary: Простые пользователи — на write, «звёзды» — подмешиваются на read.
+        diagram: "Лента = Redis(фавориты) + подтягивание постов celebrity при чтении"
+        prompts:
+          - Как определить порог, за которым автора считают «звездой»?
+          - Как слить две части ленты и не сломать пагинацию?
+    failure_questions:
+      - Звезда опубликовала пост, fan-out не успел. Что увидит подписчик?
+      - Redis с лентами упал. Все ленты пропали?
+      - Нагрузка на чтение выросла в 100 раз. Что сломается первым?
+    advanced_questions:
+      - Как ранжировать ленту (хронология vs релевантность) и чем это усложняет кэш?
+      - Как устроить виртуальную бесконечную пагинацию без дублей при новых постах?
+
+  - id: product-catalog
+    title: "Product Catalog"
+    level: middle
+    category: read-heavy
+    primary_pattern: search-index
+    summary: >
+      Каталог с миллионами товаров: поиск, фильтры, сортировка, кэширование
+      через Elasticsearch/OpenSearch и шардирование БД.
+    requirements:
+      - Поиск по названию и описанию
+      - Фильтры (цена, категория, бренд) и сортировка
+      - Список товаров с пагинацией
+    nfr:
+      - p95 поиска не более 150 мс
+      - Чтение многократно преобладает над записью
+    constraints:
+      - Индекс должен оставаться свежим в пределах минут
+      - Миллионы SKU, дубли и варианты товаров
+    baseline_load:
+      sku: 50000000
+      search_qps: 20000
+    topics: [search, filtering, sorting, cache, sharding, elasticsearch]
+    steps: []
+    acceptance_criteria:
+      - Роль Elasticsearch и как строится индекс
+      - Кэширование на разных уровнях
+      - Шардирование основного хранилища
+    evolution: []
+    failure_questions:
+      - Индексатор задерживается, товар не находится. Как снизить риск?
+      - Elasticsearch перегружен, а каталог читается всеми. Как разгрузить?
+      - Как добавить новый товар так, чтобы он мгновенно появился в поиске?
+    advanced_questions:
+      - Как совместить фасетные фильтры и агрегации с пагинацией при миллионах товарах?
+      - Как назвать схему документов и как решать проблему «горячего» товара?
+
+  - id: blog-platform
+    title: "Blog Platform"
+    level: middle
+    category: read-heavy
+    primary_pattern: cache-cdn
+    summary: >
+      Платформа блогов: посты, комментарии, лайки, ленты, CDN и кэширование
+      с корректной пагинацией.
+    requirements:
+      - Создание/редактирование постов
+      - Комментарии и лайки
+      - Лента блога и поиск
+    nfr:
+      - Чтение поста должно быть очень быстрым и отдаваться через CDN
+      - Комментарии загружаются независимо от поста
+    constraints:
+      - Пост может быть прочитан миллионами, но написан один раз
+      - Комментарии имеют глубокую вложенность
+    baseline_load:
+      reads_per_sec: 1000000
+      posts_total: 10000000
+    topics: [cdn, cache, pagination, comments, likes]
+    steps: []
+    acceptance_criteria:
+      - Кэширование статики поста и CDN
+      - Модель комментариев и их пагинация
+      - Счётчики лайков
+    evolution: []
+    failure_questions:
+      - Популярный пост перегрузил один кэш-ключ. Как кэшировать горячий ключ?
+      - CDN отдал кэшированную версию поста с ошибкой автора. Как исправить быстро?
+      - Комментарии растут неограниченно. Как пейджить без пропусков?
+    advanced_questions:
+      - Как хранить дерево комментариев и считать ответы?
+      - Как выстроить личную ленту блога с авторами и темами?
+
+  - id: reddit-like
+    title: "Reddit-like System"
+    level: senior
+    category: read-heavy
+    primary_pattern: voting-ranking
+    summary: >
+      Платформа постов и комментариев с голосованием, жаркими сортировками
+      (hot/new/top), кэшированием и партиционированием.
+    requirements:
+      - Посты и комментарии
+      - Голосование (лайки/дизлайки)
+      - Сортировки hot/new/top
+    nfr:
+      - p95 открытия треда не более 200 мс
+      - Счёт голосов должен сходиться даже при массе конкурентных голосов
+    constraints:
+      - Голос конкурентный и критичен; нужна консистентность
+      - Сортировка hot должна пересчитываться без full-scan
+    baseline_load:
+      dau: 100000000
+      votes_per_sec: 100000
+    topics: [voting, ranking, cache, partitioning, consistency]
+    steps: []
+    acceptance_criteria:
+      - Модель голосования и защита от накрутки
+      - Алгоритм hot-сортировки
+      - Кэш и партиционирование
+    evolution: []
+    failure_questions:
+      - Два пользователя одновременно голосуют за и против. Кто прав?
+      - Миллион голосов прилетел за минуту. Как не потерять счёт?
+      - Как накрутчик может продавить алгоритм горячести?
+    advanced_questions:
+      - Как реализовать алгоритм Reddit hot score и когда его пересчитывать?
+      - Как хранить голос пользователя и делать переголосование атомарным?
+
+  - id: video-streaming
+    title: "Video Streaming"
+    level: senior
+    category: read-heavy
+    primary_pattern: transcoding-cdn
+    summary: >
+      Платформа видео: загрузка, транскодинг (HLS/DASH), адаптивный битрейт,
+      объектное хранилище и CDN-раздача.
+    requirements:
+      - Загрузка видео и получение плеем ссылок
+      - Транскодинг в несколько битрейтов/разрешений
+      - Адаптивный стриминг через HLS/DASH
+    nfr:
+      - p95 старта воспроизведения не более 3 c
+      - Доступность раздачи > 99.9%
+    constraints:
+      - Обработка видео дорога и должна идти асинхронно
+      - Пирамида битрейтов строится по популярности (даже cold start)
+    baseline_load:
+      videos_per_day: 5000
+      plays_per_sec: 100000
+    topics: [transcoding, hls, dash, object_storage, cdn, async_processing, abr]
+    steps: []
+    acceptance_criteria:
+      - Пайплайн транскодинга и формирование сегментов
+      - Адаптивный битрейт и плейлист
+      - CDN и хот-кэширование
+    evolution: []
+    failure_questions:
+      - Видео загружено, но транскодинга нет 10 минут. Что покажет плеер?
+      - Ночной пик воспроизведений. Где узкое место?
+      - Один видеофайл стал вирусным. Как подготовить CDN заранее?
+    advanced_questions:
+      - Почему HLS сегменты по 4-6 с и как выбрать размер чанка?
+      - Как строить hot-кэш для вирусных видео без потери бюджета на CDN (cold start)?
+
+  # ==========================================================================
+  # 3. РЕАЛЬНОЕ ВРЕМЯ
+  # ==========================================================================
+
+  - id: chat-system
+    title: "Chat System"
+    level: middle
+    category: realtime
+    primary_pattern: websocket-delivery
+    summary: >
+      Система обмена сообщениями в реальном времени: WebSocket-соединения,
+      доставка сообщений, статусы онлайна, персистентность и гарантии доставки.
+    requirements:
+      - Отправка и получение сообщений в реальном времени
+      - Хранение истории
+      - Статус онлайн/офлайн пользователя
+    nfr:
+      - Задержка доставки < 200 мс в виде юзера
+      - Надёжность доставки at-least-once
+    constraints:
+      - Пользователь может быть офлайн; сообщения должны быть доставлены позже
+      - Порядок сообщений в рамках диалога
+    baseline_load:
+      messages_per_sec: 100000
+      concurrent_connections: 1000000
+    topics: [websocket, connection_management, message_delivery, persistence, order]
+    steps: []
+    acceptance_criteria:
+      - Управление WebSocket-соединениями и шардинг по connection
+      - Гарантии доставки и хранение истории
+      - Порядок сообщений
+    evolution: []
+    failure_questions:
+      - Сервер с живыми WebSocket-соединениями упал. Что с подключёнными клиентами?
+      - Сообщение доставлено дважды из-за ретрая. Как дедуплицировать?
+      - Как обеспечить порядок сообщений при нескольких серверах доставки?
+    advanced_questions:
+      - Как масштабировать миллионы одновременных WebSocket-соединений?
+      - Как устроить доставку офлайн-пользователям и push-уведомления?
+
+  - id: whatsapp-like
+    title: "WhatsApp-like System"
+    level: senior
+    category: realtime
+    primary_pattern: realtime-mediators
+    summary: >
+      Мессенджер уровня WhatsApp: личные и групповые чаты, медиа, галочки
+      прочтения, индикаторы набора, push-уведомления и порядок сообщений.
+    requirements:
+      - Личные и групповые чаты
+      - Медиа (изображения/видео) и вложения
+      - Read receipts, typing indicators, push
+    nfr:
+      - Задержка доставки сообщения < 200 мс
+      - Порядок сообщений в чате гарантируется
+    constraints:
+      - Группы до 1024 участников, массивная доставка
+      - Хранение медиа отдельно от метаданных
+    baseline_load:
+      messages_per_sec: 1000000
+      users: 2000000000
+    topics: [websocket, group_chat, media, read_receipts, push, message_ordering]
+    steps: []
+    acceptance_criteria:
+      - Модель доставки личных и групповых сообщений
+      - Медиа и их хранение
+      - Чтение/набор и push
+    evolution: []
+    failure_questions:
+      - Группа из 1024 человек; как доставить сообщение всем быстро?
+      - Сервер набора текста упал. Ломает ли это доставку сообщений?
+      - Медиа загружается медленно. Как ускорить превью?
+    advanced_questions:
+      - Как обеспечить total order сообщений в группе (ClockSkew, last message id)?
+      - Как совместить push и фоновые WebSocket при низкой сети?
+
+  - id: notification-system
+    title: "Notification System"
+    level: middle
+    category: realtime
+    primary_pattern: queue-retry-provider
+    summary: >
+      Мультиканальная система уведомлений: email, SMS, push. Шаблоны, очереди,
+      приоритеты, rate limiting по провайдерам и отказоустойчивость.
+    requirements:
+      - Уведомления по email/SMS/push
+      - Шаблоны и приоритеты
+      - Retry и failover между провайдерами
+    nfr:
+      - Не терять уведомления (at-least-once)
+      - Скорость email не критична, push — секунды
+    constraints:
+      - Провайдеры могут быть недоступны и деградировать
+      - Rate limit у провайдеров нельзя превышать
+    baseline_load:
+      notifications_per_sec: 50000
+      channels: 3
+    topics: [queue, retry, rate_limit, provider_failover, priority]
+    steps: []
+    acceptance_criteria:
+      - Пайплайн уведомлений и очереди
+      - Rate limiting и failover провайдеров
+      - Идемпотентность и приоритеты
+    evolution: []
+    failure_questions:
+      - SMS-провайдер перестал отвечать. Как не блокировать остальные каналы?
+      - Пользователь отключил push. Как снизить ему email-шум?
+      - Огромный бёрст уведомлений. Как приоритизировать доставку?
+    advanced_questions:
+      - Как строить глобальную дедупликацию уведомлений?
+      - Как хранить предпочтения каналов и строить fallback цепочки?
+
+  - id: live-comments
+    title: "Live Comments (для стримов/спорта)"
+    level: middle
+    category: realtime
+    primary_pattern: pub-sub-fanout
+    summary: >
+      Поток живых комментариев на массовое событие (стрим/спорт): WebSocket,
+      pub/sub, fan-out, упорядочивание и backpressure.
+    requirements:
+      - Отправка и показ комментариев в реальном времени
+      - Фан-аут на тысячи одновременных зрителей
+      - Ограничение/модерация потока
+    nfr:
+      - Задержка появления комментария < 300 мс у зрителя
+      - Выдерживать всплески десятков тысяч сообщений/сек
+    constraints:
+      - Порядок в рамках одного стрима
+      - Backpressure при медленном клиенте
+    baseline_load:
+      viewers_per_event: 1000000
+      comments_per_sec: 20000
+    topics: [websocket, pubsub, fanout, ordering, backpressure]
+    steps: []
+    acceptance_criteria:
+      - Pub/sub фан-аут по событиям
+      - Упорядочивание и лимиты на клиенте
+      - Backpressure и лимит истории
+    evolution: []
+    failure_questions:
+      - Всплеск комментариев во время гола. Как не уронить канал?
+      - Медленный клиент тормозит всю трансляцию. Как применить backpressure?
+      - Один сервер вещания перегружен. Как шарить по подписке?
+    advanced_questions:
+      - Как ограничить объём истории комментариев для нового зрителя?
+      - Как сочетать модерацию и низкую задержку доставки?
+
+  - id: online-presence
+    title: "Online Presence System"
+    level: middle
+    category: realtime
+    primary_pattern: heartbeat-ttl
+    summary: >
+      Сервис онлайн/офлайн статусов: heartbeat, TTL в Redis, WebSocket,
+      распределяемый по нескольким дата-центрам.
+    requirements:
+      - Показ статуса «онлайн/офлайн» друзьям
+      - Heartbeat от клиентов
+      - Последняя активность ("был(а) 5 минут назад")
+    nfr:
+      - Обновление статуса не хуже 30 c
+      - Минимальный трафик heartbeat
+    constraints:
+      - Heartbeat дешёвый и частый
+      - Много пользователей пишут, мало читают чужой статус (но часто)
+    baseline_load:
+      users: 100000000
+      heartbeats_per_sec: 2000000
+    topics: [redis, ttl, websocket, distributed_presence, heartbeat]
+    steps: []
+    acceptance_criteria:
+      - Модель heartbeat и TTL в Redis
+      - Публикация статуса подписчикам
+      - Распределённая инфраструктура
+    evolution: []
+    failure_questions:
+      - Ложный офлайн из-за обрыва сети клиента. Как отличить от реального?
+      - Redis потерял TTL. Все показываются онлайн бесконечно?
+      - Фан-аут статусов на миллионы подписчиков одного аккаунта. Как решить?
+    advanced_questions:
+      - Как экономить связь при массовом обновлении статусов?
+      - Как построить «строгое» распределённое presence через WebSocket-сессии?
+
+  - id: multiplayer-game
+    title: "Multiplayer Game Backend"
+    level: senior
+    category: realtime
+    primary_pattern: authoritative-server
+    summary: >
+      Бэкенд многопользовательской игры: реальное время, WebSocket, матчмейкинг,
+      игровые комнаты, синхронизация состояния на авторитетном сервере.
+    requirements:
+      - Создание/вход в игровые комнаты
+      - Синхронизация игрового состояния в реальном времени
+      - Матчмейкинг по уровню/региону
+    nfr:
+      - RTT < 50 мс для механики игры
+      - Авторитетный сервер не допускает читов
+    constraints:
+      - Состояние частично хранится в памяти сервера
+      - Потеря соединения должна восстанавливаться
+    baseline_load:
+      concurrent_players: 500000
+      rooms_max: 250000
+    topics: [websocket, realtime_state, matchmaking, game_rooms, authoritative]
+    steps: []
+    acceptance_criteria:
+      - Модель игрового сервера и комнат
+      - Авторитетная логика и анти-чит
+      - Восстановление при падении сервера
+    evolution: []
+    failure_questions:
+      - Игровой сервер с комнатой упал. Как пережить раунд без потери прогресса?
+      - Задержка сети игрока выросла. Как компенсировать (prediction/reconciliation)?
+      - Тысяча игроков ломанулась в матчмейкинг одновременно. Как не перегрузиться?
+    advanced_questions:
+      - Как выбрать между TCP и UDP/QUIC и какие алгоритмы компенсации сети?
+      - Как масштабировать комнаты и делать матчмейкинг по рейтингу ELO?
+
+  # ==========================================================================
+  # 4. ОЧЕРЕДИ И АСИНХРОННОСТЬ
+  # ==========================================================================
+
+  - id: job-queue
+    title: "Job Queue"
+    level: middle
+    category: queues
+    primary_pattern: broker-ack-visibility
+    summary: >
+      Универсальная очередь задач: producer/consumer, брокер, ack, retry, DLQ,
+      visibility timeout и конкурентные потребители.
+    requirements:
+      - Постановка задачи и её выполнение воркером
+      - Управление ack/retry/DLQ
+      - Конкурентные потребители одной очереди
+    nfr:
+      - Каждая задача выполнится хотя бы раз
+      - Visibility timeout для надёжности при падении воркера
+    constraints:
+      - Дубликаты допустимы, но обрабатываются идемпотентно
+      - Одна «плохая» задача не должна блокировать очередь
+    baseline_load:
+      jobs_per_sec: 5000
+      workers: 200
+    topics: [queue, broker, ack, retry, dlq, visibility_timeout, competing_consumers]
+    steps: []
+    acceptance_criteria:
+      - Модель очереди и лимит видимости
+      - Retry и DLQ
+      - Конкурентные потребители и идемпотентность
+    evolution: []
+    failure_questions:
+      - Воркер упал во время выполнения задачи. Что с visibility timeout?
+      - Задача приносит exception каждый раз. Как не зациклить retry?
+      - Два воркера взяли одну задачу. Как избежать двойного эффекта?
+    advanced_questions:
+      - Как выбрать между RabbitMQ и Kafka для очереди задач?
+      - Как выстроить приоритетные и отложенные (delayed) очереди?
+
+  - id: email-delivery
+    title: "Email Delivery System"
+    level: middle
+    category: queues
+    primary_pattern: queue-provider-fallback
+    summary: >
+      Пайплайн доставки email: очередь, воркеры, retry, rate limiting,
+      переключение между провайдерами и идемпотентность отправки.
+    requirements:
+      - Формирование и отправка email
+      - Очередь и ретраи
+      - Rate limit и fallback между SMTP-провайдерами
+    nfr:
+      - Не терять письма
+      - Ограничивать скорость отправки по доменам
+    constraints:
+      - Провайдер может вернуть отказ; нужен failover
+      - Дубликат письма недопустим
+    baseline_load:
+      emails_per_sec: 10000
+      domains: 10000
+    topics: [queue, workers, retry, rate_limit, provider_fallback, idempotency]
+    steps: []
+    acceptance_criteria:
+      - Пайплайн доставки и ретраев
+      - Rate limiting по получателю/домену
+      - Идемпотентность отправки
+    evolution: []
+    failure_questions:
+      - Провайдер A отклонил письмо. Как и когда переключиться на B?
+      - Домен получателя в чёрном списке. Как приостановить отправку?
+      - Бэкенд может отправить письмо дважды. Как защититься?
+    advanced_questions:
+      - Как строить поставку по приоритетам (триггеры vs рассылки)?
+      - Как трактовать жалобы и отписки глобально?
+
+  - id: video-processing-pipeline
+    title: "Video Processing Pipeline"
+    level: senior
+    category: queues
+    primary_pattern: event-driven-transcode
+    summary: >
+      Асинхронный пайплайн обработки видео по событиям: загрузка -> очередь ->
+      транскодинг-воркеры -> статус трекинга -> обработка ошибок.
+    requirements:
+      - Событие загрузки запускает цепочку обработки
+      - Транскодинг на масштабируемых воркерах
+      - Статус обработки и ретраи упавших задач
+    nfr:
+      - Обработка идёт асинхронно, пользователь не блокируется
+      - Система должна пережить пик загрузок
+    constraints:
+      - Транскодинг может занять минуты/часы
+      - Упавшие задачи не теряются
+    baseline_load:
+      videos_per_day: 10000
+      workers: 500
+    topics: [queue, transcoding, event_driven, status_tracking, retry, failed_jobs]
+    steps: []
+    acceptance_criteria:
+      - Событийный пайплайн и очереди этапов
+      - Масштабирование воркеров
+      - Статус и DLQ
+    evolution: []
+    failure_questions:
+      - Половина воркеров упала. Что с очередью и лагом?
+      - Видео не конвертировалось, а пользователь уже ждёт код. Как уведомить?
+      - Занятый воркер завис намертво. Как выявить и перезапустить?
+    advanced_questions:
+      - Как оркестрировать многоэтапный конвейер (split->transcode->package->publish)?
+      - Как масштабировать вертикально/горизонтально именно транскодинг?
+
+  - id: image-processing-pipeline
+    title: "Image Processing Pipeline"
+    level: middle
+    category: queues
+    primary_pattern: worker-pool
+    summary: >
+      Асинхронная обработка изображений: resize, компрессия, водяной знак,
+      превью на пуле воркеров с очередью задач.
+    requirements:
+      - Приём изображения и постановка в очередь
+      - Пресеты обработки (размеры, качество, водяной знак)
+      - Выдача результата через CDN
+    nfr:
+      - Загрузка возвращается мгновенно, обработка асинхронна
+      - Пул воркеров масштабируется под нагрузку
+    constraints:
+      - Обработка CPU-интенсивна
+      - Нужна детерминированность результата
+    baseline_load:
+      images_per_sec: 150
+      presets: 8
+    topics: [queue, worker_pool, resize, compress, watermark, thumbnail]
+    steps: []
+    acceptance_criteria:
+      - Модель очереди и пула воркеров
+      - Пресеты обработки
+      - Детерминизм и CDN
+    evolution: []
+    failure_questions:
+      - Очередь растёт быстрее, чем обрабатывается. Как масштабировать?
+      - Один пресет сломан и генерит ошибки. Как не забить DLQ?
+      - Как гарантировать, что превью создастся для каждого оригинала?
+    advanced_questions:
+      - Как выбирать размер воркер-пула под стоимость CPU vs скорость?
+      - Как строить цепочки зависимостей между пресетами?
+
+  - id: data-import
+    title: "Data Import System"
+    level: middle
+    category: queues
+    primary_pattern: batch-import-validation
+    summary: >
+      Импорт данных из CSV: загрузка, валидация, парсинг, батч-обработка,
+      прогресс и обработка ошибочных записей с retry.
+    requirements:
+      - Загрузка CSV пользователя
+      - Валидация и парсинг строк
+      - Батч-вставка и отчёт об ошибках
+    nfr:
+      - Пользователь видит прогресс и список ошибок
+      - Большие файлы обрабатываются асинхронно
+    constraints:
+      - Ошибочные строки не блокируют остальной импорт
+      - Объём импорта может быть миллионы строк
+    baseline_load:
+      max_rows: 10000000
+      imports_per_day: 1000
+    topics: [csv, validation, parsing, batch, progress, failed_records, retry]
+    steps: []
+    acceptance_criteria:
+      - Пайплайн импорта и парсинга
+      - Валидация и обработка ошибок
+      - Прогресс и идемпотентность повторного импорта
+    evolution: []
+    failure_questions:
+      - Файл с 1 млн строк, 100 с ошибками. Как обработать без повторного парсинга?
+      - Пользователь загрузил тот же файл дважды. Как избежать дублей?
+      - Пайплайн упал на 40%. С чего продолжить?
+    advanced_questions:
+      - Как строить идемпотентный импорт с чеками прогресса?
+      - Как выполнять батч-вставку эффективно в PostgreSQL?
+
+  - id: background-task-system
+    title: "Background Task System (Celery-like)"
+    level: middle
+    category: queues
+    primary_pattern: celery-architecture
+    summary: >
+      Система фоновых задач в стиле Celery: task queue, воркеры, планировщик,
+      приоритеты, retry, DLQ.
+    requirements:
+      - Отложенные и периодические задачи
+      - Воркеры с retry и приоритетом
+      - DLQ для стабильно падающих задач
+    nfr:
+      - Задачи не теряются при падении воркера
+      - Периодические задачи запускаются в нужное время
+    constraints:
+      - Одна задача не должна блокировать очередь
+      - Приоритетные задачи обгоняют фоновые
+    baseline_load:
+      tasks_per_sec: 3000
+      workers: 100
+    topics: [task_queue, workers, scheduling, retry, priority_queues, dlq]
+    steps: []
+    acceptance_criteria:
+      - Модель брокера и воркеров
+      - Приоритетные/отложенные задачи
+      - Гарантия выполнения
+    evolution: []
+    failure_questions:
+      - Воркер завис на задаче. Как определить и освободить воркера?
+      - Cron-задача пропущена из-за простоя кластера. Как догнать?
+      - Приоритетные задачи «голодают» из-за фоновых. Как гарантировать порядок?
+    advanced_questions:
+      - Как реализовать отложенные задачи с точностью до секунды?
+      - Как гарантировать единственное исполнение периодической задачи в кластере?
+
+  # ==========================================================================
+  # 5. DISTRIBUTED SYSTEMS
+  # ==========================================================================
+
+  - id: distributed-cache
+    title: "Distributed Cache"
+    level: middle
+    category: distributed
+    primary_pattern: cache-aside
+    summary: >
+      Распределённый кэш: стратегии (cache-aside, read-through, write-through,
+      write-behind), TTL, eviction LRU/LFU, защита от stampede/penetration/avalanche.
+    requirements:
+      - Кэширование с разными стратегиями
+      - Инвалидация и eviction
+      - Защита от аномальных кэш-нагрузок
+    nfr:
+      - Хит-рейт высокий, задержка < 1 мс
+      - Падение кэша не кладёт всю систему
+    constraints:
+      - Нужно защищаться от stampede, penetration и avalanche
+      - Консистентность кэша и БД (staleness)
+    baseline_load:
+      read_qps: 1000000
+      keys: 50000000
+    topics: [cache_aside, read_through, write_through, write_behind, ttl, eviction, lru, lfu, stampede, penetration, avalanche, distributed_lock]
+    steps: []
+    acceptance_criteria:
+      - Плюсы/минусы стратегий кэширования
+      - Защита от cache stampede, penetration, avalanche
+      - Инвалидация и согласованность с БД
+    evolution: []
+    failure_questions:
+      - Все ключи истекли одновременно. Как избежать лавины в БД?
+      - Атакующий шлёт запросы на несуществующие ключи. Как защититься (bloom)?
+      - Падение кластера Redis. Как не уронить БД массовым запросом?
+    advanced_questions:
+      - Как реализовать cache stampede (single-flight, mutex, probabilistic TTL)?
+      - Как строить write-behind безопасно и с потерянными обновлениями?
+
+  - id: distributed-lock
+    title: "Distributed Lock"
+    level: senior
+    category: distributed
+    primary_pattern: lease-fencing
+    summary: >
+      Распределённая блокировка: Redis lock, DB lock, ZooKeeper, lease/TTL,
+      fencing token, проблема Redlock и split-brain.
+    requirements:
+      - Взаимное исключение в кластере
+      - TTL/lease и автоматическое освобождение
+      - Защита от «мёртвой» блокировки
+    nfr:
+      - Блокировка не должна висеть вечно
+      - Должно защищаться от одновременного владения
+    constraints:
+      - Часы и сети ненадёжны; block надо делать устойчивым
+      - Нельзя допускать фальшивое владение после паузы GC
+    baseline_load:
+      lock_ops_per_sec: 1000
+      ttl_sec: 30
+    topics: [redis_lock, database_lock, zookeeper, lease, ttl, fencing_token, redlock, split_brain]
+    steps: []
+    acceptance_criteria:
+      - Механизм lease/TTL освобождения
+      - Fencing token против фальшивого владения
+      - Ограничения Redlock
+    evolution: []
+    failure_questions:
+      - Владелец блокировки завис на GC на 5 секунд и блок кончился. Кто получит лояльность?
+      - Сеть разорвалась между нодами. Два узла считают себя владельцами. Как отличить?
+      - Redis-мастер упал после выдачи блокировки. Пропала ли блокировка?
+    advanced_questions:
+      - Почему Redlock спорен и когда он приемлем?
+      - Как реализовать fencing token на БД/хранилище?
+
+  - id: distributed-counter
+    title: "Distributed Counter"
+    level: middle
+    category: distributed
+    primary_pattern: sharded-atomic-counter
+    summary: >
+      Счётчик просмотров/лайков в масштабе: atomic INCR в Redis, шардированные
+      счётчики, eventual consistency, батчинг и агрегация записи.
+    requirements:
+      - Инкремент счётчика
+      - Чтение актуального значения
+      - Сброс/архивация за период
+    nfr:
+      - Высокая пропускная способность инкрементов
+      - Малая ошибка в реальном времени допустима
+    constraints:
+      - Один «горячий» ключ — узкое место
+      - Нельзя потерять инкременты при падении
+    baseline_load:
+      increments_per_sec: 1000000
+      counters: 10000000
+    topics: [atomic_increment, redis_incr, sharded_counters, eventual_consistency, batching, write_aggregation]
+    steps: []
+    acceptance_criteria:
+      - Атомарный инкремент и шардирование
+      - Батчинг/агрегация записей
+      - Восстановление реального значения
+    evolution: []
+    failure_questions:
+      - Один вирусный пост создаёт миллион инкрементов в секунду на один ключ. Как шардировать?
+      - Redis потерял часть инкрементов. Как восстановить точность?
+      - Как считать итог по месяцу без дорогого sum всех счётчиков?
+    advanced_questions:
+      - Как строить иерархические агрегаты (минута -> час -> день)?
+      - Как обеспечить стойкость к потере и восстановление из журнала?
+
+  - id: distributed-id-generator
+    title: "Distributed ID Generator"
+    level: middle
+    category: distributed
+    primary_pattern: snowflake
+    summary: >
+      Генерация уникальных ID в кластере: UUID, auto-increment, Snowflake,
+      worker ID, sequence, clock drift и упорядочивание.
+    requirements:
+      - Генерация уникальных ID без коллизий
+      - Постоянная производительность
+      - Приблизительная упорядоченность по времени
+    nfr:
+      - Миллионы ID в секунду
+      - Офлайн-генерация без единой точки отказа
+    constraints:
+      - ID не должны конфликтовать между нодами
+      - Порядок ID приблизительно соответствует времени создания
+    baseline_load:
+      ids_per_sec: 1000000
+      nodes: 1000
+    topics: [uuid, auto_increment, snowflake, timestamp, worker_id, sequence, clock_drift, ordering]
+    steps: []
+    acceptance_criteria:
+      - Сравнение UUID vs ID vs Snowflake
+      - Формат Snowflake и его поля
+      - Обработка clock drift и коллизий
+    evolution: []
+    failure_questions:
+      - Часы ноды «поехали» назад. Как не сгенерить дубликат ID?
+      - Выделено 10 бит на worker id. А нод 2000. Что делать?
+      - Нужна строгая упорядоченность ID по времени. Почему это невозможно в масштабе?
+    advanced_questions:
+      - Как построить Snowflake из 64 бит с учётом эпохи и rollover?
+      - Как комбинировать ID со встроенной информацией (регион/шарда)?
+
+  - id: distributed-scheduler
+    title: "Distributed Scheduler"
+    level: senior
+    category: distributed
+    primary_pattern: leader-election-ownership
+    summary: >
+      Планировщик периодических задач: cron в кластере, leader election,
+      владение задачей (ownership), retry и защита от дубликатов.
+    requirements:
+      - Запуск задач по расписанию
+      - Только один узел выполняет задачу
+      - Пропущенные задачи догоняются
+    nfr:
+      - Задача в нужный момент и только один раз
+      - Кластер переживает падение лидера
+    constraints:
+      - Нельзя запустить задачу дважды в одном окне
+      - Расписание может меняться
+    baseline_load:
+      jobs: 100000
+      runs_per_min: 5000
+    topics: [cron, scheduler, leader_election, distributed_lock, ownership, retry, missed_jobs, dedup]
+    steps: []
+    acceptance_criteria:
+      - Leader election и ownership
+      - Защита от дублей выполнения
+      - Обработка пропущенных задач
+    evolution: []
+    failure_questions:
+      - Лидер упал после старта задачи, но до завершения. Кто выполнит её заново?
+      - Два узла считают себя лидерами. Как предотвратить дубль?
+      - Задача пропущена из-за долгого простоя. Как отработать catch-up?
+    advanced_questions:
+      - Как реализовать распределённый cron с кварцевой точностью (Lease-based leader)?
+      - Как хранить журнал запусков и аудит?
+
+  - id: distributed-kv-store
+    title: "Distributed Key-Value Store"
+    level: senior
+    category: distributed
+    primary_pattern: consistent-hashing-replication
+    summary: >
+      Мини-курс по распределённому хранилищу KV: consistent hashing,
+      партиционирование, репликация, quorum, read repair, hinted handoff,
+      anti-entropy и gossip.
+    requirements:
+      - PUT/GET по ключу
+      - Партиционирование и репликация
+      - Переносимость отказа ноды
+    nfr:
+      - Масштабируемость и устойчивость к отказам
+      - Доступность > реплик в части сценариев
+    constraints:
+      - Ноды могут падать и сеть делиться
+      - Eventual consistency допустима
+    baseline_load:
+      nodes: 100
+      kv_qps: 1000000
+    topics: [consistent_hashing, partitioning, replication, quorum, read_repair, hinted_handoff, anti_entropy, gossip]
+    steps: []
+    acceptance_criteria:
+      - Consistent hashing и vnode
+      - Quorum и выбор (R+W > N)
+      - read repair, hinted handoff, anti-entropy
+    evolution: []
+    failure_questions:
+      - Добавили ноду. Как мигрируют данные без простоя?
+      - Нода-реплика вернула stale данные. Как читатель узнает, чему верить?
+      - Сеть разделилась на два кластера. Что с консистентностью?
+    advanced_questions:
+      - Как выбрать N, R, W (как Dynamo) и понять tradeoff доступности/консистентности?
+      - Как реализовать gossip и подсистему anti-entropy эффективно?
+
+  - id: distributed-file-storage
+    title: "Distributed File Storage"
+    level: senior
+    category: distributed
+    primary_pattern: chunk-replication-erasure
+    summary: >
+      Распределённое файловое хранилище: разбивка на чанки, metadata-сервер,
+      репликация, erasure coding, консистентность и восстановление.
+    requirements:
+      - Запись/чтение больших файлов
+      - Хранение метаданных (чанки, местоположения)
+      - Устойчивость к потере нод
+    nfr:
+      - Гарантированная целостность при отказе N нод
+      - Масштаб до петабайт
+    constraints:
+      - Метаданные и данные в разных подсистемах
+      - Восстановление из реплик/erasure
+    baseline_load:
+      total_pb: 50
+      files_per_sec: 1000
+    topics: [chunks, metadata_server, replication, erasure_coding, object_storage, consistency, recovery]
+    steps: []
+    acceptance_criteria:
+      - Хранение чанков и метаданных
+      - Репликация vs erasure coding
+      - Восстановление после отказа
+    evolution: []
+    failure_questions:
+      - Metadata-сервер упал. Как читать файлы без него?
+      - Нода с несколькими чанками сгорела. Как восстановить недостающие куски?
+      - Два файла ссылаются на один чанк. Как счётчик ссылок и сборка мусора?
+    advanced_questions:
+      - Как выбрать коэффициент erasure coding (k,m) под надёжность и стоимость?
+      - Как строить ребалансировку без шторма сетевого трафика?
+
+  # ==========================================================================
+  # 6. DATABASE SYSTEM DESIGN
+  # ==========================================================================
+
+  - id: database-scaling
+    title: "Database Scaling"
+    level: middle
+    category: db
+    primary_pattern: replicas-partitioning
+    summary: >
+      Эволюция одной БД: vertical scaling, read replicas, репликация,
+      партиционирование/шардирование, кэш и CQRS.
+    requirements:
+      - Приём растущей нагрузки чтения и записи
+      - Горизонтальное масштабирование
+      - Обеспечение отказоустойчивости
+    nfr:
+      - Задержка p95 < 50 мс при росте
+      - База не должна быть единой точкой отказа
+    constraints:
+      - Сначала дешёвые меры (реплики/кэш), потом шардирование
+      - Нужно балансировать между сложностью и масштабом
+    baseline_load:
+      read_qps: 100000
+      write_qps: 5000
+      data_gb: 500
+    topics: [vertical_scaling, read_replicas, replication, partitioning, sharding, caching, cqrs]
+    steps: []
+    acceptance_criteria:
+      - Пошаговая стратегия масштабирования
+      - Когда нужен шардинг, а когда кэш/реплики
+      - Чтение/запись и лаг репликации
+    evolution:
+      - id: l1
+        name: Одна машина
+        summary: Всё на одном PostgreSQL, вертикальный масштаб ограничен.
+        diagram: "App → PostgreSQL (single)"
+        prompts:
+          - Что первым упирается в лимиты? Как считаем capacity?
+      - id: l2
+        name: Read replicas
+        summary: Разделяем чтение и запись, реплики для чтения.
+        diagram: "App → Primary (write) + Read Replicas"
+        prompts:
+          - Что с replication lag при read-after-write?
+          - Как маршрутизировать запросы?
+      - id: l3
+        name: Кэш
+        summary: Снижаем нагрузку на БД через кэш горячих данных.
+        diagram: "App → Cache → Primary + Read Replicas"
+        prompts:
+          - Какой кэш помогает, а какой нет?
+      - id: l4
+        name: Шардирование
+        summary: Разбиваем по ключу шарда; решаем cross-shard запросы.
+        diagram: "App → Shards (0..N)"
+        prompts:
+          - Какой shard key? Какие запросы ломаются?
+      - id: l5
+        name: CQRS
+        summary: Отдельные модели чтения и записи для сложных чтений.
+        diagram: "Write model → Event → Read model"
+        prompts:
+          - Когда CQRS оправдан и как обновлять read model?
+    failure_questions:
+      - Read replica отстала, пользователь не увидел свою запись. Как это исправить?
+      - Шард переполнен по данным. Как решардировать без простоя?
+      - Primary упал. Как быстро переключиться и что с потерянными транзакциями?
+    advanced_questions:
+      - Как рассчитать, когда вертикальный предел достигнут и нужен шардинг?
+      - Как построить горячий standby и automatic failover (Patroni)?
+
+  - id: sharded-database
+    title: "Sharded Database"
+    level: senior
+    category: db
+    primary_pattern: shard-key-consistent-hashing
+    summary: >
+      Глубокий разбор шардирования: выбор shard key, hash vs range, consistent
+      hashing, hot spot, решардинг и cross-shard запросы.
+    requirements:
+      - Горизонтальное распределение данных
+      - Равномерная нагрузка по шардам
+      - Работа при добавлении/удалении шардов
+    nfr:
+      - Минимальные cross-shard запросы
+      - Решардинг без длительного простоя
+    constraints:
+      - Shard key выбирается заранее и менять его дорого
+      - Часть запросов по не-shard-ключу проблематична
+    baseline_load:
+      shards: 64
+      data_tb: 20
+      qps: 500000
+    topics: [shard_key, hash_sharding, range_sharding, consistent_hashing, hotspot, resharding, cross_shard]
+    steps: []
+    acceptance_criteria:
+      - Выбор и обоснование shard key
+      - Способы шардирования (hash/range/consistent)
+      - Решардинг и hot spot
+    evolution: []
+    failure_questions:
+      - Пользователи распределены неравномерно по ключу. Как найти и устранить hot spot?
+      - Нужно добавить 10 новых шардов. Как минимизировать перемещение данных?
+      - Запрос требует данные из двух шардов. Как его перепроектировать?
+    advanced_questions:
+      - Как строить lookup-таблицу и глобальные вторичные индексы поверх шардов?
+      - Как реализовать распределённые транзакции между шардами и стоит ли?
+
+  - id: distributed-sql-db
+    title: "Distributed SQL Database"
+    level: senior
+    category: db
+    primary_pattern: consensus-raft
+    summary: >
+      Построение БД, переживающей отказ дата-центра: репликация, quorum,
+      consensus (Raft), leader election и консистентность.
+    requirements:
+      - Приём транзакций при отказе части нод
+      - Репликация с консенсусом
+      - Полностью переживать отказ дата-центра
+    nfr:
+      - Линейная консистентность для ключевых операций
+      - Доступность при потере дата-центра
+    constraints:
+      - Нужен консенсус, а не «на глазок» синхронизация
+      - Компромисс задержки между регионами
+    baseline_load:
+      regions: 3
+      tx_per_sec: 10000
+    topics: [replication, quorum, consensus, raft, leader_election, consistency, failover]
+    steps: []
+    acceptance_criteria:
+      - Роль Raft/consensus и leader election
+      - Quorum и голосование
+      - Переживание отказа дата-центра
+    evolution: []
+    failure_questions:
+      - Потеряли одного из трёх членов Raft. Кластер жив? Как выбрать нового лидера?
+      - Network partition разделил кластер. Что с записями в меньшей части?
+      - Задержка до Raft-лидера из европейского региона большая. Как ускорить чтения без потери консистентности?
+    advanced_questions:
+      - Почему в распределённой БД теряют линейную консистентность под partition?
+      - Как сочетать multi-region synced репликацию и локальные чтения?
+
+  - id: read-replica-architecture
+    title: "Read Replica Architecture"
+    level: junior
+    category: db
+    primary_pattern: read-replicas-lag
+    summary: >
+      Отделение чтения от записи: первичный узел, реплики, replication lag,
+      read-after-write consistency и маршрутизация запросов.
+    requirements:
+      - Масштабирование чтения репликами
+      - Обработка лага репликации
+      - Маршрутизация запросов
+    nfr:
+      - Чтение масштабируется добавлением реплик
+      - Пользователь видит собственные записи сразу
+    constraints:
+      - Репликация асинхронная -> возможен лаг
+      - Маршрутизация на уровне приложения или прокси
+    baseline_load:
+      read_qps: 80000
+      write_qps: 3000
+      replicas: 4
+    topics: [primary, replicas, replication_lag, read_after_write, routing]
+    steps: []
+    acceptance_criteria:
+      - Механизм синхронизации реплик
+      - Обработка replication lag и read-after-write
+      - Failover первичного узла
+    evolution: []
+    failure_questions:
+      - Реплика отстала на 10 минут. Пользователь увидел старую версию. Как не допустить?
+      - Первичный узел упал. Как поднять реплику в primary быстро?
+      - Реплика перегружена. Как снять лишний трафик?
+    advanced_questions:
+      - Как реализовать session-consistency (replica read после собственной записи)?
+      - Как наблюдать и алертить replication lag безопасно?
+
+  - id: cqrs-system
+    title: "CQRS System"
+    level: senior
+    category: db
+    primary_pattern: cqrs-projections
+    summary: >
+      Разделение команд и запросов: command (write model) -> event -> read model
+      (projection), eventual consistency и перестройка проекций.
+    requirements:
+      - Запись через command model
+      - Чтение через оптимизированную read model
+      - Синхронизация моделей событиями
+    nfr:
+      - Чтение жёстко оптимизировано под запросы
+      - Раздельное масштабирование чтения и записи
+    constraints:
+      - Read model eventually consistent
+      - Проекции надо уметь перестраивать
+    baseline_load:
+      command_qps: 1000
+      query_qps: 50000
+    topics: [command_model, query_model, event_propagation, eventual_consistency, rebuilding_projections]
+    steps: []
+    acceptance_criteria:
+      - Две модели и поток событий между ними
+      - Построение/перестройка проекций
+      - Компромисс с консистентностью
+    evolution: []
+    failure_questions:
+      - Команда выполнилась, но событие потерялось. Read model устарела. Как восстановить?
+      - Нужно перестроить проекцию с нуля. Как сделать без простоя?
+      - Пользователь видит старые данные. Какие сценарии требуют строгой консистентности?
+    advanced_questions:
+      - Как строить идемпотентные обработчики событий для проекций?
+      - Когда CQRS избыточен, а когда оправдан?
+
+  # ==========================================================================
+  # 7. KAFKA / EVENT-DRIVEN
+  # ==========================================================================
+
+  - id: event-bus
+    title: "Event Bus (Kafka)"
+    level: middle
+    category: kafka
+    primary_pattern: topic-partition-consumer-group
+    summary: >
+      Основы событийной шины: producer, consumer, topic, partition, consumer
+      group, offset, упорядочивание и масштабирование потребления.
+    requirements:
+      - Публикация и потребление событий
+      - Группировка потребителей
+      - Управление offset
+    nfr:
+      - Высокая пропускная способность
+      - At-least-once доставка
+    constraints:
+      - Порядок только в пределах одной партиции
+      - Число потребителей ограничено числом партиций
+    baseline_load:
+      events_per_sec: 500000
+      partitions_per_topic: 24
+    topics: [producer, consumer, topic, partition, consumer_group, offset, ordering]
+    steps: []
+    acceptance_criteria:
+      - Модель партиций и групп
+      - Гарантии порядка и доставки
+      - Масштабирование потребителей
+    evolution: []
+    failure_questions:
+      - Потребитель отстал и offset очень большой. Как нагнать без потери?
+      - Порядок событий сломан между партициями. Почему и как это влияет на бизнес?
+      - Потребитель умер между чтением и commit. Повторная обработка события. Как быть?
+    advanced_questions:
+      - Как выбрать число партиций под ключ упорядочивания?
+      - Как строить idempotent producer и гарантировать отсутствие дубликатов?
+
+  - id: event-driven-microservices
+    title: "Event-Driven Microservices"
+    level: senior
+    category: kafka
+    primary_pattern: choreography-orchestration
+    summary: >
+      Разделение микросервисов событиями (Order->Payment->Inventory->Delivery):
+      события против команд, хореография против оркестрации.
+    requirements:
+      - Координация сервисов событиями
+      - Независимое масштабирование
+      - Обработка сбоев шага
+    nfr:
+      - Сервисы слабо связаны
+      - Отказ одного шага не роняет остальные
+    constraints:
+      - Нужно решить: хореография или оркестрация
+      - Дубликаты и потеря событий обрабатываются
+    baseline_load:
+      services: 8
+      events_per_sec: 20000
+    topics: [event, command, choreography, orchestration]
+    steps: []
+    acceptance_criteria:
+      - События vs команды
+      - Хореография vs оркестрация
+      - Обработка сбоев
+    evolution: []
+    failure_questions:
+      - Сервис Payment недоступен. Как система реагирует при хореографии?
+      - Событие оплаты обработалось дважды (дубль). Как защититься (идемпотентно)?
+      - Несколько сервисов подписались на одно событие. Кто должен реагировать?
+    advanced_questions:
+      - Когда выбрать сагу, а когда хореографию и в чём риск каскадов?
+      - Как обеспечить observability в распределённой событийной цепочке?
+
+  - id: event-sourcing
+    title: "Event Sourcing"
+    level: senior
+    category: kafka
+    primary_pattern: event-store-aggregate
+    summary: >
+      Хранение состояния как последовательности событий: event store, aggregate,
+      snapshots, replay и проекции.
+    requirements:
+      - История всех изменений состояния
+      - Восстановление состояния через replay
+      - Построение проекций
+    nfr:
+      - Полный аудит изменений
+      - Чтение текущего состояния быстрее через snapshot
+    constraints:
+      - События иммутабельны и не удаляются
+      - Нужно решать проблему версионирования событий
+    baseline_load:
+      events_per_sec: 10000
+      events_per_aggregate: 10000
+    topics: [event_store, aggregate, events, snapshots, replay, projections]
+    steps: []
+    acceptance_criteria:
+      - Модель event store и aggregate
+      - Snapshotting и replay
+      - Проекции и миграция событий
+    evolution: []
+    failure_questions:
+      - Событий столько, что replay слишком долгий. Как ускорить?
+      - Схема события изменилась. Как обработать старые события?
+      - Обработчик проекции упал на полпути. Как перестроить без повторов?
+    advanced_questions:
+      - Как обеспечить idempotent обработку событий в проекциях?
+      - Как сочетать Event Sourcing с CQRS и transactional outbox?
+
+  - id: transactional-outbox
+    title: "Transactional Outbox"
+    level: senior
+    category: kafka
+    primary_pattern: outbox-cdc
+    summary: >
+      Надёжная публикация событий из транзакции БД: бизнес-данные + outbox-событие
+      в одной транзакции, затем CDC/воркер публикует в Kafka.
+    requirements:
+      - Не терять события, публикуемые после транзакции
+      - Событие и бизнес-запись — атомарны
+      - Публикация в Kafka с гарантией
+    nfr:
+      - Никаких «двойных публикаций» и потерь
+      - Задержка публикации минимальна
+    constraints:
+      - Нужна атомарность записи события с бизнес-данными
+      - Публикация не должна упираться в транзакцию БД
+    baseline_load:
+      events_per_sec: 5000
+      processing_lag: 2s
+    topics: [outbox, cdc, transaction, kafka, worker, delivery_guarantee]
+    steps: []
+    acceptance_criteria:
+      - Паттерн атомарного outbox
+      - CDC vs воркер как реле
+      - Решения по дубликатам и идемпотентности
+    evolution: []
+    failure_questions:
+      - Воркер-реле упал. События лежат в outbox. Что дальше?
+      - Обработчик прочитал outbox дважды. Как избежать двойной публикации?
+      - Транзакция коммитится, но выгрузка события падает. Как гарантировать?
+    advanced_questions:
+      - CDC (Debezium) vs батч-поллинг outbox: плюсы/минусы?
+      - Как построить идемпотентный потребляющий сервис поверх outbox-событий?
+
+  - id: saga-pattern
+    title: "Saga Pattern"
+    level: senior
+    category: kafka
+    primary_pattern: saga-compensation
+    summary: >
+      Распределённая транзакция через сагу: хореография/оркестрация,
+      компенсирующие транзакции и обработка сбоев на каждом шаге.
+    requirements:
+      - Выполнение бизнес-процесса через несколько сервисов
+      - Откат через компенсации при сбое
+      - Координация шагов
+    nfr:
+      - Не блокировать ресурсы долгими транзакциями
+      - Отказ одного шага компенсируется
+    constraints:
+      - ACID транзакция невозможна между сервисами
+      - Компенсации должны быть идемпотентны
+    baseline_load:
+      sagas_per_sec: 500
+      steps_per_saga: 6
+    topics: [distributed_transaction, choreography, orchestration, compensating_transactions, failure_handling]
+    steps: []
+    acceptance_criteria:
+      - Хореография vs оркестрация
+      - Компенсирующие транзакции
+      - Обработка сбоя на конкретном шаге
+    evolution: []
+    failure_questions:
+      - Inventory подтвердил бронь, но Payment упал. Как откатить бронь?
+      - Компенсация сама упала. Кто её повторит и как (DLQ)?
+      - Дубль вызова компенсации. Как не откатить дважды?
+    advanced_questions:
+      - Как реализовать оркестратор-сагу с persist состояния?
+      - Как обеспечить компенсации без промежуточного состояния «дыры»?
+
+  - id: exactly-once-processing
+    title: "Exactly-Once Processing"
+    level: senior
+    category: kafka
+    primary_pattern: idempotency-effective-once
+    summary: >
+      Гарантии доставки и обработки: at-most-once, at-least-once, effectively-once,
+      идемпотентность потребителя и дедупликация.
+    requirements:
+      - Обработка без дублей и потерь
+      - Потребитель устойчив к повторным доставкам
+      - Согласованность с внешними системами
+    nfr:
+      - Не потерять ни одного события при сбое
+      - Не дублировать побочные эффекты
+    constraints:
+      - Истинный «exactly once» недостижим между системами
+      - Идемпотентность достигается на уровне приложения
+    baseline_load:
+      events_per_sec: 50000
+      unique_keys: 10000000
+    topics: [at_most_once, at_least_once, effectively_once, idempotency, deduplication]
+    steps: []
+    acceptance_criteria:
+      - Различие гарантий доставки
+      - Достижение effectively-once
+      - Дедупликация и идемпотентность
+    evolution: []
+    failure_questions:
+      - Потребитель добавил деньги дважды из-за ретрая. Как защититься?
+      - Дедупликационный кэш сбросился. Что с дублями?
+      - Как трактовать exactly-once в Kafka (transactions) и его ограничения?
+    advanced_questions:
+      - Насколько реален exactly-once через идемпотентный вывод?
+      - Как строить распределённую дедупликацию без единой точки отказа?
+
+  # ==========================================================================
+  # 8. E-COMMERCE
+  # ==========================================================================
+
+  - id: ecommerce-backend
+    title: "E-commerce Backend"
+    level: middle
+    category: ecommerce
+    primary_pattern: order-inventory-payment
+    summary: >
+      Бэкенд интернет-магазина: пользователи, каталог, корзина, заказы,
+      платежи и склад как единая система.
+    requirements:
+      - Каталог и поиск товаров
+      - Корзина и оформление заказа
+      - Оплата, инвентарь и доставка
+    nfr:
+      - Заказ не должен теряться при сбоях
+      - Платёж и склад должны быть консистентны
+    constraints:
+      - Платёж внешний и идемпотентный
+      - Инвентарь ограничен
+    baseline_load:
+      orders_per_day: 100000
+      catalog_sku: 5000000
+    topics: [users, products, cart, orders, payments, inventory]
+    steps: []
+    acceptance_criteria:
+      - Модель заказа и состояния
+      - Связка платёж/склад
+      - Идемпотентность оплат
+    evolution: []
+    failure_questions:
+      - Платёж списан, но склад не уменьшился. Как прийти к консистентности?
+      - Пользователь снова нажал «Оплатить». Как избежать двойного списания?
+      - Сервис инвентаря упал. Удержать ли возможность оформления заказа?
+    advanced_questions:
+      - Как строить сагу оформления заказа и какая стратегия складских резервов?
+
+  - id: shopping-cart
+    title: "Shopping Cart"
+    level: middle
+    category: ecommerce
+    primary_pattern: persistent-cart-merge
+    summary: >
+      Корзина: персистентная, для анонимных и авторизованных, слияние корзин,
+      конкурентные обновления и Redis.
+    requirements:
+      - Добавление/удаление товаров
+      - Сохранение корзины между устройствами
+      - Слияние анонимной и авторизованной корзины
+    nfr:
+      - Изменения корзины не должны теряться при конкурентности
+      - Быстрое чтение корзины
+    constraints:
+      - Анонимная корзина привязывается к устройству
+      - При логине корзины объединяются
+    baseline_load:
+      carts_active: 10000000
+      update_qps: 20000
+    topics: [cart, redis, anonymous_users, merge_carts, concurrent_updates, consistency]
+    steps: []
+    acceptance_criteria:
+      - Хранение корзины и конкурентность
+      - Слияние корзин
+      - Инвалидация/согласованность
+    evolution: []
+    failure_questions:
+      - Пользователь на двух вкладках меняет корзину. Как не потерять изменения?
+      - При логине корзины объединились, получив дубли. Как слить корректно?
+      - Redis с кэшем корзины упал. Корзина пропала?
+    advanced_questions:
+      - Как определять каноническую корзину (last write wins vs merge)?
+      - Как строить слияние корзин по правилам комбинирования одинаковых SKU?
+
+  - id: order-management
+    title: "Order Management System"
+    level: senior
+    category: ecommerce
+    primary_pattern: state-machine
+    summary: >
+      Управление заказами: конечный автомат состояний, связь с оплатой,
+      инвентарём и доставкой, отмена и возвраты.
+    requirements:
+      - Создание и смена состояний заказа
+      - Отмена и возврат средств
+      - Связь с инвентарём/доставкой
+    nfr:
+      - Состояние заказа строго детерминировано
+      - Никаких «пишущих» гонок в один заказ
+    constraints:
+      - Переходы ограничены машиной состояний
+      - Операции идемпотентны
+    baseline_load:
+      orders_per_sec: 200
+      active_states: 10
+    topics: [state_machine, payment, inventory, delivery, cancellation, refund]
+    steps: []
+    acceptance_criteria:
+      - Машина состояний заказа
+      - Идемпотентность операций
+      - Отмена/возвраты
+    evolution: []
+    failure_questions:
+      - Вдруг два сервиса меняют состояние заказа одновременно. Как предотвратить?
+      - Товар отправлен, но деньги не списаны. Что делать?
+      - Заказ отменён в момент комплектации. Как согласовать со складом?
+    advanced_questions:
+      - Как хранить журнал переходов состояний и аудит изменений?
+      - Как строить async-операции с атомарными переходами (optimistic locking)?
+
+  - id: inventory-system
+    title: "Inventory System / Overselling"
+    level: senior
+    category: ecommerce
+    primary_pattern: optimistic-locking-reservation
+    summary: >
+      Классическая задача: 100 единиц товара, 10 000 пользователей хотят купить.
+      Гонки, pessimistic/optimistic locking, атомарные операции, резервирование
+      и защита от overselling.
+    requirements:
+      - Удержание ограниченного стока
+      - Резервирование на время оформления
+      - Возврат невыкупленного резерва
+    nfr:
+      - Никогда не продать больше остатка
+      - Высокая конкурентность покупок
+    constraints:
+      - Резерв на ограниченный срок (TTL)
+      - Продажа и списание должны быть атомарны
+    baseline_load:
+      stock_max: 100
+      concurrent_buyers: 10000
+      reserve_ttl_sec: 300
+    topics: [race_condition, pessimistic_lock, optimistic_lock, atomic_operation, reservation, overselling, queue]
+    steps: []
+    acceptance_criteria:
+      - Атомарный conditional update (stock-1 where stock>0)
+      - Оптимистичный vs пессимистичный лок
+      - Резервирование и истечение
+    evolution: []
+    failure_questions:
+      - Два запроса одновременно списали последний товар. Как исключить?
+      - Резерв истёк, пользователь оплачивает. Как обработать поздно?
+      - Распределённая блокировка на склад падала. Как работает without locking?
+    advanced_questions:
+      - Как реализовать stock decrement атомарно в PostgreSQL (UPDATE ... WHERE)?
+      - Как строить очередь покупок и справедливость между пользователями?
+
+  - id: payment-system
+    title: "Payment System"
+    level: senior
+    category: ecommerce
+    primary_pattern: idempotency-keys
+    summary: >
+      Платёжная система: состояния платежа, идемпотентные ключи, ретраи,
+      webhooks, защита от двойного списания и reconciliation.
+    requirements:
+      - Инициация и подтверждение платежа
+      - Идемпотентность и ретраи
+      - Сверка с эквайрингом
+    nfr:
+      - Никогда не списать дважды
+      - Платёж должен доходить до конечного состояния
+    constraints:
+      - Внешний платёжный провайдер может отвечать недетерминированно
+      - Webhook может прийти дважды и в другом порядке
+    baseline_load:
+      payments_per_sec: 200
+      providers: 2
+    topics: [payment_states, idempotency_keys, retries, webhooks, transaction_consistency, double_charge, reconciliation]
+    steps: []
+    acceptance_criteria:
+      - Машина состояний платежа и idempotency key
+      - Обработка webhook-дублей и порядка
+      - Reconciliation
+    evolution: []
+    failure_questions:
+      - Пользователь дважды нажал «Оплатить». Как не списать дважды?
+      - Webhook об оплате пришёл дважды с задержкой. Как дедуплицировать?
+      - Платёж «завис» в обработке. Как довести до конца и с чем сверяться ночью?
+    advanced_questions:
+      - Как строить шлюз агрегации провайдеров с роутингом и failover?
+      - Как вводить идемпотентность без потери производительности?
+
+  - id: ticket-booking
+    title: "Ticket Booking (кино/авиа/концерт)"
+    level: senior
+    category: ecommerce
+    primary_pattern: seat-reservation-lock
+    summary: >
+      Продажа билетов с местами: резервирование мест, конкурентные покупки,
+      временная блокировка по TTL, таймаут оплаты и защита от overselling.
+    requirements:
+      - Выбор и бронирование мест
+      - Временная блокировка на время оплаты
+      - Освобождение при таймауте
+    nfr:
+      - Никаких двух человек на одном месте
+      - Освобождение мест при неоплате
+    constraints:
+      - Блокировка краткосрочная (TTL)
+      - Высокая конкурентность на «горячие» сеансы
+    baseline_load:
+      seats_per_event: 400
+      concurrent_buyers: 5000
+      lock_ttl_min: 10
+    topics: [seat_reservation, concurrent_users, temporary_lock, ttl, payment_timeout, overselling]
+    steps: []
+    acceptance_criteria:
+      - Резервирование мест и TTL
+      - Атомарность назначения места
+      - Освобождение при таймауте
+    evolution: []
+    failure_questions:
+      - Два пользователя выбрали одно место. Кто выиграет и как решить атомарно?
+      - Платёж затянулся дольше TTL. Место освободилось, деньги списались. Как действовать?
+      - Весь концерт раскупают боты. Как смягчить?
+    advanced_questions:
+      - Как строить справедливую очередь бронирования «горячих» событий?
+      - Как проектировать хранение занятости мест под конкурентность?
+
+  # ==========================================================================
+  # 9. SEARCH SYSTEMS
+  # ==========================================================================
+
+  - id: search-engine
+    title: "Search Engine"
+    level: senior
+    category: search
+    primary_pattern: inverted-index-ranking
+    summary: >
+      Поисковый движок: краулер, индексатор, inverted index, ранжирование,
+      шарды и реплики Elasticsearch/OpenSearch.
+    requirements:
+      - Индексация документов
+      - Поиск по запросу с ранжированием
+      - Шардирование и репликация индекса
+    nfr:
+      - p95 поиска < 100 мс
+      - Свежесть индекса в минутах
+    constraints:
+      - Корпус огромный, нужен распределённый индекс
+      - Ранжирование комбинирует текст и сигналы
+    baseline_load:
+      documents: 1000000000
+      queries_per_sec: 5000
+    topics: [crawler, indexer, inverted_index, ranking, elasticsearch, shards, replicas]
+    steps: []
+    acceptance_criteria:
+      - Построение inverted index
+      - Распределение индекса (шарды/реплики)
+      - Ранжирование и его сигналы
+    evolution: []
+    failure_questions:
+      - Краулер залил дубли документов. Как дедуплицировать при индексации?
+      - Шарда перегружена, а запрос агрегирован по всему индексу. Как зашардировать документы?
+      - Множество запросов на «горячее» слово. Как кэшировать топ-запросы?
+    advanced_questions:
+      - Как строить BM25 и TF-IDF отличия, и когда нужен learning-to-rank?
+      - Как индексировать обновления (add/update/delete) с низким лагом?
+
+  - id: autocomplete
+    title: "Autocomplete / Typeahead"
+    level: middle
+    category: search
+    primary_pattern: trie-prefix
+    summary: >
+      Автодополнение запросов: prefix tree (Trie), кэш популярных запросов,
+      ранжирование, низкая задержка и обновление трендов.
+    requirements:
+      - Подсказки по префиксу запроса
+      - Ранжирование по популярности
+      - Очень низкая задержка
+    nfr:
+      - p99 ответа < 50 мс
+      - Постоянная готовность под большим RPS
+    constraints:
+      - Каждый кивок - новый запрос автодополнения
+      - Нужно учитывать тренды последних минут
+    baseline_load:
+      queries_per_sec: 200000
+      dictionary_entries: 100000000
+    topics: [trie, prefix_tree, redis, ranking, popular_queries, latency]
+    steps: []
+    acceptance_criteria:
+      - Структура Trie и её вариант хранения
+      - Кэш и ранжирование
+      - Обновление трендов
+    evolution: []
+    failure_questions:
+      - Внезапный тренд не в словаре. Как подхватить за секунды?
+      - Один префикс стал «горячим». Как не уронить сервис?
+      - Дерево огромное. Как хранить компактно и быстро искать?
+    advanced_questions:
+      - Как строить распределённый Trie и шардировать по первым символам?
+      - Как персонализировать автодополнение без потери скорости?
+
+  - id: log-search-system
+    title: "Log Search System"
+    level: senior
+    category: search
+    primary_pattern: ingest-index-retention
+    summary: >
+      Поиск по логам: приём (ingestion) через Kafka, индексация в Elasticsearch,
+      партиционирование по времени, retention и перераспределение запросов.
+    requirements:
+      - Приём миллионов логов в секунду
+      - Быстрый поиск по временным окнам
+      - Хранение с retention
+    nfr:
+      - Задержка индексации логов < 30 с
+      - Поиск по окну мгновенно
+    constraints:
+      - Объём огромный и взрывной
+      - Хот-данные (последние дни) против холодных
+    baseline_load:
+      logs_per_sec: 5000000
+      retention_days: 30
+      index_shards: 48
+    topics: [ingestion, kafka, indexing, elasticsearch, retention, partitioning]
+    steps: []
+    acceptance_criteria:
+      - Пайплайн приёма и буферизации
+      - Партиционирование по времени
+      - Hot/warm/cold хранение
+    evolution: []
+    failure_questions:
+      - Всплеск логов в 50 раз. Как не перегрузить индекс?
+      - Старые индексы удаляются. Что с запросами по удалённому периоду?
+      - Elasticsearch перегружен агрегациями. Как снизить нагрузку?
+    advanced_questions:
+      - Как строить retention и ILM-политики без шторма?
+      - Как обеспечивать надёжность приёма при недоступности индекса?
+
+  # ==========================================================================
+  # 10. СОЦИАЛЬНЫЕ СЕТИ
+  # ==========================================================================
+
+  - id: instagram-like
+    title: "Instagram-like System"
+    level: senior
+    category: social
+    primary_pattern: media-feed-followers
+    summary: >
+      Соцсеть с медиа: посты, картинки, лента, лайки, комментарии, подписки
+      и уведомления.
+    requirements:
+      - Публикация медиа-постов
+      - Лента подписок
+      - Лайки/комментарии и уведомления
+    nfr:
+      - Лента быстро открывается
+      - Медиа раздаётся через CDN
+    constraints:
+      - Обработка медиа асинхронна
+      - Лайки eventual consistent
+    baseline_load:
+      dau: 500000000
+      posts_per_sec: 5000
+      feed_requests_per_sec: 60000
+    topics: [posts, media, feed, likes, comments, followers, notifications]
+    steps: []
+    acceptance_criteria:
+      - Паттерн ленты (fan-out)
+      - Обработка медиа
+      - Счётчики и уведомления
+    evolution: []
+    failure_questions:
+      - Пост знаменитости породил шторм уведомлений. Как подавить шум?
+      - Лайки прилетают миллионами в секунду. Как считать точное число?
+      - Комментарий потерялся при падении воркера. Как не потерять?
+    advanced_questions:
+      - Как сочетать ленту, поиск медиа и рекомендации в одной системе?
+
+  - id: twitter-like
+    title: "Twitter/X-like System"
+    level: senior
+    category: social
+    primary_pattern: timeline-celebrity
+    summary: >
+      Микроблогинг: fans-out твиты, персональный таймлайн, проблема celebrity,
+      кэширование и ранжирование.
+    requirements:
+      - Публикация твитов
+      - Персональный таймлайн
+      - Подписки и проблема celebrity
+    nfr:
+      - p99 таймлайна < 300 мс
+      - Свежесть новых твитов
+    constraints:
+      - 100 млн подписчиков у звёзд
+      - Ранжирование таймлайна (хронология vs relevance)
+    baseline_load:
+      dau: 200000000
+      tweets_per_sec: 10000
+      fanout_peak: 100000000
+    topics: [fan_out, timeline, celebrity, caching, ranking]
+    steps: []
+    acceptance_criteria:
+      - Решение fan-out и проблему celebrity
+      - Кэширование таймлайна
+      - Ранжирование
+    evolution: []
+    failure_questions:
+      - Твит звезды рассылается на 100 млн лент. Как не уронить кластер?
+      - Новый подписчик звезды. Как заполнить ленту прошлыми твитами?
+      - Таймлайн отвечает медленно. Как ускорить кэшированием?
+    advanced_questions:
+      - Как совместить real-time и устаревающий кэш таймлайнов?
+      - Как считать «горячие» тренды и подмешивать в ленту?
+
+  - id: like-counter
+    title: "Like Counter"
+    level: middle
+    category: social
+    primary_pattern: distributed-counter-batch
+    summary: >
+      Высоконагруженный счётчик лайков: распределённый счётчик, eventual
+      consistency, батчинг и шардирование «горячих» ключей.
+    requirements:
+      - Инкремент/декремент лайков
+      - Отображение точного счёта
+      - Очень высокая конкурентность
+    nfr:
+      - Принимать миллионы лайков/сек
+      - Отображать счёт с малой задержкой
+    constraints:
+      - Один «горячий» ключ поста
+      - Eventual consistency допустима
+    baseline_load:
+      likes_per_sec: 1000000
+      posts: 100000000
+    topics: [distributed_counter, eventual_consistency, batching, sharding, redis]
+    steps: []
+    acceptance_criteria:
+      - Шардирование счётчика
+      - Батчинг записи
+      - Округление/восстановление счёта
+    evolution: []
+    failure_questions:
+      - Пост набрал миллион лайков за минуту. Как шардировать счётчик?
+      - Redis потерял часть инкрементов. Как восстановить точный счёт?
+      - Пользователь лайкнул и отменил 3 раза. Как отразить без гонки?
+    advanced_questions:
+      - Как строить иерархическую агрегацию и периодическую персистенцию?
+
+  - id: follow-system
+    title: "Follow System"
+    level: middle
+    category: social
+    primary_pattern: graph-storage
+    summary: >
+      Граф подписок: follower graph, хранение, пагинация списков подписчиков,
+      рекомендации и актуальность.
+    requirements:
+      - Подписка/отписка
+      - Списки подписчиков и подписок
+      - Рекомендации «кого читать»
+    nfr:
+      - Списки из миллионов подписчиков открываются быстро
+      - Консистентность подписок
+    constraints:
+      - Граф огромный (миллиарды рёбер)
+      - Рекомендации могут быть приблизительными
+    baseline_load:
+      users: 500000000
+      edges: 100000000000
+    topics: [follower_graph, graph_storage, pagination, recommendations, sharding]
+    steps: []
+    acceptance_criteria:
+      - Модель хранения графа
+      - Пагинация списков
+      - Рекомендации
+    evolution: []
+    failure_questions:
+      - У звезды 100 млн подписчиков. Как открыть их список без зависания?
+      - Подписка совершена, но рекомендации не обновились. Как объяснить?
+      - Как защитить пагинацию при добавлении новых подписчиков?
+    advanced_questions:
+      - Как строить рекомендации «кого читать» эффективно по графу?
+      - Как хранить граф (user:following vs user:followers) и выбрать направление?
+
+  # ==========================================================================
+  # 11. ГЕОЛОКАЦИОННЫЕ СИСТЕМЫ
+  # ==========================================================================
+
+  - id: uber-like
+    title: "Uber-like System"
+    level: senior
+    category: geo
+    primary_pattern: geospatial-matching
+    summary: >
+      Сервис такси: водители/пассажиры, геолокация, подбор (matching), WebSocket,
+      пространственные индексы, Redis Geo и Kafka.
+    requirements:
+      - Обновление позиций водителей
+      - Подбор ближайшего водителя к пассажиру
+      - Общение/трекинг поездки
+    nfr:
+      - Подбор за сотни мс
+      - Отслеживание позиций тысяч водителей в реальном времени
+    constraints:
+      - Данные геолокации поступают непрерывно и быстро устаревают
+      - Нужен пространственный поиск по многим пользователям
+    baseline_load:
+      drivers_online: 300000
+      ride_requests_per_sec: 1000
+      location_updates_per_sec: 1000000
+    topics: [drivers, passengers, geolocation, matching, websocket, spatial_index, redis_geo, kafka]
+    steps: []
+    acceptance_criteria:
+      - Приём и хранение геодезических данных
+      - Пространственный индекс для поиска
+      - Matching и коммуникация
+    evolution: []
+    failure_questions:
+      - Пассажир запросил поездку точно на пике. Как не сломать подбор?
+      - Водитель перестал слать координаты. Как понять, что он ещё онлайн?
+      - Позиции водителей устарели. Как избежать «иллюзии близости»?
+    advanced_questions:
+      - Как настроить пространственный индекс под High-Churn апдейтов (Redis GEO vs PostGIS)?
+      - Как строить динамический подбор с учётом цен и пожеланий пассажира?
+
+  - id: food-delivery
+    title: "Food Delivery"
+    level: senior
+    category: geo
+    primary_pattern: order-courier-matching
+    summary: >
+      Деливери еды: рестораны, курьеры, заказы, подбор курьера к заказу
+      и отслеживание в реальном времени.
+    requirements:
+      - Размещение заказа у ресторана
+      - Подбор свободного курьера рядом
+      - Трекинг доставки
+    nfr:
+      - Заказ и курьер подбираются быстро
+      - Трекинг с минимальной задержкой
+    constraints:
+      - Курьер движется и целевой пункт важен
+      - Многие заказы параллельно
+    baseline_load:
+      couriers: 100000
+      orders_per_sec: 500
+    topics: [restaurants, couriers, orders, matching, tracking]
+    steps: []
+    acceptance_criteria:
+      - Подбор курьера по расстоянию/времени
+      - Трекинг позиций
+      - Управление заказами
+    evolution: []
+    failure_questions:
+      - Отмена заказа после отказа курьера. Как вернуть к выбору?
+      - Курьер пропал в заторе. Как перерассчитать время доставки?
+      - Пик заказов в обед. Как балансировать курьеров?
+    advanced_questions:
+      - Как оптимизировать подбор (match) при множестве одновременных заказов?
+      - Как прогнозировать время доставки с учётом трафика?
+
+  - id: location-tracking
+    title: "Location Tracking (1 млн машин)"
+    level: senior
+    category: geo
+    primary_pattern: gps-event-stream
+    summary: >
+      Отслеживание миллиона автомобилей в реальном времени: GPS-события,
+      Kafka, WebSocket, геопространственная индексация, агрегация и retention.
+    requirements:
+      - Приём GPS-событий от большого парка
+      - Отображение живого трекинга
+      - История поездок и агрегация
+    nfr:
+      - Приём десятков тысяч событий/сек
+      - Задержка отображения < 2 c
+    constraints:
+      - Телеметрия массовая и непрерывная
+      - Хот-данные vs исторические
+    baseline_load:
+      vehicles: 1000000
+      events_per_sec: 50000
+      stream_latency_s: 2
+    topics: [gps_events, kafka, websocket, geospatial_indexing, aggregation, retention]
+    steps: []
+    acceptance_criteria:
+      - Пайплайн приёма GPS через Kafka
+      - Живая трансляция положений
+      - Агрегация и хранение истории
+    evolution: []
+    failure_questions:
+      - Всплеск телеметрии в 10 раз. Как буферизовать без потери?
+      - Клиент теряет соединение. Как долго буферизовать события?
+      - Как строить полигональные запросы «все машины в районе» под нагрузкой?
+    advanced_questions:
+      - Как партиционировать события по транспорту и времени для быстрых запросов?
+
+  - id: nearby-search
+    title: "Nearby Search"
+    level: middle
+    category: geo
+    primary_pattern: geohash-r-tree
+    summary: >
+      Поиск ближайших ресторанов/такси/магазинов: геохаш, R-tree, QuadTree,
+      пространственная БД и Redis Geo.
+    requirements:
+      - Поиск ближайших объектов по точке
+      - Радиусный и топ-N запрос
+      - Обновление позиций/каталога
+    nfr:
+      - Поиск < 100 мс
+      - Точность радиуса
+    constraints:
+      - Результаты должны быть корректны около границ геохаша
+      - Данные часто обновляются
+    baseline_load:
+      places: 10000000
+      queries_per_sec: 10000
+    topics: [geohash, r_tree, quadtree, spatial_db, redis_geo]
+    steps: []
+    acceptance_criteria:
+      - Выбор пространственного индекса
+      - Геохаш и его границы
+      - Гибрид с кэшем
+    evolution: []
+    failure_questions:
+      - Точка на границе двух геохашей. Как не потерять ближайший объект?
+      - Позиция объекта меняется часто. Как поддерживать индекс в актуальности?
+      - Запрос ищет в радиусе 50 км на всём городе. Как не делать full-scan?
+    advanced_questions:
+      - Как комбинировать geohash и репликацию индекса?
+
+  # ==========================================================================
+  # 12. API и GATEWAY
+  # ==========================================================================
+
+  - id: api-gateway
+    title: "API Gateway"
+    level: middle
+    category: api
+    primary_pattern: gateway-routing
+    summary: >
+      Единая точка входа: маршрутизация, аутентификация, rate limiting,
+      балансировка, трансформация запросов и агрегация.
+    requirements:
+      - Маршрутизация к сервисам
+      - Аутентификация/авторизация на границе
+      - Rate limiting и балансировка
+    nfr:
+      - Простая конфигурация путей
+      - Минимальный оверхед gateway
+    constraints:
+      - Gateway не должен стать single point of failure
+      - Трансформация запросов ограничена
+    baseline_load:
+      requests_per_sec: 500000
+      upstream_services: 50
+    topics: [routing, authentication, authorization, rate_limiting, load_balancing, request_transformation]
+    steps: []
+    acceptance_criteria:
+      - Маршрутизация и трансформация
+      - Аутентификация на границе
+      - Rate limiting и HA gateway
+    evolution: []
+    failure_questions:
+      - Gateway упал — все сервисы недоступны. Как обеспечить резервирование?
+      - Запрос к CORS с разными origin. Как обрабатывать?
+      - Rate limiting на gateway vs сервисе. Как разграничить?
+    advanced_questions:
+      - Как строить sidecar vs gateway вариант и когда использовать?
+      - Как кешировать ответы и защитить нижележащие сервисы?
+
+  - id: authentication-service
+    title: "Authentication Service"
+    level: middle
+    category: api
+    primary_pattern: jwt-refresh
+    summary: >
+      Аутентификация: логин, access/refresh token, JWT, сессии, ротация,
+      отзыв и SSO.
+    requirements:
+      - Регистрация и логин
+      - Access/refresh token
+      - Отзыв сессий
+    nfr:
+      - Быстрая проверка токена
+      - Компрометация токена минимизируется ротацией
+    constraints:
+      - Stateless JWT vs server-side session
+      - Нужен механизм отзыва
+    baseline_load:
+      logins_per_sec: 200
+      active_tokens: 100000000
+    topics: [login, access_token, refresh_token, jwt, session, token_rotation, revocation]
+    steps: []
+    acceptance_criteria:
+      - Формат и срок жизни токенов
+      - Ротация refresh
+      - Отзыв и logout
+    evolution: []
+    failure_questions:
+      - Refresh token украли. Как ограничить ущерб?
+      - Пользователь сменил пароль. Как отозвать все его токены?
+      - JWT без revocation лист. Как быстро блокировать компрометированный?
+    advanced_questions:
+      - Как строить стек SSO (OIDC) поверх auth-сервиса?
+      - Как обеспечить zero-trust проверку токенов в микросервисах?
+
+  - id: oauth-system
+    title: "OAuth / Authorization Code"
+    level: senior
+    category: api
+    primary_pattern: oauth1-authorization-code
+    summary: >
+      OAuth-флоу: authorization code, access/refresh token, scopes,
+      client credentials и безопасность.
+    requirements:
+      - Авторизация сторонних приложений
+      - Authorization code flow
+      - Scopes и ограничение прав
+    nfr:
+      - Корректная валидация и время жизни токенов
+      - Минимальные привилегии (scopes)
+    constraints:
+      - Нужен PKCE и защита от CSRF/interception
+      - Refresh token ротация
+    baseline_load:
+      auth_requests_per_sec: 300
+      clients: 10000
+    topics: [authorization_code, access_token, refresh_token, scopes, client_credentials]
+    steps: []
+    acceptance_criteria:
+      - Authorization code flow
+      - Scopes и их выдача
+      - Безопасность (PKCE, ротация)
+    evolution: []
+    failure_questions:
+      - Клиент получил authorization code дважды? Как защититься от replay?
+      - Токен истёк во время запроса. Как обновить прозрачно?
+      - Мини-скоп забыли удалить. Как вести аудит выданных токенов?
+    advanced_questions:
+      - Как строить RFC 6749 и OIDC-совместимый сервер с PKCE?
+
+  - id: session-management
+    title: "Session Management"
+    level: middle
+    category: api
+    primary_pattern: server-session-redis
+    summary: >
+      Управление сессиями: server-side сессии, Redis, sticky sessions,
+      stateless JWT, истечение и масштабирование.
+    requirements:
+      - Хранение состояния сессии
+      - Проверка авторизации на каждом запросе
+      - Масштабируемость и истечение
+    nfr:
+      - Истёкшие сессии автоматически удаляются
+      - Любой API-инстанс может проверить сессию
+    constraints:
+      - Несколько инстансов не должны держать session в памяти
+      - Stateless JWT vs server-side tradeoff
+    baseline_load:
+      active_sessions: 50000000
+      auth_checks_per_sec: 100000
+    topics: [server_side_sessions, redis, sticky_sessions, stateless_jwt, token_expiration]
+    steps: []
+    acceptance_criteria:
+      - Хранение сессий в общем хранилище
+      - Stateless vs stateful
+      - Истечение и отзыв
+    evolution: []
+    failure_questions:
+      - Redis с сессиями упал. Все пользователи разлогинены?
+      - Sticky sessions мешают балансировке. Как уйти в stateless?
+      - Пользователь на двух устройствах. Как управлять независимыми сессиями?
+    advanced_questions:
+      - Как строить взвешенный компромисс между JWT-stateless и server-side sessions?
+
+  - id: multi-tenant-saas
+    title: "Multi-Tenant SaaS"
+    level: senior
+    category: api
+    primary_pattern: tenant-isolation
+    summary: >
+      Мультиарендный SaaS: изоляция тенантов (db/schema/shared), тенант-aware
+      кэш, квоты и rate limits.
+    requirements:
+      - Разделение данных между клиентами
+      - Квоты и rate limits на тенанта
+      - Масштабируемость числа тенантов
+    nfr:
+      - Изоляция от «шумных соседей»
+      - Предсказуемая производительность для всех
+    constraints:
+      - Выбор модели изоляции влияет на стоимость и безопасность
+      - Тенанты разного масштаба
+    baseline_load:
+      tenants: 100000
+      max_tenant_size_gb: 100
+    topics: [tenant_isolation, database_per_tenant, schema_per_tenant, shared_database, tenant_aware_caching, quotas, rate_limits]
+    steps: []
+    acceptance_criteria:
+      - Модели изоляции и их tradeoff
+      - Тенант-aware кэш и квоты
+      - Масштабирование тенантов
+    evolution: []
+    failure_questions:
+      - Один тенант генерит запросы в 100 раз больше остальных. Как изолировать?
+      - Переехать с shared DB на DB-per-tenant. Как мигрировать?
+      - Кэш не учитывает тенанта, утечка данных. Как защититься?
+    advanced_questions:
+      - Как автоматически мигрировать тенант между схемами по размеру?
+
+  # ==========================================================================
+  # 13. НАДЁЖНОСТЬ И ОТКАЗОУСТОЙЧИВОСТЬ
+  # ==========================================================================
+
+  - id: high-availability-api
+    title: "Highly Available API"
+    level: middle
+    category: reliability
+    primary_pattern: failover-healthcheck
+    summary: >
+      Отказоустойчивый API: несколько инстансов, балансировщик, health checks,
+      реплики и failover.
+    requirements:
+      - Обслуживать запросы при отказе инстанса
+      - Автоматическое обнаружение и вывод из ротации
+      - Резервирование БД
+    nfr:
+      - Доступность > 99.9%
+      - Автоматическое восстановление
+    constraints:
+      - Нет single point of failure
+      - Health checks должны отличать живого от зависшего
+    baseline_load:
+      instances: 10
+      availability_target: 99.9
+    topics: [multiple_instances, load_balancer, health_checks, replicas, failover]
+    steps: []
+    acceptance_criteria:
+      - Балансировка и health checks
+      - Репликация БД и failover
+      - Graceful shutdown
+    evolution: []
+    failure_questions:
+      - Один API-инстанс перестал отвечать. Как система это обнаружит?
+      - Liveness OK, но сервис отдаёт ошибки. Как различить readiness?
+      - Primary БД умер. Как переключиться на реплику без простоя?
+    advanced_questions:
+      - Как строить лидирующий/пассивный failover и рулонные обновления?
+
+  - id: multi-region-app
+    title: "Multi-Region Application"
+    level: senior
+    category: reliability
+    primary_pattern: active-active-replication
+    summary: >
+      Приложение в нескольких регионах: active-active / active-passive,
+      geo-маршрутизация, репликация и разрешение конфликтов.
+    requirements:
+      - Обслуживание клиентов из разных регионов
+      - Резервирование на уровне дата-центра
+      - Синхронизация данных между регионами
+    nfr:
+      - Низкая задержка из любого региона
+      - DR при потере региона
+    constraints:
+      - Репликация между регионами асинхронна
+      - Конфликты записи нужно разрешать
+    baseline_load:
+      regions: 3
+      write_qps: 20000
+      cross_region_lag: 5s
+    topics: [active_active, active_passive, geo_routing, replication, conflict_resolution, disaster_recovery]
+    steps: []
+    acceptance_criteria:
+      - Модель активных/пассивных регионов
+      - Репликация и конфликт-резолюция
+      - DR-план
+    evolution: []
+    failure_questions:
+      - Запись сделана в регион A, прочитана в B с лагом. Как объяснить пользователю?
+      - В двух регионах обновили одну строку. Как слить без потерь (LWW/vector clock)?
+      - Регион A целиком недоступен. Как переключить трафик без потери записи?
+    advanced_questions:
+      - Как строить глобальную маршрутизацию (GeoDNS/Anycast) с балансом?
+
+  - id: disaster-recovery
+    title: "Disaster Recovery"
+    level: senior
+    category: reliability
+    primary_pattern: rpo-rto
+    summary: >
+      План восстановления: бэкапы, репликация, RPO/RTO, failover и restore,
+      регулярные учения.
+    requirements:
+      - Бэкап и восстановление данных
+      - Определение RPO/RTO
+      - Переключение на резервный центр
+    nfr:
+      - RTO в пределах целевого времени
+      - RPO в пределах целевой потери данных
+    constraints:
+      - Бэкапы регулярные и проверяемые
+      - Восстановление отработано на учениях
+    baseline_load:
+      data_tb: 50
+      target_rto_min: 60
+      target_rpo_min: 15
+    topics: [backup, replication, rpo, rto, failover, restore]
+    steps: []
+    acceptance_criteria:
+      - Стратегия бэкапов и репликации
+      - Метрики RPO/RTO
+      - План failover и учений
+    evolution: []
+    failure_questions:
+      - Основной центр сгорел. Как уложиться в RTO?
+      - Бэкап повреждён. Как проверить восстанавливаемость заранее?
+      - Данные между бэкапами потеряны (RPO). Как минимизировать?
+    advanced_questions:
+      - Как строить пилотируемые упражнения (chaos drill) без остановки проды?
+
+  - id: global-app
+    title: "Global Application"
+    level: senior
+    category: reliability
+    primary_pattern: cdn-geo-regions
+    summary: >
+      Сервис для пользователей Европы, США и Азии: CDN, geo DNS, регионы,
+      репликация, локальность данных и failover.
+    requirements:
+      - Низкая задержка для всех регионов
+      - Локальность данных (регуляторика)
+      - Отказ региона не роняет остальных
+    nfr:
+      - p95 < 100 мс из любого региона
+      - Доступность > 99.95%
+    constraints:
+      - Данные могут требовать проживания в конкретном регионе
+      - Глобальная репликация дорога
+    baseline_load:
+      regions: 4
+      traffic_share: {eu: 40, us: 40, asia: 20}
+    topics: [cdn, geo_dns, regions, replication, data_locality, failover]
+    steps: []
+    acceptance_criteria:
+      - Маршрутизация по регионам и CDN
+      - Репликация и локальность
+      - Глобальный failover
+    evolution: []
+    failure_questions:
+      - Азиатский узел CDN сбоит. Трафик пошёл в США. Что с задержкой?
+      - GDPR требует хранить данные ЕС в ЕС. Как разделить?
+      - Вся зона AWS us-east-1 легла. Как пережить всем мировым трафиком?
+    advanced_questions:
+      - Как строить мультирегиональную консистентность и локальный шардинг?
+
+  - id: chaos-engineering
+    title: "Chaos Engineering"
+    level: senior
+    category: reliability
+    primary_pattern: fault-injection
+    summary: >
+      Сознательное внесение отказов: падение сервисов/БД, network partition,
+      сбой Redis/Kafka, latency spike и packet loss, чтобы проверить устойчивость.
+    requirements:
+      - Эксперименты по внесению отказов
+      - Отслеживание SLO во время эксперимента
+      - Автоматическая изоляция ущерба
+    nfr:
+      - Эксперименты не роняют прод целиком
+      - Быстрый откат
+    constraints:
+      - Нужен мониторинг и автоматические митигации
+      - Эксперименты в проде контролируются
+    baseline_load:
+      experiments_per_month: 20
+      blast_radius_min: 5
+    topics: [chaos, fault_injection, network_partition, latency_spike, packet_loss, fallback]
+    steps: []
+    acceptance_criteria:
+      - План chaos-экспериментов
+      - Метрики/алерты для детектирования
+      - Митигации и откат
+    evolution: []
+    failure_questions:
+      - Внесли 30% packet loss к сервису X. Что должно сработать?
+      - Полезная нагрузка (chaos) сама сломала мониторинг. Как избежать?
+      - Как гарантировать, что эксперимент в проде не превратится в реальную аварию?
+    advanced_questions:
+      - Как строить гейко (Gremlin/Litmus) с фазой «пристрелки» и валидацией SLO?
+
+  # ==========================================================================
+  # 14. CONSISTENCY И CAP
+  # ==========================================================================
+
+  - id: consistency-cap
+    title: "Consistency & CAP (теория)"
+    level: senior
+    category: consistency
+    primary_pattern: cap-pacelc
+    summary: >
+      Фундаментальные основы: strong vs eventual consistency, CAP, PACELC,
+      репликация и разрешение конфликтов (vector clocks, logical timestamps).
+    requirements:
+      - Понимание моделей консистентности
+      - CAP и PACELC классификация
+      - Выбор компромиссов под конкретный сервис
+    nfr:
+      - Осознанный выбор C/A/P под нагрузку
+      - Понимание последствий
+    constraints:
+      - Нет бесплатных сильной консистентности и доступности одновременно
+      - Компромиссы явные
+    baseline_load:
+      variety_cases: true
+    topics: [strong_consistency, eventual_consistency, cap, pacelc, replication, conflict_resolution, vector_clocks, lamport_clocks, network_partition, split_brain, consensus, raft, paxos]
+    steps: []
+    acceptance_criteria:
+      - Объяснение CAP и PACELC на примерах
+      - Vector/Lamport clocks и конфликт-резолюция
+      - Понимание split brain и консенсуса
+    evolution: []
+    failure_questions:
+      - Network partition произошла. Что выбираете: доступность или консистентность?
+      - Как vector clock определяет причинность между двумя записями?
+      - Приводит ли quorum без строгого выбора к stale reads? Как R+W>N помогает?
+    advanced_questions:
+      - Как отличить logical timestamp от real time и их роли?
+      - Почему Raft даёт линейную консистентность, а Dyanmo - нет?
+
+  # ==========================================================================
+  # 15. OBSERVABILITY
+  # ==========================================================================
+
+  - id: logging-system
+    title: "Centralized Logging"
+    level: middle
+    category: observability
+    primary_pattern: log-aggregation
+    summary: >
+      Централизованный сбор логов: Fluent Bit, Kafka, Elasticsearch, retention
+      и индексация.
+    requirements:
+      - Сбор логов со всех сервисов
+      - Размер неограниченного объёма
+      - Поиск и retention
+    nfr:
+      - Задержка индексации < 30 с
+      - Поиск по логу быстрый
+    constraints:
+      - Объём логов огромный и varied
+      - Retention ограничен бюджетом
+    baseline_load:
+      log_volume_gb_per_day: 5000
+      services: 100
+    topics: [centralized_logging, fluent_bit, kafka, elasticsearch, retention, indexing]
+    steps: []
+    acceptance_criteria:
+      - Пайплайн сбора и буферизации
+      - Индексация и retention
+      - Correlation ID между сервисами
+    evolution: []
+    failure_questions:
+      - Один сервис заваливает логами Kafka. Как шаперонировать?
+      - Много дубликатов логов. Как дедуплицировать?
+      - Как строить дешевый холодный сторадж старых логов?
+    advanced_questions:
+      - Как строить подсистему трассировочных и структурированных логов?
+
+  - id: metrics-system
+    title: "Metrics System (Prometheus-like)"
+    level: middle
+    category: observability
+    primary_pattern: time-series
+    summary: >
+      Система метрик: counters, gauges, histograms, сбор через Pull, агрегация
+      и алерты.
+    requirements:
+      - Метрики разных типов
+      - Сбор и хранение временных рядов
+      - Запросы агрегации
+    nfr:
+      - Масштабируемое хранение рядов
+      - Быстрые запросы
+    constraints:
+      - Кардинальность метрик ограничена
+      - Pull-сбор требует target discovery
+    baseline_load:
+      series: 10000000
+      samples_per_sec: 1000000
+    topics: [counters, gauges, histograms, prometheus, aggregation, time_series_db]
+    steps: []
+    acceptance_criteria:
+      - Типы метрик и когда какой
+      - Сбор и хранение рядов
+      - Запросы и cardinality
+    evolution: []
+    failure_questions:
+      - Кардинальность метрик выросла и заняла все ресурсы. Что делать?
+      - Прометей не видит новый под (service discovery). Как строить target discovery?
+      - Хочется sum по всем подам. Как строить агрегацию без потери гранулярности?
+    advanced_questions:
+      - Как строить компактное хранение временных рядов (TSDB) с шардированием?
+
+  - id: distributed-tracing
+    title: "Distributed Tracing"
+    level: senior
+    category: observability
+    primary_pattern: trace-id-context
+    summary: >
+      Трейсинг: trace ID, span, context propagation, семплинг и анализ
+      распределённых задержек.
+    requirements:
+      - Прослеживание запроса через сервисы
+      - Связывание спанов в трассу
+      - Семплирование для масштаба
+    nfr:
+      - Минимальный оверхед на трассировку
+      - Пропускная способность трейсов
+    constraints:
+      - Context propagation через все сервисы и очереди
+      - Нельзя трейсить 100% под большой нагрузкой
+    baseline_load:
+      spans_per_sec: 5000000
+      sampling_rate: 0.01
+    topics: [trace_id, span, context_propagation, sampling]
+    steps: []
+    acceptance_criteria:
+      - Формат трейса и спанов
+      - Сквозная передача context
+      - Стратегия семплирования
+    evolution: []
+    failure_questions:
+      - Как передать trace_id через Kafka consumer и дальше?
+      - Семплирование дало 1% — как искать редкие ошибки?
+      - Оверхед трейсинга вырос. Как снизить?
+    advanced_questions:
+      - Как строить корреляцию трейсов, логов и метрик в едином стеке?
+
+  - id: alerting-system
+    title: "Alerting System"
+    level: middle
+    category: observability
+    primary_pattern: anomaly-detection-dedup
+    summary: >
+      Система алертов: пороги, детект аномалий, каналы уведомлений,
+      дедупликация, группировка и эскалация.
+    requirements:
+      - Пороговые и аномальные алерты
+      - Уведомления в разные каналы
+      - Группировка и дедупликация
+    nfr:
+      - Без спама алертов
+      - Важная проблема не теряется
+    constraints:
+      - Нельзя алертить каждые 30 с по одной проблеме
+      - Группировка по инциденту
+    baseline_load:
+      active_metrics: 1000000
+      alerts_per_min: 50
+    topics: [thresholds, anomaly_detection, notification_channels, deduplication, alert_grouping]
+    steps: []
+    acceptance_criteria:
+      - Правила порогов и аномалий
+      - Дедупликация и группировка
+      - Эскалация
+    evolution: []
+    failure_questions:
+      - Многодневный негативный тренд, а порога нет. Как детектить аномалию?
+      - 100 алертов об одной проблеме. Как сгруппировать в один инцидент?
+      - Канал уведомлений упал. Как не потерять критичный алерт?
+    advanced_questions:
+      - Как строить самоконтроль системы алертинга (alert on alerting system down)?
+
+  # ==========================================================================
+  # 16. CDN И CONTENT DELIVERY
+  # ==========================================================================
+
+  - id: cdn-architecture
+    title: "CDN Architecture"
+    level: middle
+    category: cdn
+    primary_pattern: edge-origin-cache
+    summary: >
+      CDN: edge серверы, origin, кэш, TTL, инвалидация и cache warming.
+    requirements:
+      - Раздача статики с edge
+      - Кэш и инвалидация
+      - Обработка промахов и warm-up
+    nfr:
+      - p95 TTFB < 50 мс
+      - Высокий cache hit
+    constraints:
+      - TTL и инвалидация влияют на свежесть
+      - Холодный кэш надо прогревать
+    baseline_load:
+      edge_pop: 200
+      hits_per_sec: 1000000
+    topics: [edge_servers, origin, cache, ttl, invalidation, cache_warming]
+    steps: []
+    acceptance_criteria:
+      - Структура edge/региональных/origin слоёв
+      - TTL и инвалидация
+      - Cache warming под события
+    evolution: []
+    failure_questions:
+      - Mass-инвалидация обрушила origin. Как ограничить?
+      - Контент изменился, а CDN отдаёт старое. Как ускорить?
+      - Пре-прожариваем контент под событие. Как прогревать корректно?
+    advanced_questions:
+      - Как строить purge-сеть и валидацию до push в edge?
+
+  - id: video-cdn
+    title: "Video CDN"
+    level: senior
+    category: cdn
+    primary_pattern: chunked-edge-cdn
+    summary: >
+      Раздача видео через CDN: чанкованные сегменты, adaptive bitrate,
+      горячо-кэшируемые сегменты и экономия бюджета.
+    requirements:
+      - Раздача сегментов HLS/DASH
+      - Адаптивный битрейт
+      - Хот-кэширование популярных видео
+    nfr:
+      - Старт воспроизведения < 3 c
+      - Высокая доступность раздачи
+    constraints:
+      - Трафик видео огромный, CDN дорог
+      - Нельзя кэшировать всё
+    baseline_load:
+      plays_per_sec: 50000
+      segments_per_video: 500
+    topics: [chunked_cdn, abr, edge, hot_cache, origin]
+    steps: []
+    acceptance_criteria:
+      - Кэширование сегментов
+      - Адаптивный битрейт/селекция качества
+      - Стратегия cold vs hot
+    evolution: []
+    failure_questions:
+      - Огромный спрос на сегмент у одного edge. Как не перегрузить origin?
+      - Пользователь переключает качество. Как кэш сегментов реагирует?
+      - Бюджет CDN горит. Как снизить стоимость без ухудшения UX?
+    advanced_questions:
+      - Как строить предсказание популярности и prefetch сегментов?
+
+  - id: static-cdn
+    title: "Static Assets CDN"
+    level: junior
+    category: cdn
+    primary_pattern: hash-naming-cache
+    summary: Раздача статики (JS/CSS/картинок) через CDN с hash-naming, долгим TTL и инвалидацией.
+    requirements:
+      - Раздача статики с edge
+      - Бесконфликтное обновление версий
+      - Минимальный hit-origin-miss
+    nfr:
+      - p95 TTFB < 50 мс
+      - Cache hit rate высокий
+    constraints:
+      - Имя файла содержит хэш контента -> immutable TTL
+      - Инвалидация почти не требуется при hash-naming
+    baseline_load:
+      assets_per_sec: 500000
+      cache_ttl_days: 365
+    topics: [cdn, hash_naming, cache, ttl, static]
+    steps: []
+    acceptance_criteria:
+      - Hash-naming для immutable кэша
+      - Стратегия инвалидации
+      - Edge/origin структура
+    evolution:
+      - id: l1
+        name: Базовый CDN
+        summary: Отдаём статику с edge; origin держит исходные файлы.
+        diagram: "Client → CDN Edge → Origin"
+        prompts:
+          - Что хранится на edge, что на origin?
+          - Какой TTL для скомпиленных ассетов?
+    failure_questions:
+      - Релиз прошёл, но браузеры кэшируют старую версию. Как hash-naming решает?
+      - Origin упал, а CDN-кэш горячий. Продолжаем раздавать?
+      - HTML не должен кэшироваться долго, а статика да. Как развести TTL?
+    advanced_questions:
+      - Как строить client-hint кэширование и предзагрузку критического CSS?
+
+  - id: image-cdn
+    title: "Image CDN"
+    level: middle
+    category: cdn
+    primary_pattern: on-the-fly-optimization
+    summary: >
+      CDN для изображений: on-the-fly ресайз/конвертация на edge, кэш
+      вариантов, WebP/AVIF и сигнатурные URL.
+    requirements:
+      - Запрос изображения с параметрами (ширина, формат)
+      - Кэш сгенерированных вариантов
+      - Авто-выбор лучшего формата для браузера
+    nfr:
+      - Генерация варианта на лету за миллисекунды
+      - Высокий hit rate вариантов
+    constraints:
+      - Один оригинал -> множество вариантов
+      - Нужен whitelist параметров от злоупотреблений
+    baseline_load:
+      image_requests_per_sec: 300000
+      variants_per_orig: 8
+    topics: [cdn, image_processing, webp, avif, cache, signature_url]
+    steps: []
+    acceptance_criteria:
+      - On-the-fly оптимизация и параметры
+      - Кэширование вариантов
+      - Защита от перегрузки origin
+    evolution: []
+    failure_questions:
+      - Злоумышленник шлёт вариации размеров бесконечно. Как защититься?
+      - Edge генерит варианты и забивает CPU. Как ограничить?
+      - Оригинал обновился, варианты протухли. Как инвалидировать все ресайзы?
+    advanced_questions:
+      - Как строить сигнатуру URL и allowlist параметров трансформации?
+
+  - id: global-content-delivery
+    title: "Global Content Delivery"
+    level: senior
+    category: cdn
+    primary_pattern: multi-tier-origin
+    summary: >
+      Глобальная раздача контента: multi-tier кэш (edge -> regional -> origin),
+      GeoDNS/Anycast, мультирегиональность и reduce origin load.
+    requirements:
+      - Обслуживание трафика из всех регионов
+      - Многоуровневый кэш
+      - Минимизация нагрузки на origin
+    nfr:
+      - TTFB близко к нулю глобально
+      - Origin-нагрузка минимальна
+    constraints:
+      - Multi-tier cache инвалидация сложнее
+      - Бюджет CDN ограничен
+    baseline_load:
+      regions: 8
+      tier_capacity_x: 100
+    topics: [multi_tier_cache, geopdns, anycast, edge, regional, origin, load_reduction]
+    steps: []
+    acceptance_criteria:
+      - Иерархия кэша edge->regional->origin
+      - Маршрутизация трафика
+      - Инвалидация и warm-up
+    evolution: []
+    failure_questions:
+      - Популярный контент раздул regional-кэш. Как сбалансировать tier-ы?
+      - GeoDNS сместил трафик на перегруженный регион. Как перераспределить?
+      - Полная инвалидация по всему миру. Как не обрушить origin?
+    advanced_questions:
+      - Как строить capacity planning для вундеркинда вирусного контента?
+
+  # ==========================================================================
+  # 17. SECURITY
+  # ==========================================================================
+
+  - id: ddos-protection
+    title: "DDoS Protection"
+    level: senior
+    category: security
+    primary_pattern: edge-scrub
+    summary: >
+      Защита от DDoS: edge-абсорбция, rate limiting, WAF, фильтрация,
+      sinkhole и масштабирование ёмкости.
+    requirements:
+      - Поглощение объёмных DDoS атак
+      - Фильтрация вредоносного трафика
+      - Сохранение доступности легитимных клиентов
+    nfr:
+      - Легитимный трафик переживает атаку
+      - Идентификация ботов/CRC
+    constraints:
+      - Огромные объёмы трафика нельзя обслуживать на origin
+      - Нужен вендор с большой ёмкостью и scrub-центрами
+    baseline_load:
+      attack_volume_gbps: 1000
+      legit_rps: 500000
+    topics: [edge, rate_limiting, waf, dns, sinkhole, capacity]
+    steps: []
+    acceptance_criteria:
+      - Стратегия поглощения атаки
+      - WAF и rate limiting
+      - Идентификация легитимного трафика
+    evolution: []
+    failure_questions:
+      - Объёмная атака в 1 Tbps. Где взять ёмкость?
+      - Л7-атака овощими запросами обошла rate limit. Как фильтровать?
+      - Боты маскируются под легитим. Как отличить?
+    advanced_questions:
+      - Как строить self-serve масштабирование и аутентификацию ботов (challenge)?
+
+  - id: api-security
+    title: "API Security"
+    level: middle
+    category: security
+    primary_pattern: authz-input-validation
+    summary: >
+      Безопасность API: аутентификация/авторизация, валидация входных данных,
+      защита от IDOR/Injection, rate limiting и секреты.
+    requirements:
+      - Аутентификация и авторизация запросов
+      - Защита от распространённых атак (IDOR, injection, XSS)
+      - Аудит доступа
+    nfr:
+      - Минимальные привилегии
+      - Валидация на границе
+    constraints:
+      - Запрещено доверять входным данным
+      - Нужно логировать доступ
+    baseline_load:
+      api_rps: 300000
+      key_rotation_days: 30
+    topics: [authn, authz, input_validation, idor, injection, rate_limiting, secrets]
+    steps: []
+    acceptance_criteria:
+      - Авторизация и контроль доступа
+      - Валидация входных данных
+      - Логирование и детект аномалий
+    evolution: []
+    failure_questions:
+      - Пользователь подставил чужой ID (IDOR). Как предотвратить?
+      - SQL-инъекция через параметр. Как обезопасить запросы?
+      - Ключ API утёк в логи. Как ротировать без простоя?
+    advanced_questions:
+      - Как строить WAF-агентства для специфических атак и авторизации через OAuth?
+
+  - id: secrets-management
+    title: "Secrets Management"
+    level: middle
+    category: security
+    primary_pattern: vault-rotation
+    summary: >
+      Управление секретами: безопасное хранение, шифрование, ротация,
+      доступ по политике и аудит.
+    requirements:
+      - Хранение паролей/ключей/токенов
+      - Шифрование в покое и передаче
+      - Ротация секретов
+    nfr:
+      - Секреты не в коде и не в логах
+      - Ротация автоматизирована
+    constraints:
+      - Доступ к секретам по минимальным привилегиям
+      - Аудит доступа обязателен
+    baseline_load:
+      secrets: 10000
+      rotation_hours: 24
+    topics: [vault, encryption, rotation, policies, audit, kms]
+    steps: []
+    acceptance_criteria:
+      - Централизованное хранилище и шифрование
+      - Ротация и аренда секретов
+      - Политики доступа и аудит
+    evolution: []
+    failure_questions:
+      - Ключ шифрования похищен. Как ротировать и перешифровать данные?
+      - Секрет попал в репозиторий. Как быстро найти и инвалидировать?
+      - Разработчик не должен видеть прод-ключ. Как построить RBAC по секретам?
+    advanced_questions:
+      - Как строить dynamic secrets с ограниченным сроком жизни (Vault)?
+
+  - id: audit-log-system
+    title: "Audit Log System"
+    level: senior
+    category: security
+    primary_pattern: append-only-integrity
+    summary: >
+      Журнал аудита: append-only хранение, целостность (immutable), запросы
+      по событиям и retention.
+    requirements:
+      - Фиксация событий доступа/изменений
+      - Целостность и невозможность подделки
+      - Запрос по юзеру/событию
+    nfr:
+      - Никогда не изменять историю
+      - Быстрый поиск по событиям
+    constraints:
+      - Журнал огромный и append-only
+      - Целостность через hash chain
+    baseline_load:
+      events_per_sec: 50000
+      retention_years: 3
+    topics: [audit, append_only, hash_chain, integrity, search, retention]
+    steps: []
+    acceptance_criteria:
+      - Модель журнала и guarantee integrity
+      - Поиск и фильтрация
+      - Retention и архивирование
+    evolution: []
+    failure_questions:
+      - Событие подделано. Как доказать целостность (hash chain)?
+      - Журнал содержит перс. данные. Как соответствовать GDPR с retention?
+      - Запрос «что делал юзер» по 3 млрд событий. Как ускорить?
+    advanced_questions:
+      - Как строить кольцевой timestamped журнал с cryptographically verifiable цепочкой?
+
+  - id: permission-system
+    title: "Permission / RBAC-ABAC System"
+    level: senior
+    category: security
+    primary_pattern: rbac-abac
+    summary: >
+      Система прав доступа: RBAC (роли), ABAC (атрибуты), политики, hierarchical
+      разрешения и оценка на лету.
+    requirements:
+      - Назначение ролей/разрешений юзерам
+      - Проверка доступа на операцию
+      - Политики по атрибутам (ABAC)
+    nfr:
+      - Короткий путь проверки (в < 5 мс)
+      - Масштабируемость на миллионы юзеров
+    constraints:
+      - Проверка на лету при каждом запросе
+      - Политики меняются без простоя
+    baseline_load:
+      users: 10000000
+      pmz_checks_per_sec: 200000
+    topics: [rbac, abac, policy, access_control, hierarchical, evaluation]
+    steps: []
+    acceptance_criteria:
+      - Сравнение RBAC и ABAC
+      - Хранилище политик и кэш
+      - Производительность проверки
+    evolution: []
+    failure_questions:
+      - Роль отозвана, но кэш разрешений устарел. Есть риск несанкционированного доступа?
+      - Миллион юзеров с динамическими атрибутами. Как эффективно оценивать ABAC?
+      - Иерархические права отдел -> проект -> сущность. Как построить без дуболомности?
+    advanced_questions:
+      - Как строить реестр политик (policy engine) с версионированием и аудитом?
+
+  # ==========================================================================
+  # 18. РЕАЛЬНЫЕ СИСТЕМЫ
+  # ==========================================================================
+
+  - id: netflix-like
+    title: "Netflix-like Streaming Platform"
+    level: senior
+    category: realworld
+    primary_pattern: abr-decode-recommend
+    summary: >
+      Платформа стриминга: адаптивный битрейт, транскодинг, рекомендации,
+      устойчивость и холодный старт контента.
+    requirements:
+      - Транскодинг и адаптивный стриминг
+      - Персонализированные рекомендации
+      - Высокая доступность раздачи
+    nfr:
+      - Старт воспроизведения < 3 c
+      - Задержка плейбэка без буферизации
+    constraints:
+      - Контент-каталог большой и распределён
+      - Холодный старт популярных тайтлов
+    baseline_load:
+      subscribers: 250000000
+      bitrates: 8
+    topics: [abr, transcoding, recommendations, cdn, cold_start, resilience]
+    steps: []
+    acceptance_criteria:
+      - Пайплайн транскодинга и ABR
+      - Рекомендательная система
+      - Устойчивость и cold start
+    evolution: []
+    failure_questions:
+      - Популярный релиз начался в 00:00. Как прогреть CDN заранее?
+      - Транскодинг задерживается, зрители не видят новый контент. Как приоритизировать?
+      - Одновременный всплеск просмотров. Как масштабировать раздачу без потери качества?
+    advanced_questions:
+      - Как строить рекомендации онлайн и офлайн (batch + real-time)?
+
+  - id: youtube-like
+    title: "YouTube-like Platform"
+    level: senior
+    category: realworld
+    primary_pattern: upload-transcode-search
+    summary: >
+      Видеоплатформа: загрузка, транскодинг, поиск, лайки/комменты, лента
+      рекомендаций и CDN-раздача в масштабе.
+    requirements:
+      - Загрузка и обработка видео
+      - Поиск и рекомендации
+      - Раздача и комментарии/лайки
+    nfr:
+      - Загрузка не блокирует просмотр
+      - Быстрый поиск и рекомендации
+    constraints:
+      - Медиа-обработка и аналитика async
+      - Огромный каталог контента
+    baseline_load:
+      videos: 1000000000
+      hourly_views: 100000000
+    topics: [upload, transcoding, search, recommendations, cdn, comments, likes]
+    steps: []
+    acceptance_criteria:
+      - Асинхронная обработка видео
+      - Поиск и рекомендации
+      - CDN и аналитика
+    evolution: []
+    failure_questions:
+      - Видео заливается часами. Как реализовать resumable и очередь обработки?
+      - Поисковый индекс отстаёт, видео не находится. Как снизить влияние?
+      - Аналитики просмотров приходят миллионами. Как считать надёжно?
+    advanced_questions:
+      - Как строить рекомендации и «похожие видео» при огромном каталоге?
+
+  - id: spotify-like
+    title: "Spotify-like Music Streaming"
+    level: senior
+    category: realworld
+    primary_pattern: mp3-storage-playlist
+    summary: >
+      Стриминг музыки: хранение треков, плейлисты, кэш аудио, рекомендации,
+      поиск и лицензионные ограничения.
+    requirements:
+      - Хранение и стриминг треков
+      - Плейлисты и личная библиотека
+      - Рекомендации «Daily Mix»
+    nfr:
+      - Старт воспроизведения < 1 c
+      - Офлайн-кэш на девайсе
+    constraints:
+      - Права/лицензии меняются по регионам
+      - Нужен шифрованный стриминг
+    baseline_load:
+      users: 500000000
+      tracks: 100000000
+      credits_playing_now: 50000000
+    topics: [audio_storage, playlists, cache, recommendations, search, licensing]
+    steps: []
+    acceptance_criteria:
+      - Хранение и кэш треков/CDN
+      - Структура плейлистов
+      - Рекомендательная система
+    evolution: []
+    failure_questions:
+      - Офлайн-кэш на миллионах устройств. Как обновлять/отзывать треки корректно?
+      - Рекомендации строятся офлайн. Как обновлять плейлист пользователя без задержки?
+      - Лицензионный трек стал недоступен в регионе. Как мгновенно скрыть везде?
+    advanced_questions:
+      - Как строить стриминг аудио с низкой задержкой и адаптивным битрейтом?
+
+  - id: dropbox-like
+    title: "Dropbox-like File Sync"
+    level: senior
+    category: realworld
+    primary_pattern: file-sync-versioning
+    summary: >
+      Файловая синхронизация: загрузка, кросс-девайс синхронизация, разрешение
+      конфликтов, версионирование и дедупликация.
+    requirements:
+      - Синхронизация файлов между устройствами
+      - Разрешение конфликтов
+      - История версий
+    nfr:
+      - Синхронизация почти в реальном времени
+      - Конфликты разрешаются детерминированно
+    constraints:
+      - Нужен блок-уровень дедупликации
+      - Множество одновременных редакторов
+    baseline_load:
+      users: 500000000
+      files_total: 10000000000
+      sync_events_per_sec: 10000
+    topics: [file_sync, dedup, versioning, conflict_resolution, chunking, delta]
+    steps: []
+    acceptance_criteria:
+      - Блок-дедупликация и дельта-синхронизация
+      - Версионирование
+      - Разрешение конфликтов при offline edit
+    evolution: []
+    failure_questions:
+      - Два устройства изменили один файл офлайн. Как разрешить конфликт?
+      - Файл на 10 ГБ синхронизируется медленно. Как дельта-дедупликация помогает?
+      - Один блок файла испорчен. Как восстановить только его?
+    advanced_questions:
+      - Как строить CRDT/OT-совместимую синхронизацию для документов?
+
+  - id: collaborative-editor
+    title: "Collaborative Editor (Google Docs-like)"
+    level: senior
+    category: realworld
+    primary_pattern: ot-crdt
+    summary: >
+      Совместный редактор: одновременное редактирование, OT/CRDT, оперативные
+      трансформации, сохранение и offline-слияние.
+    requirements:
+      - Одновременное редактирование документа
+      - Согласованность состояний клиентов
+      - Offline-правки и слияние
+    nfr:
+      - Задержка отображения правок < 100 мс
+      - Никогда не терять правки
+    constraints:
+      - Операции могут конфликтовать
+      - Нужен преобразующий алгоритм (OT/CRDT)
+    baseline_load:
+      concurrent_docs: 1000000
+      ops_per_sec: 100000
+    topics: [ot, crdt, operational_transform, versioning, conflict_resolution, realtime_collab]
+    steps: []
+    acceptance_criteria:
+      - Основа OT/CRDT и их отличия
+      - Сервер операций и версии
+      - Обработка конфликтов
+    evolution: []
+    failure_questions:
+      - Два юзера одновременно вставили текст в одну позицию. Как согласовать?
+      - Операция потеряна из-за ретрая. Как откатить/переслать?
+      - Сетевой лаг высокий. Как сохранить UX при OT?
+    advanced_questions:
+      - Почему OT требует центральный сервер, а CRDT позволяет P2P?
+
+  - id: slack-like
+    title: "Slack-like Messaging"
+    level: senior
+    category: realworld
+    primary_pattern: channels-realtime
+    summary: >
+      Рабочий мессенджер: каналы, приватные/групповые чаты, real-time доставка,
+      поиск по истории, интеграции и push.
+    requirements:
+      - Каналы и DM
+      - Доставка в реальном времени
+      - Поиск по истории и интеграции
+    nfr:
+      - Задержка доставки < 300 мс
+      - Поиск по многолетней истории
+    constraints:
+      - Каналы могут иметь тысячи участников
+      - Интеграции ботов и webhook
+    baseline_load:
+      users: 100000000
+      messages_per_sec: 50000
+      history_retention_years: 10
+    topics: [channels, realtime, search, history, integrations, push]
+    steps: []
+    acceptance_criteria:
+      - Доставка сообщений в канал
+      - Поиск по истории
+      - Интеграции и вебхуки
+    evolution: []
+    failure_questions:
+      - Канал с 10k участников, сообщение должно дойти всем. Как fan-out?
+      - Поиск по старым сообщениям медленен. Как индексировать?
+      - Бот шлёт огромный поток сообщений. Как rate limit-ить?
+    advanced_questions:
+      - Как строить суммаризацию канала и inbox для каждого юзера?
+
+  - id: amzn-ecommerce
+    title: "Amazon-like E-commerce"
+    level: senior
+    category: realworld
+    primary_pattern: full-ecommerce-stack
+    summary: >
+      Полный e-commerce стек: каталог, корзина, заказы, платежи, склад,
+      доставка, рекомендации, поиск в одном масштабе.
+    requirements:
+      - Каталог и поиск товаров
+      - Корзина, заказ, оплата, склад
+      - Рекомендации и персонализация
+    nfr:
+      - Маленькая задержка всех ключевых операций
+      - Надёжность и масштабируемость
+    constraints:
+      - Каждый домен развивается независимо
+      - Платежи и склад строго консистентны
+    baseline_load:
+      sku: 500000000
+      orders_per_day: 1000000
+      search_qps: 30000
+    topics: [catalog, cart, order, payment, inventory, recommendations, search]
+    steps: []
+    acceptance_criteria:
+      - Архитектура доменов
+      - Сквозной флоу заказа+оплаты+склада
+      - Поиск и рекомендации
+    evolution: []
+    failure_questions:
+      - Как деградировать по частям, если поиск упал, а остальное живо?
+      - Рекомендации перегрузили каталог? Как изолировать домены?
+      - Платёж завис, склад зарезервировал товар. Как таймаутить резерв?
+    advanced_questions:
+      - Как строить событийную связку доменов и компенсации?
+
+  - id: github-like
+    title: "GitHub-like Platform"
+    level: senior
+    category: realworld
+    primary_pattern: git-hosting-ci
+    summary: >
+      Платформа для кода: хостинг репозиториев, PR, CI/CD, поиск кода,
+      issues и микро-сервисы вокруг git.
+    requirements:
+      - Хранение и коллаборация репозиториев
+      - Pull requests и ревью
+      - CI/CD пайплайны
+    nfr:
+      - Быстрый clone/push крупных репозиториев
+      - Масштабируемый поиск кода
+    constraints:
+      - Git push/merge сложно консистентны
+      - CI-очередь огромная
+    baseline_load:
+      repos: 400000000
+      pushes_per_sec: 5000
+      ci_jobs_per_min: 20000
+    topics: [git, pr, ci_cd, code_search, issues, microservices]
+    steps: []
+    acceptance_criteria:
+      - Хранение git-объектов и push flow
+      - Управление PR/merge
+      - CI/CD и код-поиск
+    evolution: []
+    failure_questions:
+      - Крупный репозиторий клонируется медленно. Как ускорить (GIT LFS, partial clone)?
+      - Merge PR конфликтует автоматически. Как строить merge queue?
+      - Поиск кода по всему репозиторию медленный. Как индексировать?
+    advanced_questions:
+      - Как строить масштабируемый git-сервер (shards by repo) и CI-оркестрацию?
+
+  - id: stackoverflow-like
+    title: "Stack Overflow-like Q&A"
+    level: middle
+    category: realworld
+    primary_pattern: qa-voting-search
+    summary: >
+      Платформа вопросов и ответов: вопросы, ответы, голосование, принятые
+      ответы, поиск и рейтинги.
+    requirements:
+      - Задание/ответы и голосование
+      - Принятый ответ и рейтинг
+      - Поиск по тегам и тексту
+    nfr:
+      - Быстрый поиск
+      - Чтение преобладает над записью
+    constraints:
+      - Голосование ограничено репутацией
+      - Поиск по тегам
+    baseline_load:
+      questions: 30000000
+      qps_read: 500000
+    topics: [qa, voting, search, reputation, tags, caching]
+    steps: []
+    acceptance_criteria:
+      - Модель вопросов/ответов/голосования
+      - Репутация и модерация
+      - Поиск и кэш
+    evolution: []
+    failure_questions:
+      - Огромный вопрос с сотнями ответов. Как пейджить и ранжировать ответы?
+      - Голосование конкурентно. Как предотвратить накрутку?
+      - Поиск по тегам и тексту одновременно. Как индексировать?
+    advanced_questions:
+      - Как строить репутационные правила и детект злоупотреблений?
+
+  # ==========================================================================
+  # 19. ПАТТЕРН-ЗАДАЧИ
+  # ==========================================================================
+
+  - id: pattern-id-generation
+    title: "Паттерн: ID Generation"
+    level: junior
+    category: pattern
+    primary_pattern: id-generation
+    summary: >
+      Узкий кейс на генерацию идентификаторов: последовательные, UUID, Snowflake,
+      коллизии, упорядоченность, масштаб.
+    requirements:
+      - Генерация уникальных ID без коллизий
+      - Масштабируемость (миллионы/сек)
+      - Приблизительная временная упорядоченность
+    nfr:
+      - ID не зависят от единой БД
+      - Переживают распределение нод
+    constraints:
+      - Запрет автогенерации одной БД
+      - Порядок приблизительный
+    baseline_load:
+      ids_per_sec: 1000000
+      nodes: 500
+    topics: [id, uuid, snowflake, auto_increment, sequence]
+    steps: []
+    acceptance_criteria:
+      - Сравнение подходов
+      - Формат Snowflake
+      - Обработка clock drift
+    evolution: []
+    failure_questions:
+      - Нода «поехала» по часам. Как не сломать уникальность ID?
+      - Нужна упорядоченность ID для индексов. Какой вариант выбрать?
+      - Как создать ID в офлайн-режиме без сервера?
+    advanced_questions:
+      - Как встроить регион/тип в ID для роутинга?
+
+  - id: pattern-fanout
+    title: "Паттерн: Fan-out"
+    level: middle
+    category: pattern
+    primary_pattern: fan-out
+    summary: >
+      Узкий кейс: распространение одного события многим подписчикам — fan-out
+      on write/read/hybrid, celebrity problem.
+    requirements:
+      - Доставка события множеству потребителей
+      - Управление нагрузкой при массовом фан-ауте
+    nfr:
+      - Свежесть у всех подписчиков
+      - Экономичность
+    constraints:
+      - Некоторые подписчики «звезды» с миллионами фанов
+      - Eventual consistency допустима
+    baseline_load:
+      fanout_peak: 100000000
+      latency_target_ms: 300
+    topics: [fan_out, celebrity, write, read, hybrid]
+    steps: []
+    acceptance_criteria:
+      - Сравнение стратегий fan-out
+      - Решение celebrity
+      - Гигиена данных лент
+    evolution: []
+    failure_questions:
+      - Одно событие фан-аута на 100 млн подписчиков. Как не уронить?
+      - Подписка появилась после события. Как догнать историю?
+      - Как решить, кому on write, а кому pull?
+    advanced_questions:
+      - Как строить статистику доставки fan-out из Kafka?
+
+  - id: pattern-idempotency
+    title: "Паттерн: Idempotency"
+    level: middle
+    category: pattern
+    primary_pattern: idempotency
+    summary: >
+      Узкий кейс: защита от повторных операций — идемпотентные ключи,
+      дедупликация, повторная доставка в банках/заказах.
+    requirements:
+      - Повторный запрос не даёт второй эффект
+      - Хранение результатов операций
+    nfr:
+      - Дубликаты невозможны побочно
+      - Прозрачность для клиента
+    constraints:
+      - Каналы могут дублировать запросы
+      - Нужно возвращать одинаковый результат повторно
+    baseline_load:
+      ops_per_sec: 5000
+      dedup_ttl_days: 30
+    topics: [idempotency, deduplication, retry, duplicate]
+    steps: []
+    acceptance_criteria:
+      - Где брать идемпотентный ключ
+      - Хранение и конфликты
+      - Повторный ответ клиенту
+    evolution: []
+    failure_questions:
+      - Дубль запроса попал в два инстанса. Как гарантировать?
+      - Запись операции потеряна, и дубль прошёл. Как защититься?
+      - Как долго хранить ключи для дедупликации?
+    advanced_questions:
+      - Как строить распределённую дедупликацию с гарантией на уровне DB уникальности?
+
+  - id: pattern-saga
+    title: "Паттерн: Saga"
+    level: senior
+    category: pattern
+    primary_pattern: saga
+    summary: >
+      Узкий кейс на распределённую транзакцию сагой с компенсациями.
+    requirements:
+      - Выполнение процесса через несколько сервисов
+      - Компенсации при сбое
+    nfr:
+      - Отказ шага компенсируется автоматически
+      - Нет долгой блокировки
+    constraints:
+      - No ACID между сервисами
+      - Компенсации идемпотентны
+    baseline_load:
+      sagas_per_sec: 300
+    topics: [saga, compensation, orchestration, choreography]
+    steps: []
+    acceptance_criteria:
+      - Концепция компенсации
+      - Оркестрация vs хореография
+      - Обработка отказа и DLQ
+    evolution: []
+    failure_questions:
+      - Компенсация сама не удалась. Что дальше (DLQ, повтор)?
+      - Дубль компенсации. Как сделать идемпотентной?
+      - Как долго сага «висит» между шагами при недоступности сервиса?
+    advanced_questions:
+      - Как строить долгоживущую оркестрируемую сагу с контрольными точками?
+
+  - id: pattern-outbox
+    title: "Паттерн: Transactional Outbox"
+    level: senior
+    category: pattern
+    primary_pattern: outbox
+    summary: >
+      Надёжная публикация событий из транзакции БД атомарно.
+    requirements:
+      - Событие и бизнес-запись атомарны
+      - Публикация в брокер гарантирована
+    nfr:
+      - Отсутствие потерь и дублей
+      - Малый лаг публикации
+    constraints:
+      - Реле публикует из outbox
+      - Потребители идемпотентны
+    baseline_load:
+      events_per_sec: 10000
+    topics: [outbox, cdc, atomicity, broker]
+    steps: []
+    acceptance_criteria:
+      - Атомарность записи
+      - Реле (CDC/воркер) публикации
+      - Идемпотентность потребителя
+    evolution: []
+    failure_questions:
+      - Реле упало. Как догнать by по времени (ordering)?
+      - Как избежать публикации некоммитнутых событий?
+      - Две записи в outbox одного ID. Бах?
+    advanced_questions:
+      - CDC по binlog vs поллинг outbox: задержки и надёжность?
+
+  - id: pattern-snowflake
+    title: "Паттерн: Snowflake ID"
+    level: middle
+    category: pattern
+    primary_pattern: snowflake
+    summary: >
+      Генерация упорядоченных уникальных ID форматом Snowflake с 64-бит.
+    requirements:
+      - 64-бит ID с временной упорядоченностью
+      - Масштабирование по worker id
+    nfr:
+      - Миллионы ID/сек
+      - Устойчивость к clock drift
+    constraints:
+      - Битовая раскладка строгая
+      - worker id ограничен
+    baseline_load:
+      ids_per_sec: 1000000
+      worker_bits: 10
+    topics: [snowflake, timestamp, sequence, worker, bits]
+    steps: []
+    acceptance_criteria:
+      - Раскладка 64 бит
+      - Обработка переполнения sequence
+      - Drift gestion
+    evolution: []
+    failure_questions:
+      - Sequence переполняется за мс. Как поступить?
+      - Часы назад. Дубликат?
+      - Окончание эпохи. Как менять?
+    advanced_questions:
+      - Как использовать ID для роутинга на шард?
+
+  - id: pattern-inverted-index
+    title: "Паттерн: Inverted Index"
+    level: middle
+    category: pattern
+    primary_pattern: inverted-index
+    summary: >
+      Построение поискового inverted index: токенизация, posting lists,
+      merge, сжатие и поиск.
+    requirements:
+      - Индексация документов в term->postings
+      - Быстрый поиск по терминам
+    nfr:
+      - Индекс строится быстро
+      - Поиск по многим терминам эффективен
+    constraints:
+      - Память и сжатие posting
+      - Обновление индекса
+    baseline_load:
+      docs: 1000000000
+      terms: 500000000
+    topics: [inverted_index, tokenization, posting, compression, merge]
+    steps: []
+    acceptance_criteria:
+      - Структура inverted index
+      - Обновление и merge
+      - Последовательность поиска
+    evolution: []
+    failure_questions:
+      - Обновление документа не отражается в индексе. Почему?
+      - Много лог-ячейка занимает память. Как сжимать posting?
+      - Анд-запрос по 10 терминам. Как эффективно пересечь?
+    advanced_questions:
+      - Как строить phrase search и faceted по inverted index?
+
+  - id: pattern-object-storage
+    title: "Паттерн: Object Storage"
+    level: middle
+    category: pattern
+    primary_pattern: object-storage
+    summary: >
+      Паттерн объектного хранилища: бакеты, ключи, атомарные записи,
+      версионирование и CDN.
+    requirements:
+      - Хранение неструктурированных объектов
+      - Атомарная запись/чтение по ключу
+      - Версионирование и lifecycle
+    nfr:
+      - Масштабирование до петабайт
+      - Высокая доступность
+    constraints:
+      - Объекты иммутабельны и крупные
+      - Ключ = ид объектного хранилища
+    baseline_load:
+      objects: 1000000000
+      total_pb: 20
+    topics: [object_storage, bucket, key, versioning, lifecycle, cdn]
+    steps: []
+    acceptance_criteria:
+      - Модель бакетов и ключей
+      - Версионирование и lifecycle
+      - Раздача через CDN
+    evolution: []
+    failure_questions:
+      - Ключ переиспользуется для перезаписи. Как с версионированием?
+      - Огромный объект заливается долго. Как multipart?
+      - Как строить lifecycle-переходы hot->cold->delete?
+    advanced_questions:
+      - Как строить согласованность списков и точек восстановления?
+
+  - id: pattern-websocket
+    title: "Паттерн: WebSocket"
+    level: middle
+    category: pattern
+    primary_pattern: websocket
+    summary: >
+      Паттерн двусторонней связи в реальном времени через WebSocket: соединения,
+      pub/sub, reconnect, backpressure.
+    requirements:
+      - Поддержка миллиона живых соединений
+      - Публикация события подключённым клиентам
+    nfr:
+      - Низкая задержка доставки
+      - Переживание reconnect
+    constraints:
+      - Соединения удерживаются долго
+      - Backpressure при медленном клиенте
+    baseline_load:
+      concurrent_connections: 1000000
+      events_per_sec: 100000
+    topics: [websocket, connection_pool, pubsub, reconnect, backpressure]
+    steps: []
+    acceptance_criteria:
+      - Управление соединениями и шардинг
+      - Pub/sub маршрутизация
+      - Reconnect и последовательность
+    evolution: []
+    failure_questions:
+      - Сервер с соединениями упал. Клиенты потеряны?
+      - Медленный клиент блокирует канал. Как применить backpressure?
+      - Как маршрутизировать событие конкретному клиенту в кластере?
+    advanced_questions:
+      - Как строить sticky-роутинг и failover соединений без потери состояния?
+
+  - id: pattern-cache-aside
+    title: "Паттерн: Cache-Aside"
+    level: junior
+    category: pattern
+    primary_pattern: cache-aside
+    summary: >
+      Классический cache-aside: чтение через кэш с провалом на БД, запись
+      с инвалидацией/обновлением кэша.
+    requirements:
+      - Чтение попадает в кэш
+      - Промах -> загрузка из БД и заполнение
+      - Инвалидация при записи
+    nfr:
+      - Высокий hit rate
+      - Staleness контролируется TTL
+    constraints:
+      - Нельзя читать устаревшие данные в критичных сценариях
+      - Кэш и БД не атомарны
+    baseline_load:
+      read_qps: 1000000
+      hit_rate: 0.95
+    topics: [cache, cache_aside, ttl, invalidation, stampede]
+    steps: []
+    acceptance_criteria:
+      - Флоу cache-aside read/write
+      - Стратегия TTL/инвалидации
+      - Консистентность при записи
+    evolution: []
+    failure_questions:
+      - Запись в БД прошла, но кэш не обновился. Когда устаревшие данные?
+      - Множество промахов одновременно -> stampede. Как защититься?
+      - Что удалять при апдейте: ключ или обновлять значение?
+    advanced_questions:
+      - Как строить write-through/write-behind поверх cache-aside?
+
+  - id: pattern-sharding
+    title: "Паттерн: Sharding"
+    level: senior
+    category: pattern
+    primary_pattern: sharding
+    summary: >
+      Горизонтальное партиционирование: выбор shard key, hash/range, hot spot,
+      resharding.
+    requirements:
+      - Распределение данных по шардам
+      - Баланс нагрузки
+    nfr:
+      - Минимум cross-shard
+      - Resharding без простоя
+    constraints:
+      - Shard key фиксирован
+      - Глобальная уникальность/индексы проблематичны
+    baseline_load:
+      shards: 32
+      data_tb: 10
+    topics: [shard_key, hash, range, hotspot, resharding]
+    steps: []
+    acceptance_criteria:
+      - Выбор shard key
+      - Способы шардирования
+      - Resharding
+    evolution: []
+    failure_questions:
+      - Неравномерное распределение данных. Как найти hot spot и fix?
+      - Пришлось добавить шарды. Как мигрировать без простоя?
+      - Запрос по не-shard-ключу. Как спроектировать обход?
+    advanced_questions:
+      - Как строить lookup-индексы поверх шардов для глобальных запросов?
+
+  - id: pattern-geospatial
+    title: "Паттерн: Geospatial Index"
+    level: middle
+    category: pattern
+    primary_pattern: geospatial
+    summary: >
+      Пространственная индексация: геохаш, R-tree, QuadTree, Redis GEO,
+      поиск ближайших.
+    requirements:
+      - Поиск объектов в радиусе
+      - Обновление позиций
+    nfr:
+      - Поиск < 100 мс
+      - Точность радиуса
+    constraints:
+      - Границы геохаша
+      - Частое обновление позиций
+    baseline_load:
+      objects: 10000000
+      queries_per_sec: 5000
+    topics: [geohash, r_tree, quadtree, redis_geo, radius]
+    steps: []
+    acceptance_criteria:
+      - Выбор структуры
+      - Геохаш и его ограничения
+      - Гибрид с БД
+    evolution: []
+    failure_questions:
+      - Объект на границе геохаша. Как избежать потери в radius-запросе?
+      - Обновление локаций частое. Как поддерживать index?
+      - Радиус большой. Как масштабировать full-scan?
+    advanced_questions:
+      - Как строить k-nearest по geohash эффективно?
+
+  - id: pattern-multi-region
+    title: "Паттерн: Multi-region"
+    level: senior
+    category: pattern
+    primary_pattern: multi-region
+    summary: >
+      Приложение в нескольких регионах: маршрутизация, репликация, DR.
+    requirements:
+      - Обслуживание из нескольких регионов
+      - Переживание отказа региона
+    nfr:
+      - Низкая задержка глобально
+      - RPO/RTO малы
+    constraints:
+      - Асинхронная кросс-регион репликация
+      - Локальность данных
+    baseline_load:
+      regions: 3
+      lag_s: 5
+    topics: [region, geopdns, replication, dr]
+    steps: []
+    acceptance_criteria:
+      - Модель регионов
+      - Репликация и конфликты
+      - DR-переключение
+    evolution: []
+    failure_questions:
+      - Регион потерян. Как переключить трафик без потери записей?
+      - Запись в A, чтение в B с лагом. Пользователь недоволен. Как сгладить?
+      - Два региона обновили одну строку. Как разрешить?
+    advanced_questions:
+      - Active-active с CRDT vs master-master с LWW: какой подход?
+
+  - id: pattern-time-series
+    title: "Паттерн: Time-series DB"
+    level: senior
+    category: pattern
+    primary_pattern: tsdb
+    summary: >
+      Временные ряды: сэмплы, сжатие, агрегации, retention, query.
+    requirements:
+      - Хранение сэмплов с таймстемпом
+      - Агрегация по времени
+      - Retention политики
+    nfr:
+      - Writing миллионов сэмплов/с
+      - Быстрые агрегаты
+    constraints:
+      - Сэмплы append-only и упорядочены по времени
+      - Сжатие обязательно
+    baseline_load:
+      samples_per_sec: 1000000
+      retention_days: 90
+    topics: [tsdb, samples, compression, aggregation, retention]
+    steps: []
+    acceptance_criteria:
+      - Модель временного ряда
+      - Сжатие и агрегация
+      - Retention/archiving
+    evolution: []
+    failure_questions:
+      - Агрегация по месяцу по гигантскому ряду. Как оптимизировать?
+      - Частота сэмплов огромная. Как сжимать (delta-of-delta)?
+      - Retention удаляет нужные данные. Как балансировать?
+    advanced_questions:
+      - Как строить downsampling и гранулярности (raw->5m->1h)?
+
+  - id: pattern-event-streaming
+    title: "Паттерн: Event Streaming"
+    level: senior
+    category: pattern
+    primary_pattern: event-streaming
+    summary: >
+      Аналитический event streaming: сбор событий, Kafka, дедупликация,
+      агрегация окон и витрины.
+    requirements:
+      - Сбор миллионов событий/с
+      - Окна агрегаций (tumbling/sliding)
+      - Доставка в витрины
+    nfr:
+      - Не терять события
+      - Задержка агрегатов мала
+    constraints:
+      - Ordering внутри ключа
+      - Windowing сложна при late events
+    baseline_load:
+      events_per_sec: 1000000
+      window_sec: 60
+    topics: [event_stream, kafka, window, aggregation, dedup, warehouse]
+    steps: []
+    acceptance_criteria:
+      - Пайплайн приёма событий
+      - Оконная агрегация
+      - Late events и водяные знаки
+    evolution: []
+    failure_questions:
+      - Событие пришло поздно (late). Как корректировать агрегат?
+      - Окно огромное, ключей много. Как шардировать агрегацию?
+      - Дубль события. Как дедуплицировать до агрегации?
+    advanced_questions:
+      - Как строить exactly-once окно над потоком (w/Flink/Kafka Streams)?
+
+  - id: pattern-collaborative
+    title: "Паттерн: Operational Transform / CRDT"
+    level: senior
+    category: pattern
+    primary_pattern: ot-crdt
+    summary: >
+      Совместное редактирование: OT и CRDT для согласованного состояния.
+    requirements:
+      - Одновременные правки разных клиентов
+      - Сходимость состояния
+    nfr:
+      - Наблюдаемая сходимость
+      - Никаких потерянных правок
+    constraints:
+      - Конфликты решаются алгоритмически
+      - OT требует централизации
+    baseline_load:
+      concurrent_editors_per_doc: 100
+    topics: [ot, crdt, convergence, operation_transform]
+    steps: []
+    acceptance_criteria:
+      - Отличие OT от CRDT
+      - Гарантии сходимости
+      - Выбор под сценарий
+    evolution: []
+    failure_questions:
+      - Нужна P2P без центрального сервера. Почему CRDT подходит?
+      - Множество клиентов редактируют одну позицию. Как OT согласует?
+      - Как хранить документ версий при CRDT?
+    advanced_questions:
+      - Как строить CRDT-структуру для текста (RGA, YATA)?
+
+  - id: pattern-consent
+    title: "Паттерн: Bleeding Pattern (Consistent Hashing)"
+    level: senior
+    category: pattern
+    primary_pattern: consistent-hashing
+    summary: >
+      Consistent hashing для распределения ключей: кольцо, vnode, репозиция
+      при добавлении/удалении нод.
+    requirements:
+      - Распределение ключей по нодам
+      - Минимальное перемещение при изменении числа нод
+    nfr:
+      - Масштабируемость
+      - Минимальный ребалансинг
+    constraints:
+      - Кольцо и vnode
+      - Репликация на соседних нодах
+    baseline_load:
+      nodes: 20
+      keys: 1000000
+    topics: [consistent_hashing, ring, vnode, rebalancing]
+    steps: []
+    acceptance_criteria:
+      - Построение кольца
+      - Vnode и баланс
+      - Репликация и перераспределение
+    evolution: []
+    failure_questions:
+      - Удалена нода. Какие ключи и куда переедут?
+      - Ноды неравномерны по мощности. Как взвесить?
+      - Дубликаты при репликации. Как избежать потери при failover?
+    advanced_questions:
+      - Как строить deprecated/ambivalent с историей перемещений?
+
+  - id: pattern-database-lock
+    title: "Паттерн: Database Lock (booking/inventory)"
+    level: senior
+    category: pattern
+    primary_pattern: db-locking
+    summary: >
+      Пессимистичная/оптимистичная блокировка БД для конкурентных резервирований.
+    requirements:
+      - Конкурентные записи без гонок
+      - Блокировка с временем жизни
+    nfr:
+      - Никаких лишних резервов
+      - Высокая конкурентность
+    constraints:
+      - Лок на строках
+      - Оптимистичный вариант без локов
+    baseline_load:
+      concurrent_ops: 10000
+    topics: [pessimistic_lock, optimistic_lock, row_lock, version]
+    steps: []
+    acceptance_criteria:
+      - Пессимистичный vs оптимистичный
+      - Версионирование строк
+      - Deadlock handling
+    evolution: []
+    failure_questions:
+      - Два транзакции с row lock. Deadlock?
+      - Оптимистичная версия не совпала. Как retry?
+      - Когда нужен pessimistic в распределённой системе?
+    advanced_questions:
+      - Как строить distributed lock над БД с TTL?
+
+  - id: pattern-log-append
+    title: "Паттерн: Append-only + indexing (логи)"
+    level: middle
+    category: pattern
+    primary_pattern: append-only
+    summary: >
+      Append-only журнал с индексацией: запись в конец, чтение по индексу,
+      rotation и retention.
+    requirements:
+      - Быстрая последовательная запись
+      - Поиск по ключу/времени
+    nfr:
+      - Запись не деградирует
+      - Поиск по индексу
+    constraints:
+      - Данные иммутабельны
+      - Rotation и compaction
+    baseline_load:
+      writes_per_sec: 10000
+    topics: [append_only, journal, index, rotation, compaction]
+    steps: []
+    acceptance_criteria:
+      - Формат append-only
+      - Построение индекса
+      - Compaction/retention
+    evolution: []
+    failure_questions:
+      - Файл журнала вырос. Как компактить без потери?
+      - Индекс отстаёт от журнала. Как читать свежие данные в параллель?
+      - Как восстанавливаться после краха append-файла?
+    advanced_questions:
+      - Как строить log-structured хранилище (LSM) поверх append-only?
+
+  - id: pattern-metrics
+    title: "Паттерн: Metrics/Time-series (мини-Prometheus)"
+    level: senior
+    category: pattern
+    primary_pattern: tsdb-metrics
+    summary: >
+      Мини-Prometheus: сбор метрик, хранение рядов, запросы, alert.
+    requirements:
+      - Pull-сбор метрик
+      - Хранение и запросы временных рядов
+    nfr:
+      - Масштабирование
+      - Быстрые агрегаты
+    constraints:
+      - Кардинальность
+      - Retention
+    baseline_load:
+      series: 5000000
+      samples_per_sec: 1000000
+    topics: [tsdb, pull, prometheus, aggregation, alert]
+    steps: []
+    acceptance_criteria:
+      - Сбор и target discovery
+      - Хранение рядов
+      - Запросы и алерты
+    evolution: []
+    failure_questions:
+      - Cardinality blow-up. Как защититься?
+      - Алерт сработал ложно. Как настроить thresholds?
+      - Масштаб до миллионов рядов. Как шардировать?
+    advanced_questions:
+      - Как строить Thanos-подобный агрегации поверх Prometheus?
+
+  - id: pattern-lock-lease
+    title: "Паттерн: Distributed Lock with Lease"
+    level: senior
+    category: pattern
+    primary_pattern: lock-lease
+    summary: >
+      Распределённая блокировка с lease и fencing token.
+    requirements:
+      - Взаимное исключение в кластере
+      - Авто-освобождение по lease/TTL
+    nfr:
+      - Block не висит вечно
+      - Защита от false ownership
+    constraints:
+      - Lease истекает
+      - Fencing token необходим
+    baseline_load:
+      locks_per_sec: 1000
+    topics: [lock, lease, ttl, fencing_token]
+    steps: []
+    acceptance_criteria:
+      - Механизм lease
+      - Fencing token
+      - Проблемы Redlock
+    evolution: []
+    failure_questions:
+      - Владелец завис на GC. Block истёк, клиент-продолжение получил право. Как?
+      - Сеть разделилась. Два владельца. Как изолировать ущерб?
+      - Нужно продлить lease во время долгой работы. Как продлевать атомарно?
+    advanced_questions:
+      - Как строить fencing token с участием переработанного state store?
+
+  - id: pattern-log-search
+    title: "Паттерн: Log Search (append-only + indexing)"
+    level: middle
+    category: pattern
+    primary_pattern: log-index
+    summary: >
+      Поиск по логам через append-only журнал и индекс (Loki-style).
+    requirements:
+      - Запись логов append-only
+      - Поиск по времени и фильтрам
+    nfr:
+      - Ингрест волной
+      - Быстрый поиск по окну
+    constraints:
+      - Хранение дешёвое
+      - Индексация ограничена (labels/ключи)
+    baseline_load:
+      logs_per_sec: 2000000
+    topics: [logs, append_only, index, retention, ingestion]
+    steps: []
+    acceptance_criteria:
+      - Формат логов и потока
+      - Стратегия индексации (label vs full-text)
+      - Retention
+    evolution: []
+    failure_questions:
+      - Поиск по телу лога медленный (нет full-text индекса). Как решать?
+      - Всплеск логов. Как буферизовать до индекса?
+      - Как искать по label без потери гранулярности?
+    advanced_questions:
+      - Как строить дешёвый log storage с блочным сжатием и query по блокам?
+
+  - id: pattern-leader-election
+    title: "Паттерн: Leader Election"
+    level: senior
+    category: pattern
+    primary_pattern: leader-election
+    summary: >
+      Выбор лидера в кластере для управления общей задачей/блокировкой.
+    requirements:
+      - Единственный лидер в кластере
+      - Автоматическое переизбрание
+    nfr:
+      - Короткое время выбора
+      - Не допускать двух лидеров
+    constraints:
+      - Split brain опасен
+      - Лидер может упасть
+    baseline_load:
+      nodes: 10
+      election_ms: 500
+    topics: [leader_election, consensus, raft, heartbeat]
+    steps: []
+    acceptance_criteria:
+      - Механизм выбора лидера
+      - Обнаружение отказа лидера
+      - Split brain защита
+    evolution: []
+    failure_questions:
+      - Лидер умер молниеносно. Как быстро переизбрать и не потерять работу?
+      - Два лидера из-за network partition. Как защититься (quorum)?
+      - Кто хранит состояние после переизбрания?
+    advanced_questions:
+      - Как строить Raft/etcd-подобный consensus для выборов?
+
+  - id: pattern-singleflight
+    title: "Паттерн: Single-flight / Cache stampede"
+    level: middle
+    category: pattern
+    primary_pattern: singleflight
+    summary: >
+      Защита от cache stampede: единый запрос под один ключ при массовом промахе.
+    requirements:
+      - Многие клиенты просят один ключ при промахе
+      - Только один выполняет дорогую загрузку
+    nfr:
+      - Никогда не дублировать дорогую операцию
+      - Клиенты получают результат вовремя
+    constraints:
+      - Под одновременный промах только один воркер
+      - Защита от истёкшего фонового загруза
+    baseline_load:
+      stampede_scale: 1000
+    topics: [singleflight, stampede, cache, mutex]
+    steps: []
+    acceptance_criteria:
+      - Механизм single-flight
+      - Пробабилистический TTL
+      - Mutex/leader
+    evolution: []
+    failure_questions:
+      - Множество клиентов одновременно промахиваются. Как объединить?
+      - Фоновое обновление истекло, все ломятся в БД. Как?
+      - Отказ одного дорогого вычисления влияет на всех ждущих. Как вернуть ошибку?
+    advanced_questions:
+      - Как строить single-flight поверх микросервисов (не в одном процессе)?
+
+  - id: pattern-queue-competing
+    title: "Паттерн: Competing Consumers (очередь задач)"
+    level: middle
+    category: pattern
+    primary_pattern: competing-consumers
+    summary: >
+      Конкурентные потребители одной очереди задач с правильной обработкой.
+    requirements:
+      - Воркеры берут задачи из общей очереди
+      - Каждая задача выполняется одним воркером
+    nfr:
+      - Высокая пропускная способность
+      - Никакой задачи не пропадает
+    constraints:
+      - Acknowledgement и visibility timeout
+      - Ретраи и DLQ
+    baseline_load:
+      tasks_per_sec: 5000
+      workers: 50
+    topics: [queue, consumer, ack, visibility, retry, dlq]
+    steps: []
+    acceptance_criteria:
+      - Конкурирующее потребление
+      - Ack и timeout
+      - Retry/DLQ
+    evolution: []
+    failure_questions:
+      - Воркер упал после взятия задачи. Как задача вернётся?
+      - Two consumers взяли одну задачу. Почему это возможно и как не допустить?
+      - Одна «плохая» задача зацикливает retry. Как изолировать в DLQ?
+    advanced_questions:
+      - Как обеспечить приоритет и отложенные задачи поверх очереди?
+
+  - id: pattern-cqrs-read-model
+    title: "Паттерн: CQRS / Eventual Consistency"
+    level: senior
+    category: pattern
+    primary_pattern: cqrs
+    summary: >
+      Разделение read/write моделей и eventual consistency проекций.
+    requirements:
+      - Write model команд
+      - Read model оптимизированная под запросы
+    nfr:
+      - Чтение/запись масштабируются раздельно
+      - Проекции обновляются асинхронно
+    constraints:
+      - Eventual consistency
+      - Необходима перестройка проекций
+    baseline_load:
+      command_qps: 500
+      query_qps: 20000
+    topics: [cqrs, read_model, write_model, event, projection]
+    steps: []
+    acceptance_criteria:
+      - Две модели
+      - Синхронизация событиями
+      - Перестройка проекций
+    evolution: []
+    failure_questions:
+      - Проекция устарела. Пользователь видит старые данные. Как объяснить/SLO?
+      - Как перестроить проекцию без простоя?
+      - Если событие потеряно, read model расходится. Как восстановить?
+    advanced_questions:
+      - Как строить идемпотентные обновления проекций на основе потока событий?
