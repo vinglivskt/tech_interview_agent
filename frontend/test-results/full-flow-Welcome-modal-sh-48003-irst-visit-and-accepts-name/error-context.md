@@ -18,7 +18,7 @@ Locator: getByText('Python Interview Assistant')
 Expected: visible
 Error: strict mode violation: getByText('Python Interview Assistant') resolved to 2 elements:
     1) <h1 class="_title_1l10p_39">Python Interview Assistant</h1> aka getByRole('dialog').getByRole('heading', { name: 'Python Interview Assistant' })
-    2) <h1 class="_heroTitle_qlcdz_30">Python Interview Assistant</h1> aka getByRole('heading', { name: 'Python Interview Assistant' }).nth(1)
+    2) <h1 class="_heroTitle_1c84s_30">Python Interview Assistant</h1> aka getByRole('heading', { name: 'Python Interview Assistant' }).nth(1)
 
 Call log:
   - Expect "toBeVisible" with timeout 5000ms

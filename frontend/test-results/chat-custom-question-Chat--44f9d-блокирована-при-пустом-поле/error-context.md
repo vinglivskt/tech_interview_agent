@@ -17,8 +17,8 @@ Error: expect(locator).toBeVisible() failed
 Locator: getByText(/Вопрос №/).or(getByText(/Загружаем вопрос/))
 Expected: visible
 Error: strict mode violation: getByText(/Вопрос №/).or(getByText(/Загружаем вопрос/)) resolved to 2 elements:
-    1) <div class="_questionBadge_9u9k6_23">Вопрос №—</div> aka getByText('Вопрос №—')
-    2) <div class="_questionText_9u9k6_37">Загружаем вопрос…</div> aka getByText('Загружаем вопрос…')
+    1) <div class="_questionBadge_d2tz0_23">Вопрос №—</div> aka getByText('Вопрос №—')
+    2) <p>Загружаем вопрос…</p> aka getByText('Загружаем вопрос…')
 
 Call log:
   - Expect "toBeVisible" with timeout 15000ms
@@ -39,18 +39,18 @@ Call log:
   - paragraph [ref=e20]: Вверху — текущий вопрос. Ниже — поле для вашего ответа и результаты проверки.
   - generic [ref=e21]:
     - generic [ref=e22]: Вопрос №—
-    - generic [ref=e23]: Загружаем вопрос…
-  - button "Задать свой вопрос" [disabled] [ref=e25]
-  - generic [ref=e26]: Ваш ответ
-  - textbox "Ваш ответ" [disabled] [ref=e27]:
+    - paragraph [ref=e29]: Загружаем вопрос…
+  - button "Задать свой вопрос" [disabled] [ref=e31]
+  - generic [ref=e32]: Ваш ответ
+  - textbox "Ваш ответ" [disabled] [ref=e33]:
     - /placeholder: Ваш ответ… (Ctrl/Cmd+Enter — отправить)
-  - generic [ref=e28]:
-    - button "Отправить" [disabled] [ref=e29]
-    - generic [ref=e31]: Генерация вопроса…
-  - generic [ref=e32]: Ответ ассистента появится здесь.
-  - generic [ref=e33]:
-    - button "💾 Сохранить" [disabled] [ref=e34]
-    - button "Следующий вопрос" [disabled] [ref=e35]
+  - generic [ref=e34]:
+    - button "Отправить" [disabled] [ref=e35]
+    - generic [ref=e37]: Генерация вопроса…
+  - status [ref=e38]: Ответ ассистента появится здесь.
+  - generic [ref=e39]:
+    - button "💾 Сохранить" [disabled] [ref=e40]
+    - button "Следующий вопрос" [disabled] [ref=e41]
 ```
 
 # Test source
