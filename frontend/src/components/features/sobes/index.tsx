@@ -43,6 +43,7 @@ export const SobesContainer: React.FC<Props> = ({ onBack }) => {
           totalPlanned={sobes.totalPlanned}
           userAnswer={sobes.userAnswer}
           isLoading={sobes.isLoading}
+          error={sobes.error}
           onAnswerChange={sobes.setUserAnswer}
           onSubmit={sobes.submitAnswer}
           onSkip={sobes.skipQuestion}

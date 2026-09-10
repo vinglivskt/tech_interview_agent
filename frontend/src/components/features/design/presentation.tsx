@@ -34,7 +34,10 @@ export const DesignSetupView: React.FC<{
     return (
       <div className={styles.container}>
         <FeatureHeader onBack={onBack} right={onShowStats} />
-        <div className={styles.loadingContainer}>Загрузка конфигурации...</div>
+        <div className={styles.loadingContainer}>
+          <span className={styles.spinnerDots} aria-hidden="true" />
+          <p>Загрузка конфигурации...</p>
+        </div>
       </div>
     );
   }
@@ -64,15 +67,20 @@ export const DesignSetupView: React.FC<{
           ))}
         </select>
 
-        <label className={styles.label} htmlFor="design-scenario" style={{ marginTop: "0.9rem" }}>
-          Сценарий
-        </label>
-        <div id="design-scenario" data-testid="design-scenario-list" className={styles.scenariosList}>
+        <p className={styles.label}>Сценарий</p>
+        <div id="design-scenario" data-testid="design-scenario-list" className={styles.scenariosList} aria-label="Сценарий">
           <div
             className={`${styles.scenarioCard} ${selectedScenarioId === "" ? styles.selected : ""}`}
             onClick={() => onScenarioSelect("")}
             role="button"
+            aria-pressed={selectedScenarioId === ""}
             tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onScenarioSelect("");
+              }
+            }}
           >
             <h4>Любой подходящий</h4>
             <p>Автоматический выбор темы соответствующего уровня.</p>
@@ -85,7 +93,14 @@ export const DesignSetupView: React.FC<{
                 className={`${styles.scenarioCard} ${active ? styles.selected : ""}`}
                 onClick={() => onScenarioSelect(active ? "" : s.id)}
                 role="button"
+                aria-pressed={active}
                 tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onScenarioSelect(active ? "" : s.id);
+                  }
+                }}
               >
                 <h4>{s.title}</h4>
                 {s.summary ? <p>{s.summary}</p> : null}
@@ -97,13 +112,13 @@ export const DesignSetupView: React.FC<{
           <p className={styles.noScenarios}>Сценариев для этого уровня пока нет.</p>
         )}
 
-        <div className={styles.meta} style={{ marginTop: "0.5rem" }}>
+        <div className={styles.meta}>
           Подсказка снижает балл шага на {config.hint_penalty_percent}%.
         </div>
 
-        {error && <div className={styles.error}>{error}</div>}
+        {error && <div className={styles.error} role="alert">{error}</div>}
 
-        <div className={styles.row} style={{ marginTop: "1rem" }}>
+        <div className={styles.row}>
           <Button variant="success" onClick={onStart} disabled={isLoading} loading={isLoading}>
             {isLoading ? "Готовим сценарий…" : "Начать проектирование"}
           </Button>
@@ -121,6 +136,7 @@ export const DesignQuestionView: React.FC<{
   userAnswer: string;
   hint: string | null;
   isLoading: boolean;
+  error?: string | null;
   onAnswerChange: (value: string) => void;
   onSubmit: () => void;
   onGetHint: () => void;
@@ -134,6 +150,7 @@ export const DesignQuestionView: React.FC<{
   userAnswer,
   hint,
   isLoading,
+  error,
   onAnswerChange,
   onSubmit,
   onGetHint,
@@ -141,6 +158,13 @@ export const DesignQuestionView: React.FC<{
   onShowStats,
 }) => {
   const progressPercent = totalSteps ? Math.round(((stepIndex - 1) / totalSteps) * 100) : 0;
+
+  const handleAnswerKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (userAnswer.trim() && !isLoading) onSubmit();
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -171,13 +195,22 @@ export const DesignQuestionView: React.FC<{
         <label className={styles.label} htmlFor="design-answer">
           Ваше решение
         </label>
+
+        {error && (
+          <div className={styles.error} role="alert">
+            {error}
+          </div>
+        )}
+
         <textarea
           id="design-answer"
           className={styles.textarea}
           value={userAnswer}
           onChange={(e) => onAnswerChange(e.target.value)}
+          onKeyDown={handleAnswerKeyDown}
           placeholder="Опишите решение… (Ctrl/Cmd+Enter — отправить)"
           disabled={isLoading}
+          maxLength={8000}
         />
 
         <div className={styles.actions}>
@@ -264,7 +297,7 @@ export const DesignAnswerView: React.FC<{
           </div>
         )}
 
-        <div className={styles.row} style={{ marginTop: "1.5rem" }}>
+        <div className={`${styles.row} ${styles.rowActions}`}>
           <Button onClick={onNext}>{answer.is_last ? "Посмотреть результаты →" : "Следующий шаг →"}</Button>
         </div>
       </div>
@@ -310,10 +343,10 @@ export const DesignResultsView: React.FC<{
           <strong>Слабые:</strong> {results.weaknesses.join(", ") || "—"}
         </div>
 
-        <h2 style={{ marginTop: "1rem", fontSize: "1.1rem" }}>Рубрика</h2>
+        <h2 className={styles.sectionTitle}>Рубрика</h2>
         <div className={styles.output}>{rubricText}</div>
 
-        <h2 style={{ marginTop: "1rem", fontSize: "1.1rem" }}>Детали</h2>
+        <h2 className={styles.sectionTitle}>Детали</h2>
         <div className={styles.resultsList}>
           {results.details.map((d, idx) => (
             <div key={idx} className={styles.resultItem}>

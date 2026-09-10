@@ -49,7 +49,6 @@ export function useQuiz() {
       setView("question");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка запуска квиза");
-      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
     } finally {
       setIsLoading(false);
     }
@@ -78,7 +77,6 @@ export function useQuiz() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Неизвестная ошибка");
-      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
     } finally {
       setIsLoading(false);
     }

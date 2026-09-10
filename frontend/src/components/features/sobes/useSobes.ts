@@ -80,7 +80,7 @@ export function useSobes() {
         setNextQuestion(data.next_question);
       }
     } catch (err) {
-      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+      setError(err instanceof Error ? err.message : "Ошибка отправки ответа");
       setView("question");
     } finally {
       setIsLoading(false);
@@ -97,7 +97,7 @@ export function useSobes() {
           setNextQuestion(null);
           setView("results");
         } catch (err) {
-          alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+          setError(err instanceof Error ? err.message : "Не удалось загрузить результаты");
         }
       }
       return;
@@ -136,7 +136,7 @@ export function useSobes() {
         setView("question");
       }
     } catch (err) {
-      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+      setError(err instanceof Error ? err.message : "Ошибка пропуска вопроса");
     } finally {
       setIsLoading(false);
     }
@@ -153,7 +153,7 @@ export function useSobes() {
       setNextQuestion(null);
       setView("question");
     } catch (err) {
-      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+      setError(err instanceof Error ? err.message : "Ошибка повтора вопроса");
     }
   }, [sessionId]);
 

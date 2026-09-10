@@ -9,7 +9,7 @@ interface MarkdownProps {
 
 export const Markdown: React.FC<MarkdownProps> = ({ content, className = "" }) => {
   return (
-    <div className={`${styles.markdown} ${className}`}>
+    <div className={`markdown ${styles.markdown} ${className}`}>
       <ReactMarkdown>{content}</ReactMarkdown>
     </div>
   );

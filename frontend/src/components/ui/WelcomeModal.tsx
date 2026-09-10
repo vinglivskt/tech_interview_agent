@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useUser } from "@/components/state/UserContext";
 import styles from "./WelcomeModal.module.css";
 
@@ -32,11 +33,15 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ onSuccess }) => {
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true">
+      <div className={styles.themeSlot}>
+        <ThemeToggle />
+      </div>
       <div className={styles.modal}>
-        <h1 className={styles.title}>🐍 Python Interview Assistant</h1>
-        <p className={styles.subtitle}>
-          Личный помощник для подготовки к собеседованиям по Python.
-        </p>
+        <span className={styles.logo} aria-hidden="true">
+          🐍
+        </span>
+        <h1 className={styles.title}>Python Interview Assistant</h1>
+        <p className={styles.subtitle}>Личный помощник для подготовки к собеседованиям по Python.</p>
         <p className={styles.description}>
           Чтобы мы могли сохранять вашу статистику ответов между сессиями — представьтесь.
           Это нужно для того, чтобы вы могли вернуться и посмотреть, над какими темами стоит

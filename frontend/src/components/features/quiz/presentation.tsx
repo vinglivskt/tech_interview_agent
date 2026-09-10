@@ -15,6 +15,7 @@ export const QuizSetupView: React.FC<QuizViewProps> = ({
   onLevelChange,
   onStart,
   isLoading,
+  error,
   onBack,
   onShowStats,
 }) => {
@@ -39,11 +40,17 @@ export const QuizSetupView: React.FC<QuizViewProps> = ({
           <option value="senior">Senior (сложные вопросы)</option>
         </select>
 
-        <div className={styles.row} style={{ marginTop: "1rem" }}>
+        <div className={styles.rowSpacing}>
           <Button variant="success" onClick={onStart} disabled={isLoading} loading={isLoading}>
             {isLoading ? "Начинаем…" : "Начать тест"}
           </Button>
         </div>
+
+        {error && (
+          <div className={styles.error} role="alert">
+            {error}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -61,8 +68,9 @@ export const QuizQuestionView: React.FC<{
   onSubmit: () => void;
   onBack: () => void;
   isLoading: boolean;
+  error?: string | null;
   onShowStats?: React.ReactNode;
-}> = ({ question, selectedOption, onSelectOption, onSubmit, onBack, isLoading, onShowStats }) => {
+}> = ({ question, selectedOption, onSelectOption, onSubmit, onBack, isLoading, error, onShowStats }) => {
   const progressPercent = (question.question_number / question.total_questions) * 100;
 
   return (
@@ -88,22 +96,30 @@ export const QuizQuestionView: React.FC<{
               className={`${styles.option} ${selectedOption === idx ? styles.selected : ""}`}
               onClick={() => onSelectOption(idx)}
             >
-              <input
-                type="radio"
-                name="quiz-option"
-                checked={selectedOption === idx}
-                onChange={() => onSelectOption(idx)}
-              />
-              <label>{opt}</label>
+              <label className={styles.optionLabel}>
+                <input
+                  type="radio"
+                  name="quiz-option"
+                  checked={selectedOption === idx}
+                  onChange={() => onSelectOption(idx)}
+                />
+                <span>{opt}</span>
+              </label>
             </div>
           ))}
         </div>
 
-        <div className={styles.row} style={{ marginTop: "1rem" }}>
+        <div className={`${styles.row} ${styles.rowSpacing}`}>
           <Button onClick={onSubmit} disabled={selectedOption === null || isLoading} loading={isLoading}>
             Далее →
           </Button>
         </div>
+
+        {error && (
+          <div className={styles.error} role="alert">
+            {error}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -142,7 +158,7 @@ export const QuizResultsView: React.FC<{
           <div className={styles.levelBadge}>Уровень: {LEVEL_NAMES[results.level] || results.level}</div>
         </div>
 
-        <h2 style={{ margin: "1.5rem 0 1rem", fontSize: "1.1rem" }}>Подробные результаты</h2>
+        <h2 className={styles.sectionTitle}>Подробные результаты</h2>
 
         <div className={styles.resultsList}>
           {results.results.map((r, idx) => (

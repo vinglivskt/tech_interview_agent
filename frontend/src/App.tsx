@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Card } from "@/components/ui";
+import { Card, ThemeToggle } from "@/components/ui";
 import { WelcomeModal } from "@/components/ui/WelcomeModal";
 import { UserProvider, useUser } from "@/components/state/UserContext";
 import { setApiUsername } from "@/services/api";
@@ -61,6 +61,13 @@ const Inner: React.FC = () => {
 
   return (
     <div className={styles.app}>
+      <div className={styles.topBar}>
+        <span className={styles.brand} aria-hidden="true">
+          🐍
+        </span>
+        <ThemeToggle />
+      </div>
+
       <div className={styles.home}>
         <div className={styles.hero}>
           <h1 className={styles.heroTitle}>Python Interview Assistant</h1>

@@ -1,38 +1,56 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.75);
+  background: var(--overlay);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
+  overflow-y: auto;
+  animation: fadeIn 0.2s ease;
+}
+
+.themeSlot {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
 }
 
 .modal {
-  background: #ffffff;
-  border-radius: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   padding: 2rem;
   max-width: 480px;
   width: 100%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-lg);
+  animation: scaleIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.logo {
+  display: inline-block;
+  font-size: 2rem;
+  line-height: 1;
+  margin-bottom: 0.75rem;
 }
 
 .title {
   margin: 0 0 0.5rem 0;
   font-size: 1.5rem;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .subtitle {
   margin: 0 0 1rem 0;
-  color: #475569;
+  color: var(--muted);
   font-size: 1rem;
 }
 
 .description {
   margin: 0 0 1.5rem 0;
-  color: #334155;
+  color: var(--text-soft);
   line-height: 1.5;
   font-size: 0.95rem;
 }
@@ -46,22 +64,25 @@
 
 .label {
   font-size: 0.9rem;
-  color: #1e293b;
-  font-weight: 500;
+  color: var(--text);
+  font-weight: 600;
 }
 
 .input {
   padding: 0.75rem 1rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 1rem;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .submit {
@@ -69,7 +90,7 @@
 }
 
 .error {
-  color: #dc2626;
+  color: var(--danger);
   font-size: 0.85rem;
   margin: 0;
 }
@@ -77,5 +98,25 @@
 .hint {
   margin: 0;
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--muted);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }

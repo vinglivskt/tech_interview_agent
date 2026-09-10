@@ -28,6 +28,7 @@ export const QuizContainer: React.FC<Props> = ({ onBack }) => {
           onLevelChange={quiz.setLevel}
           onStart={quiz.startQuiz}
           isLoading={quiz.isLoading}
+          error={quiz.error}
           onBack={handleBack}
           onShowStats={statsButton}
         />
@@ -42,6 +43,7 @@ export const QuizContainer: React.FC<Props> = ({ onBack }) => {
           onBack={handleBack}
           onShowStats={statsButton}
           isLoading={quiz.isLoading}
+          error={quiz.error}
         />
       ) : null;
     case "results":

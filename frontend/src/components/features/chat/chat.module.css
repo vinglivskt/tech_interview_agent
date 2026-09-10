@@ -1,128 +1,211 @@
 .container {
-    max-width: 720px;
-    margin: 0 auto;
+  max-width: 720px;
+  margin: 0 auto;
+  animation: fadeInUp 0.28s ease;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
 }
 
 .questionCard {
-    margin-top: 1rem;
-    padding: 1rem 1.1rem;
-    border-radius: 10px;
-    border: 1px solid var(--accent);
-    background: rgba(59, 130, 246, 0.08);
+  margin-top: 1rem;
+  padding: 1.1rem 1.2rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--accent-border);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-sm);
+  animation: fadeInUp 0.28s ease;
 }
 
 .questionBadge {
-    display: inline-block;
-    font-weight: 700;
-    font-size: 0.85rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 6px;
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    background: rgba(59, 130, 246, 0.12);
-    margin-bottom: 0.5rem;
+  display: inline-block;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  padding: 0.25rem 0.55rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-badge-bg);
+  margin-bottom: 0.5rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .questionText {
-    font-size: 1rem;
-    line-height: 1.6;
-    margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0;
+  color: var(--text);
 }
 
 .label {
-    display: block;
-    font-size: 0.8rem;
-    color: var(--muted);
-    margin-bottom: 0.4rem;
-    margin-top: 1rem;
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+  margin-top: 1rem;
+  letter-spacing: 0.01em;
 }
 
 .textarea {
-    width: 100%;
-    padding: 0.75rem 0.85rem;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--panel);
-    color: var(--text);
-    font-size: 0.95rem;
-    resize: vertical;
-    font-family: inherit;
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
 }
 
 .textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .row {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-    margin-top: 0.85rem;
-    flex-wrap: wrap;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.85rem;
+  flex-wrap: wrap;
 }
 
 .status {
-    color: var(--muted);
-    font-size: 0.85rem;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .output {
-    margin-top: 1.25rem;
-    padding: 1rem 1.1rem;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--panel);
-    min-height: 4rem;
-    font-size: 0.95rem;
-    line-height: 1.6;
-    /* Чтобы длинный текст / ссылки / блоки кода не разрывали вёрстку */
-    overflow-wrap: anywhere;
-    word-break: break-word;
+  margin-top: 1.25rem;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  min-height: 4rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .output > pre,
 .output > code,
 .output pre,
 .output code {
-    max-width: 100%;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-break: break-word;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .output.empty {
-    color: var(--muted);
+  color: var(--muted);
 }
 
 .output.error {
-    color: var(--err);
+  color: var(--danger);
 }
 
 .saveBtn {
-    margin-top: 0.75rem;
-    background: linear-gradient(180deg, #10b981, #059669);
+  margin-top: 0.75rem;
+  background: linear-gradient(180deg, var(--success), var(--success-hover));
 }
 
 .saveStatus {
-    margin-top: 0.5rem;
-    font-size: 0.82rem;
-    color: var(--success);
-    display: none;
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--success);
+  font-weight: 500;
+  display: none;
 }
 
 .saveStatus.visible {
-    display: block;
+  display: block;
 }
 
 .saveStatus.error {
-    color: var(--err);
+  color: var(--danger);
 }
 
 .meta {
-    margin-top: 0.6rem;
-    font-size: 0.78rem;
-    color: var(--muted);
-    font-family: ui-monospace, monospace;
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.customHelp {
+  margin: 0 0 0.75rem;
+}
+
+.questionLoading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.questionLoading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.questionSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.questionSkeleton span {
+  display: block;
+  height: 0.85em;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--border) 25%, var(--bg-soft) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+.questionSkeleton span:nth-child(1) {
+  width: 92%;
+}
+
+.questionSkeleton span:nth-child(2) {
+  width: 78%;
+}
+
+.questionSkeleton span:nth-child(3) {
+  width: 58%;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

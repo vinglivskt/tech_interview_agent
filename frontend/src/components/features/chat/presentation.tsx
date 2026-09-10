@@ -40,7 +40,7 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
     <div className={styles.container}>
       <FeatureHeader onBack={onBack} title="Интервью" right={statsButton} />
 
-      <p className={styles.subtitle} style={{ color: "var(--muted)", marginBottom: "1rem" }}>
+      <p className={styles.subtitle}>
         Вверху — текущий вопрос. Ниже — поле для вашего ответа и результаты проверки.
       </p>
 
@@ -49,7 +49,7 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
         <div className={styles.questionCard}>
           <div className={styles.questionBadge}>Свой вопрос</div>
           <div className={styles.questionText}>
-            <p style={{ marginBottom: "0.75rem" }}>
+            <p className={styles.customHelp}>
               Введите свой вопрос. Если он есть в базе — получите ответ из RAG. Если нет — ассистент ответит на основе
               своих знаний, и вы сможете сохранить вопрос в документ.
             </p>
@@ -63,11 +63,18 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
             className={styles.textarea}
             value={customQuestion}
             onChange={(e) => onCustomQuestionChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                if (customQuestion.trim() && !isLoading) onSubmitCustomQuestion();
+              }
+            }}
             placeholder="Например: Какие типы тестов вы бы использовали для каждого слоя архитектуры?"
             disabled={isLoading}
+            maxLength={4000}
           />
 
-          <div className={styles.row} style={{ marginTop: "0.75rem" }}>
+          <div className={styles.row}>
             <Button onClick={onSubmitCustomQuestion} disabled={!customQuestion.trim() || isLoading} loading={isLoading}>
               Получить ответ
             </Button>
@@ -84,7 +91,14 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
             {questionText ? (
               <Markdown content={questionText} />
             ) : isLoading ? (
-              "Загружаем вопрос…"
+              <div className={styles.questionLoading}>
+              <div className={styles.questionSkeleton} aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </div>
+              <p>Загружаем вопрос…</p>
+            </div>
             ) : error ? (
               `Не удалось загрузить вопрос: ${error}`
             ) : (
@@ -96,14 +110,14 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
 
       {/* Подсказка, что можно сохранить вопрос в docx */}
       {suggestSave && answer && (
-        <div className={styles.saveStatus} style={{ marginBottom: "0.75rem" }}>
+        <div className={styles.saveStatus}>
           💡 Этого вопроса нет в базе. Сохраните его в Word, чтобы он попал в RAG для будущих тренировок.
         </div>
       )}
 
       {/* Кнопка «Задать свой вопрос» — только когда НЕ в режиме custom */}
       {!isCustomMode && (
-        <div className={styles.row} style={{ marginTop: "0.75rem" }}>
+        <div className={styles.row}>
           <Button variant="secondary" onClick={onEnterCustomMode} disabled={isLoading}>
             Задать свой вопрос
           </Button>
@@ -124,18 +138,21 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
             onKeyDown={handleKeyDown}
             placeholder="Ваш ответ… (Ctrl/Cmd+Enter — отправить)"
             disabled={isLoading}
+            maxLength={8000}
           />
 
           <div className={styles.row}>
             <Button onClick={onSend} disabled={isLoading || !isQuestionReady || !userAnswer.trim()} loading={isLoading}>
               Отправить
             </Button>
-            <span className={styles.status}>{statusText}</span>
+            <span className={styles.status} aria-live="polite">
+              {statusText}
+            </span>
           </div>
         </>
       )}
 
-      <div className={`${styles.output} ${isAnswerEmpty ? styles.empty : ""} ${error ? styles.error : ""}`}>
+      <div className={`${styles.output} ${isAnswerEmpty ? styles.empty : ""} ${error ? styles.error : ""}`} role="status">
         {error ? (
           <Markdown content={`Ошибка: ${error}`} />
         ) : answer ? (
@@ -162,7 +179,14 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
       </div>
 
       {saveStatus && (
-        <div className={`${styles.saveStatus} ${saveStatus.startsWith("❌") ? styles.error : ""}`}>{saveStatus}</div>
+        <div
+          className={`${styles.saveStatus} ${styles.visible} ${
+            saveStatus.startsWith("❌") ? styles.error : ""
+          }`}
+          role="status"
+        >
+          {saveStatus}
+        </div>
       )}
     </div>
   );

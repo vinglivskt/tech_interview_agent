@@ -1,218 +1,351 @@
 .container {
-    max-width: 720px;
-    margin: 0 auto;
+  max-width: 720px;
+  margin: 0 auto;
+  animation: fadeInUp 0.28s ease;
 }
 
 .subtitle {
-    color: var(--muted);
-    font-size: 0.9rem;
-    margin-bottom: 1.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
 }
 
 .setupCard {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  animation: fadeInUp 0.3s ease;
 }
 
 .section {
-    margin-bottom: 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
-.levelGrid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.75rem;
-    margin-top: 0.75rem;
-}
-
-.levelCard {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1rem;
-    cursor: pointer;
-    transition: border-color 0.2s;
-    text-align: center;
-}
-
-.levelCard:hover {
-    border-color: var(--accent);
-}
-
-.levelCard.selected {
-    border-color: var(--accent);
-    background: rgba(59, 130, 246, 0.1);
-}
-
-.levelCard h3 {
-    margin: 0 0 0.25rem;
-    font-size: 1rem;
-}
-
-.levelCard p {
-    margin: 0;
-    font-size: 0.78rem;
-    color: var(--muted);
+.label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+  margin-top: 1rem;
+  letter-spacing: 0.01em;
 }
 
 .select {
-    width: 100%;
-    padding: 0.75rem 0.85rem;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--panel);
-    color: var(--text);
-    font-size: 0.95rem;
-    margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 2.25rem 0.75rem 0.85rem;
+  min-height: 44px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+  margin-top: 0.3rem;
+  appearance: none;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
 }
 
 .select:focus {
-    outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.levelGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.levelCard {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  text-align: center;
+}
+
+.levelCard:hover {
+  border-color: var(--accent-border);
+  transform: translateY(-1px);
+}
+
+.levelCard.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-sm);
+}
+
+.levelCard h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.levelCard p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 
 .progressBar {
-    margin-top: 1rem;
-    height: 6px;
-    background: var(--border);
-    border-radius: 3px;
-    overflow: hidden;
+  margin-top: 1rem;
+  height: 8px;
+  background: var(--border);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
 }
 
 .progressBarFill {
-    height: 100%;
-    background: var(--accent);
-    transition: width 0.3s ease;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+  background-size: 200% 100%;
+  transition:
+    width 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s ease;
 }
 
 .questionCard {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-top: 1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-top: 1rem;
+  box-shadow: var(--shadow-sm);
+  animation: fadeInUp 0.28s ease;
 }
 
 .questionBadge {
-    display: inline-block;
-    font-weight: 700;
-    font-size: 0.85rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 6px;
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    background: rgba(59, 130, 246, 0.12);
-    margin-bottom: 0.75rem;
+  display: inline-block;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  padding: 0.25rem 0.55rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-badge-bg);
+  margin-bottom: 0.75rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .questionText {
-    font-size: 1.05rem;
-    font-weight: 500;
-    margin: 0 0 1rem;
-    line-height: 1.5;
+  font-size: 1.05rem;
+  font-weight: 500;
+  margin: 0 0 1rem;
+  line-height: 1.5;
+  color: var(--text);
 }
 
 .options {
-    margin-top: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
 .option {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
-    padding: 0.75rem 1rem;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    cursor: pointer;
-    transition: border-color 0.15s;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .option:hover {
-    border-color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-sm);
+}
+
+.option:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .option.selected {
-    border-color: var(--accent);
-    background: rgba(59, 130, 246, 0.1);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-sm);
 }
 
-.option input {
-    margin-top: 0.2rem;
+.optionLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
 }
 
-.option label {
-    margin: 0;
-    font-size: 0.9rem;
-    color: var(--text);
-    cursor: pointer;
+.optionLabel input {
+  margin-top: 0;
+  accent-color: var(--accent);
+  width: 18px;
+  height: 18px;
+  flex: none;
+  cursor: pointer;
 }
 
 .resultsCard {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-top: 1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-top: 1rem;
+  box-shadow: var(--shadow-sm);
+  animation: fadeInUp 0.3s ease;
+}
+
+.rowSpacing {
+  margin-top: 1rem;
+}
+
+.sectionTitle {
+  margin: 1.5rem 0 1rem;
+  font-size: 1.1rem;
 }
 
 .resultsScore {
-    text-align: center;
-    padding: 2rem 1rem;
+  text-align: center;
+  padding: 2rem 1rem;
 }
 
 .bigScore {
-    font-size: 3rem;
-    font-weight: 700;
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .levelBadge {
-    font-size: 1.2rem;
-    margin-top: 0.5rem;
+  font-size: 1.2rem;
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-weight: 600;
 }
 
 .resultsList {
-    margin-top: 1rem;
+  margin-top: 1rem;
 }
 
 .resultItem {
-    margin-top: 1rem;
-    padding: 1rem;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--bg);
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
 }
 
 .resultItem.correct {
-    border-left: 4px solid var(--success);
+  border-left: 4px solid var(--success);
 }
 
 .resultItem.wrong {
-    border-left: 4px solid var(--err);
+  border-left: 4px solid var(--danger);
 }
 
 .resultItem h4 {
-    margin: 0 0 0.5rem;
-    font-size: 0.95rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  color: var(--text);
 }
 
 .resultItem p {
-    margin: 0.3rem 0;
-    font-size: 0.85rem;
+  margin: 0.3rem 0;
+  font-size: 0.85rem;
+  color: var(--text-soft);
 }
 
 .resultItem .label {
-    color: var(--muted);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin: 0;
 }
 
 .resultsActions {
-    display: flex;
-    gap: 0.75rem;
-    margin-top: 1.5rem;
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.error {
+  color: var(--danger-text);
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-border, var(--danger));
+  font-size: 0.9rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .progressBarFill {
+    animation: shimmer 2.4s linear infinite;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

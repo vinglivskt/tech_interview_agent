@@ -63,7 +63,6 @@ export function useDesign() {
       setView("question");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка запуска");
-      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +76,7 @@ export function useDesign() {
       const data = await designApi.getHint(sessionId, step.id);
       setHint(`**Подсказка (штраф ${data.penalty_applied_percent}%):** ${data.hint}`);
     } catch (err) {
-      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+      setError(err instanceof Error ? err.message : "Не удалось получить подсказку");
     } finally {
       setIsLoading(false);
     }
@@ -103,7 +102,7 @@ export function useDesign() {
         setView("answer");
       }
     } catch (err) {
-      alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+      setError(err instanceof Error ? err.message : "Ошибка отправки ответа");
       // Возвращаем пользователя к шагу, чтобы он мог попробовать ещё раз.
       setView("question");
     } finally {
@@ -121,7 +120,7 @@ export function useDesign() {
           setResults(resultsData);
           setView("results");
         } catch (err) {
-          alert("Ошибка: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+          setError(err instanceof Error ? err.message : "Не удалось загрузить результаты");
         }
       }
       return;

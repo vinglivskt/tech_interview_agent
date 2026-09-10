@@ -1,5 +1,5 @@
 import React from "react";
-import { Button } from "@/components/ui";
+import { Button, ThemeToggle } from "@/components/ui";
 import styles from "./FeatureHeader.module.css";
 
 interface Props {
@@ -11,23 +11,20 @@ interface Props {
   right?: React.ReactNode;
 }
 
-/**
- * Единый хедер для всех фич: кнопка "← На главную" слева,
- * опциональный заголовок/прогресс в центре, слот для доп. кнопок справа.
- *
- * Заменяет копипасту <header className={styles.header}>...</header>
- * в quiz/sobes/design/chat. Локальные CSS-переменные хедера (.header, .title,
- * .progress) помечены как deprecated — мигрируйте на FeatureHeader.
- */
 export const FeatureHeader: React.FC<Props> = ({ onBack, title, center, right }) => {
   return (
     <header className={styles.header}>
       <Button variant="secondary" onClick={onBack}>
         ← На главную
       </Button>
-      {title && <h1 className={styles.title}>{title}</h1>}
-      {center && <div className={styles.center}>{center}</div>}
-      {right && <div className={styles.right}>{right}</div>}
+      <div className={styles.middle}>
+        {title && <h1 className={styles.title}>{title}</h1>}
+        {center && <div className={styles.center}>{center}</div>}
+      </div>
+      <div className={styles.right}>
+        <ThemeToggle />
+        {right}
+      </div>
     </header>
   );
 };

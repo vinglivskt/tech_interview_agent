@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Button } from "@/components/ui";
+import { Button, ThemeToggle } from "@/components/ui";
 import { statsApi, type StatsBreakdown } from "@/services/api";
 import styles from "./StatsView.module.css";
 
@@ -67,6 +67,9 @@ export const StatsView: React.FC<StatsViewProps> = ({ mode, onBack, title }) => 
           ← Назад
         </Button>
         <h1 className={styles.title}>📊 Статистика ответов — {heading}</h1>
+        <div className={styles.themeSlot}>
+          <ThemeToggle />
+        </div>
       </header>
 
       {me && (

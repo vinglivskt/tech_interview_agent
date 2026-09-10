@@ -45,6 +45,7 @@ export const DesignContainer: React.FC<Props> = ({ onBack }) => {
           userAnswer={design.userAnswer}
           hint={design.hint}
           isLoading={design.isLoading}
+          error={design.error}
           onAnswerChange={design.setUserAnswer}
           onSubmit={design.submitAnswer}
           onGetHint={design.getHint}

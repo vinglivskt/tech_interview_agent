@@ -34,7 +34,10 @@ export const SobesSetupView: React.FC<{
     return (
       <div className={styles.container}>
         <FeatureHeader onBack={onBack} right={onShowStats} />
-        <div className={styles.loadingContainer}>Загрузка конфигурации...</div>
+        <div className={styles.loadingContainer}>
+          <span className={styles.spinnerDots} aria-hidden="true" />
+          <p>Загрузка конфигурации...</p>
+        </div>
       </div>
     );
   }
@@ -68,29 +71,44 @@ export const SobesSetupView: React.FC<{
           <option value="senior">Senior</option>
         </select>
 
-        <div className={styles.section} style={{ marginTop: "0.9rem" }}>
+        <div className={styles.section}>
           <label>Темы</label>
-          <div className={styles.topicsGrid}>
-            {config.topics.map((topic) => (
-              <div
-                key={topic}
-                className={`${styles.topicCard} ${selectedTopics.includes(topic) ? styles.selected : ""}`}
-                onClick={() => onTopicToggle(topic)}
-              >
-                <span className={styles.topicCheck}>{selectedTopics.includes(topic) ? "✓" : ""}</span>
-                <span>{topic}</span>
-              </div>
-            ))}
-          </div>
+          {config.topics.length === 0 ? (
+            <p className={styles.noTopics}>Нет доступных тем. Попробуйте позже.</p>
+          ) : (
+            <div className={styles.topicsGrid}>
+              {config.topics.map((topic) => (
+                <div
+                  key={topic}
+                  className={`${styles.topicCard} ${selectedTopics.includes(topic) ? styles.selected : ""}`}
+                  onClick={() => onTopicToggle(topic)}
+                  role="checkbox"
+                  aria-checked={selectedTopics.includes(topic)}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onTopicToggle(topic);
+                    }
+                  }}
+                >
+                  <span className={styles.topicCheck} aria-hidden="true">
+                    {selectedTopics.includes(topic) ? "✓" : ""}
+                  </span>
+                  <span>{topic}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div className={styles.meta}>
             Вопросов: junior {rng("junior")}, middle {rng("middle")}, senior {rng("senior")}. Порог засчёта:{" "}
             {config.pass_threshold}%
           </div>
         </div>
 
-        {error && <div className={styles.error}>{error}</div>}
+        {error && <div className={styles.error} role="alert">{error}</div>}
 
-        <div className={styles.row} style={{ marginTop: "1rem" }}>
+        <div className={styles.row}>
           <Button
             variant="success"
             onClick={onStart}
@@ -118,6 +136,7 @@ export const SobesQuestionView: React.FC<{
   totalPlanned: number;
   userAnswer: string;
   isLoading: boolean;
+  error?: string | null;
   onAnswerChange: (value: string) => void;
   onSubmit: () => void;
   onSkip: () => void;
@@ -130,6 +149,7 @@ export const SobesQuestionView: React.FC<{
   totalPlanned,
   userAnswer,
   isLoading,
+  error,
   onAnswerChange,
   onSubmit,
   onSkip,
@@ -141,6 +161,13 @@ export const SobesQuestionView: React.FC<{
     ? Math.max(0, Math.min(100, Math.round(((questionIndex - 1) / totalPlanned) * 100)))
     : 0;
   const levelNames: Record<string, string> = { junior: "Junior", middle: "Middle", senior: "Senior" };
+
+  const handleAnswerKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (userAnswer.trim() && !isLoading) onSubmit();
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -169,13 +196,22 @@ export const SobesQuestionView: React.FC<{
         <label className={styles.label} htmlFor="sobes-answer">
           Ваш ответ
         </label>
+
+        {error && (
+          <div className={styles.error} role="alert">
+            {error}
+          </div>
+        )}
+
         <textarea
           id="sobes-answer"
           className={styles.textarea}
           value={userAnswer}
           onChange={(e) => onAnswerChange(e.target.value)}
+          onKeyDown={handleAnswerKeyDown}
           placeholder="Ваш ответ… (Ctrl/Cmd+Enter — отправить)"
           disabled={isLoading}
+          maxLength={8000}
         />
 
         <div className={styles.actions}>
@@ -252,7 +288,7 @@ export const SobesAnswerView: React.FC<{
           </div>
         )}
 
-        <div className={styles.row} style={{ marginTop: "1.5rem" }}>
+        <div className={`${styles.row} ${styles.rowActions}`}>
           <Button onClick={onNext}>{answer.is_last ? "Посмотреть результаты →" : "Следующий вопрос →"}</Button>
         </div>
       </div>
@@ -286,7 +322,7 @@ export const SobesResultsView: React.FC<{
           {summaryText} — Вердикт: {results.verdict_level}
         </div>
 
-        <h2 style={{ marginTop: "1rem", fontSize: "1.1rem" }}>Сильные и слабые стороны</h2>
+        <h2 className={styles.sectionTitle}>Сильные и слабые стороны</h2>
         <div className={styles.feedbackSection}>
           <strong>Сильные:</strong> {results.strengths.join(", ") || "—"}
         </div>
@@ -294,7 +330,7 @@ export const SobesResultsView: React.FC<{
           <strong>Слабые:</strong> {results.weaknesses.join(", ") || "—"}
         </div>
 
-        <h2 style={{ marginTop: "1rem", fontSize: "1.1rem" }}>Детали</h2>
+        <h2 className={styles.sectionTitle}>Детали</h2>
         <div className={styles.resultsList}>
           {results.details.map((d, idx) => (
             <div key={idx} className={styles.resultItem}>
