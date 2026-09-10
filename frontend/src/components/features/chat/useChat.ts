@@ -59,9 +59,12 @@ export function useChat() {
   });
 
   const hasLoadedQuestion = useRef(false);
+  const loadSeqRef = useRef(0);
 
   const loadRandomQuestion = useCallback(async () => {
     if (hasLoadedQuestion.current && state.questionText && !state.isCustomMode) return;
+
+    const seq = ++loadSeqRef.current;
 
     setState((prev) => ({
       ...prev,
@@ -75,6 +78,8 @@ export function useChat() {
 
     try {
       const data = await chatApi.getRandomQuestion();
+      // Устаревший ответ (напр. двойной вызов в StrictMode) — игнорируем.
+      if (seq !== loadSeqRef.current) return;
       hasLoadedQuestion.current = true;
       setState((prev) => ({
         ...prev,
@@ -86,6 +91,7 @@ export function useChat() {
         isCustomMode: false,
       }));
     } catch (err) {
+      if (seq !== loadSeqRef.current) return;
       setState((prev) => ({
         ...prev,
         isLoading: false,
