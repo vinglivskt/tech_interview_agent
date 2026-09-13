@@ -29,6 +29,7 @@ from src.features.chat.domain.services import SessionStore
 from src.features.chat.infrastructure.qdrant import QdrantService
 from src.features.chat.providers.ollama import OllamaClient
 from src.features.design.api.router import router as design_router
+from src.features.design.domain.graph import create_design_checkpointer
 from src.features.quiz.api.router import router as quiz_router
 from src.features.sobes.api.router import router as sobes_router
 from src.features.stats.api.router import router as stats_router
@@ -73,6 +74,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         max_messages_per_session=settings.session_history_limit,
         ttl_seconds=60 * 60 * 12,
     )
+
+    # LangGraph-чекпоинтер режима «Системный дизайн» (postgres с фолбэком на memory)
+    try:
+        design_checkpointer, design_checkpointer_close = await create_design_checkpointer(settings)
+    except Exception:
+        logger.exception("Не удалось создать чекпоинтер дизайна")
+        from langgraph.checkpoint.memory import MemorySaver
+
+        design_checkpointer, design_checkpointer_close = MemorySaver(), None
+    app.state.design_checkpointer = design_checkpointer
 
     stop = asyncio.Event()
 
@@ -120,6 +131,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     await qdrant.close()
     await llm.close()
+    if design_checkpointer_close is not None:
+        try:
+            await design_checkpointer_close()
+        except Exception:
+            logger.exception("Ошибка при закрытии чекпоинтера дизайна")
     await dispose_engine()
 
 

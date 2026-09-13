@@ -231,6 +231,8 @@ tech_interview_agent/
 | `DESIGN_MAX_EXPLANATION_LEN` | `600` | Макс. длина объяснения дизайн-интервью |
 | `DESIGN_RAG_TOP_K` | `4` | Сколько фрагментов RAG подмешивать в оценку |
 | `DESIGN_MAX_TOKENS` | `800` | Макс. токенов при оценке дизайна |
+| `DESIGN_CHECKPOINTER` | `postgres` | Тип чекпоинтера LangGraph: `postgres` (персистентный) или `memory` (в памяти процесса) |
+| `DESIGN_GRAPH_MAX_CACHE` | `64` | Макс. число компилированных графов сценариев, держимых в кэше сервиса |
 | `CORS_ALLOW_ORIGINS` | `http://localhost:8000,http://127.0.0.1:8000` | Разрешённые origin (через запятую или `*`) |
 
 ---
@@ -287,6 +289,19 @@ LLM-промпты хранятся в `backend/prompts/` в формате Mark
 - **Детальные сценарии** из `scenarios.yaml` используют свои явные `steps`.
 
 Шаги генерируются с учётом контекста карточки: `topics` подставляются в HLA, `constraints` — в датамодель, `baseline_load` — в блок масштабирования.
+
+### Выполнение на LangGraph
+
+Каждый шаг сценария — нода `StateGraph`; нода «замирает» на `interrupt()`, пока
+`POST /api/design/answer` не вернёт ответ кандидата (`thread_id = session_id`).
+Состояние интервью хранится в **чекпоинтере** (`DESIGN_CHECKPOINTER`):
+
+- `postgres` (по умолчанию) — `AsyncPostgresSaver`: состояние переживает рестарт API,
+  сессию можно продолжить из `session_id`;
+- `memory` — `MemorySaver` в рамках процесса (фолбэк при недоступной PostgreSQL).
+
+Логика скоринга, ретраи невалидного JSON и штраф за подсказку сохранены;
+API-контракт `/api/design/*` не изменился.
 
 ---
 

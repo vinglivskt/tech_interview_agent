@@ -6,6 +6,7 @@ RAG по файлу ``.docx`` (вопросы/ответы), который пе
 """
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -180,6 +181,17 @@ class Settings(BaseSettings):
     )
     design_rag_top_k: int = Field(default=4, ge=1, le=20, description="Сколько фрагментов RAG подмешивать в оценку")
     design_max_tokens: int = Field(default=800, ge=1)
+    design_checkpointer: Literal["memory", "postgres"] = Field(
+        default="postgres",
+        description=(
+            "Тип чекпоинтера LangGraph для режима «Системный дизайн»: "
+            "`memory` — в памяти процесса; `postgres` — персистентный (интервью переживает рестарт API). "
+            "При недоступной БД выполняется безопасный фолбэк на memory."
+        ),
+    )
+    design_graph_max_cache: int = Field(
+        default=64, ge=1, description="Макс. число компилированных графов сценариев, держимых в кэше сервиса"
+    )
 
     @field_validator(
         "ollama_url",
