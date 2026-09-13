@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from src.core.config import Settings
+from src.core.langsmith import make_traced_generate
 
 
 class OllamaClient:
@@ -25,6 +26,13 @@ class OllamaClient:
         )
         # Кешируем рабочий endpoint после первого успешного вызова
         self._embed_endpoint: tuple[str, str, str] | None = None
+        # LangSmith-обёртка фактического вызова (None = трассировка выключена)
+        self._traced_generate = make_traced_generate(
+            self._raw_generate,
+            settings=settings,
+            base_metadata={"provider": "ollama", "model": self._model},
+            base_tags=["llm"],
+        )
 
     async def close(self) -> None:
         """
@@ -43,7 +51,7 @@ class OllamaClient:
         except Exception:
             return False
 
-    async def generate(
+    async def _raw_generate(
         self,
         messages: list[dict[str, str]],
         *,
@@ -51,20 +59,7 @@ class OllamaClient:
         max_tokens: int | None = None,
         **kwargs: Any,
     ) -> str:
-        """
-        Генерирует ответ LLM через Ollama API.
-        :param messages: список сообщений (OpenAI-формат)
-        :param temperature: температура генерации
-        :param max_tokens: максимальное число токенов
-        :return: сгенерированный текст
-        """
-        """Генерация ответа LLM через Ollama API.
-
-        Ожидает список сообщений в формате OpenAI:
-            [{"role": "system", "content": "..."},
-             {"role": "user", "content": "..."},
-             ...]
-        """
+        """Фактический вызов Ollama API (сборка payload и HTTP)."""
         payload: dict[str, Any] = {
             "model": self._model,
             "stream": False,
@@ -79,6 +74,45 @@ class OllamaClient:
         resp = await self._http.post("/api/chat", json=payload)
         resp.raise_for_status()
         return resp.json()["message"]["content"]
+
+    async def generate(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        metadata: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
+        **kwargs: Any,
+    ) -> str:
+        """
+        Генерирует ответ LLM через Ollama API.
+
+        Ожидает список сообщений в формате OpenAI:
+            [{"role": "system", "content": "..."},
+             {"role": "user", "content": "..."},
+             ...]
+
+        ``metadata``/``tags`` — контекст для трассировки LangSmith (фича, session_id
+        и т.п.). При выключенной трассировке игнорируются, поведение прежнее.
+        :return: сгенерированный текст
+        """
+        if self._traced_generate is not None:
+            from langsmith import tracing_context
+
+            with tracing_context(metadata=dict(metadata or {}), tags=list(tags or ())):
+                return await self._traced_generate(
+                    messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    **kwargs,
+                )
+        return await self._raw_generate(
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs,
+        )
 
     # --- Embedding methods (implements EmbeddingGateway) ---
     async def _detect_embed_endpoint(self) -> tuple[str, str, str]:

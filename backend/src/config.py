@@ -193,6 +193,20 @@ class Settings(BaseSettings):
         default=64, ge=1, description="Макс. число компилированных графов сценариев, держимых в кэше сервиса"
     )
 
+    # --- LangSmith (трассировка LLM-вызовов) ---
+    langsmith_tracing: bool = Field(
+        default=False,
+        description=(
+            "Включить трассировку всех LLM-вызовов в LangSmith. "
+            "Требует заданного LANGSMITH_API_KEY в окружении; при его отсутствии "
+            "трассировка автоматически отключается с предупреждением."
+        ),
+    )
+    langsmith_project: str = Field(
+        default="tech-interview-agent",
+        description="Имя проекта (namespace) в LangSmith для записи run-ов.",
+    )
+
     @field_validator(
         "ollama_url",
         "ollama_model",

@@ -73,7 +73,13 @@ async def generate_wrong_answers(
     ]
 
     try:
-        raw = await llm.generate(messages, temperature=0.8, max_tokens=300)
+        raw = await llm.generate(
+            messages,
+            temperature=0.8,
+            max_tokens=300,
+            metadata={"feature": "quiz", "kind": "wrong-answers"},
+            tags=["wrong-answers"],
+        )
         cleaned = raw.strip()
 
         # Убираем markdown-обёртку если есть

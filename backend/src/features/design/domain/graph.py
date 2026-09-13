@@ -192,6 +192,7 @@ async def score_step(
     hint_penalty: int,
     max_tokens: int,
     max_expl_len: int,
+    session_id: str | None = None,
 ) -> DesignGradedStep:
     """Оценивает один ответ кандидата через LLM.
 
@@ -237,6 +238,13 @@ covered_points:[str максимум 6], missed_points:[str максимум 6],
                 [{"role": "system", "content": system}, {"role": "user", "content": user}],
                 temperature=0.2,
                 max_tokens=max_tokens,
+                metadata={
+                    "feature": "design",
+                    "scenario_id": scenario.id,
+                    "step_id": step.id,
+                    **({"session_id": session_id} if session_id else {}),
+                },
+                tags=["scoring"],
             )
             try:
                 score, rubric, covered, missed, expl = parse_score(text, max_expl_len)
@@ -316,6 +324,7 @@ def make_step_node(
             hint_penalty=hint_penalty,
             max_tokens=max_tokens,
             max_expl_len=max_expl_len,
+            session_id=state.get("session_id"),
         )
 
         answered = state.get("idx", 0) + 1

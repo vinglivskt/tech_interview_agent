@@ -147,7 +147,13 @@ async def enrich_question(
     ]
 
     try:
-        raw = await llm.generate(messages, temperature=0.4, max_tokens=200)
+        raw = await llm.generate(
+            messages,
+            temperature=0.4,
+            max_tokens=200,
+            metadata={"feature": "quiz", "kind": "enricher"},
+            tags=["enricher"],
+        )
         cleaned = _clean_enriched_text(raw)
         if _is_sane_question(cleaned):
             logger.debug("Вопрос обогащён: '%s' -> '%s'", question, cleaned)

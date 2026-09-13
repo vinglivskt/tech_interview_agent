@@ -15,6 +15,8 @@ class LLMGateway(Protocol):
         *,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        metadata: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
         **kwargs: Any,
     ) -> str:
         """Генерация ответа LLM.
@@ -22,5 +24,7 @@ class LLMGateway(Protocol):
         * ``messages`` – список сообщений в формате OpenAI.
         * Параметры ``temperature``/``max_tokens`` и любые ``kwargs`` передаются
           конкретному провайдеру.
+        * ``metadata``/``tags`` – контекст для трассировки LangSmith (фича,
+          session_id и т.п.); при выключенной трассировке игнорируются.
         """
         ...

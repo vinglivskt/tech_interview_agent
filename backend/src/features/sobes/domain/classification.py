@@ -62,6 +62,8 @@ async def classify_batch(
                 {"role": "user", "content": user},
             ],
             temperature=0.1,
+            metadata={"feature": "sobes", "kind": "classification"},
+            tags=["classification"],
         )
         data = json.loads(text)
         out: list[ClassifiedQA] = []

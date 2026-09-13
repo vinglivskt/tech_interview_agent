@@ -82,6 +82,7 @@ async def score_free_answer(
     *,
     pass_threshold: int,
     max_expl_len: int,
+    metadata: dict[str, Any] | None = None,
 ) -> tuple[int, bool, str, list[str], list[str]]:
     """
     Оценивает свободный ответ пользователя через LLM.
@@ -109,6 +110,8 @@ async def score_free_answer(
             ],
             temperature=0.2,
             max_tokens=600,
+            metadata=metadata,
+            tags=["scoring"],
         )
         data: dict[str, Any] = json.loads(text)
         percent = int(max(0, min(100, int(data.get("score_percent", 0)))))

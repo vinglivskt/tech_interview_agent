@@ -134,6 +134,7 @@ async def run_chat(
     *,
     embedder: EmbeddingGateway | None = None,
     question_type: str = "answer",
+    metadata: dict[str, Any] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """
     Основная функция общения с ассистентом с использованием RAG.
@@ -246,7 +247,7 @@ async def run_chat(
         {"role": "user", "content": user_message.strip()},
     ]
 
-    text = (await llm.generate(messages)).strip()
+    text = (await llm.generate(messages, metadata=metadata, tags=["answer"])).strip()
 
     if _CJK_RE.search(text):
         messages.append(
@@ -255,7 +256,7 @@ async def run_chat(
                 "content": "Переформулируй предыдущий ответ полностью на русском языке без иностранных вставок.",
             }
         )
-        text = (await llm.generate(messages)).strip()
+        text = (await llm.generate(messages, metadata=metadata, tags=["rus-rewrite"])).strip()
 
     if selected_number is not None and "ответ №" not in text.lower():
         text = f"{text}\n\nИсточники: ответ №{selected_number}"
@@ -290,7 +291,7 @@ async def run_chat(
                     ),
                 },
             ]
-            verified = (await llm.generate(verify_messages)).strip()
+            verified = (await llm.generate(verify_messages, metadata=metadata, tags=["self-check"])).strip()
             # Берём проверенный ответ, только если он не сильно короче оригинала
             if verified and len(verified) >= len(text) * 0.5:
                 # Если LLM вернул только "всё ок" без ответа — оставляем оригинал

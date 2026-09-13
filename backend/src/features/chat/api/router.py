@@ -64,6 +64,7 @@ async def chat_endpoint(
         history,
         embedder=request.app.state.llm,  # EmbeddingGateway (OllamaClient implements embed)
         question_type=body.question_type,
+        metadata={"feature": "chat", "session_id": session_id, "question_type": body.question_type},
     )
 
     new_history = history + [

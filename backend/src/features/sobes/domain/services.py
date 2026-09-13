@@ -213,6 +213,12 @@ class SobesService:
             user_answer,
             pass_threshold=self._settings.sobes_pass_threshold_percent,
             max_expl_len=self._settings.sobes_max_explanation_len,
+            metadata={
+                "feature": "sobes",
+                "kind": "scoring",
+                "session_id": session_id,
+                "topic": cur.topic,
+            },
         )
 
         # записать результат

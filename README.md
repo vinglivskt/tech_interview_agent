@@ -235,6 +235,19 @@ tech_interview_agent/
 | `DESIGN_GRAPH_MAX_CACHE` | `64` | Макс. число компилированных графов сценариев, держимых в кэше сервиса |
 | `CORS_ALLOW_ORIGINS` | `http://localhost:8000,http://127.0.0.1:8000` | Разрешённые origin (через запятую или `*`) |
 
+### LangSmith (трассировка LLM-вызовов)
+
+Каждый вызов LLM (8 точек: чат, собеседование, квиз, системный дизайн) пишется в LangSmith
+как run с метаданными фичи и `session_id`, что делает правку промптов «видящей» (см.
+`plans/PLAN_LANGSMITH.md`). По умолчанию выключено — проект остаётся офлайн-first.
+
+| Переменная | Значение по умолчанию | Описание |
+|---|---|---|
+| `LANGSMITH_TRACING` | `false` | Включить трассировку всех LLM-вызовов |
+| `LANGSMITH_PROJECT` | `tech-interview-agent` | Имя проекта в LangSmith |
+| `LANGSMITH_API_KEY` | — | Ключ API (обязателен, если включена трассировка) |
+| `LANGSMITH_ENDPOINT` | — | Self-hosted LangSmith endpoint (например `http://localhost:1984`); без него — облачный LangSmith |
+
 ---
 
 ## Makefile
