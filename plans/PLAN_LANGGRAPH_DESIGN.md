@@ -70,6 +70,89 @@ class DesignGraphState(TypedDict, total=False):
 
 ---
 
+## 2.1 Как это работает простыми словами (с примером)
+
+Раньше шаг интервью хранился «в голове» сервера: `current_index` в in-memory словаре
+`DesignSessionStore`, и фронт каждый раз сам «знал», какой шаг следующий.
+
+Теперь само интервью — это **граф состояний** (LangGraph). Каждый шаг — отдельная
+«станция» (нода). Дойдя до станции, граф **замирает** (вызов `interrupt()`) и ждёт, пока
+кандидат ответит. Прислали ответ — граф «просыпается», оценивает ответ (тот же LLM‑скоринг
+с ретраями и штрафом за подсказку), записывает результат в состояние и едет на следующую
+станцию. Никто не «помнит», какой шаг был — состояние хранится в **чекпоинтере**
+(`thread_id = session_id`), а не в глобальном словаре.
+
+Всё состояние — это один объект, который видно целиком:
+
+```
+{
+  "session_id": "design_url-shortener_1a2b3c4d",
+  "scenario_id": "url-shortener",
+  "level": "junior",
+  "step_ids": ["clarify","hla","data","scale","api","tradeoffs"],
+  "idx": 2,                      # отвечено 2 шага → текущий = step_ids[2] = "data"
+  "answers": [ {...}, {...} ],   # результаты шагов
+  "hints": ["clarify"],          # подсказки, где были использованы
+  "last_result": { "score_percent": 80, "...": "..." }
+}
+```
+
+**Живой пример (обычная цепочка запросов):**
+
+```bash
+# 1. Начали интервью → граф доехал до первого interrupt()
+curl -X POST localhost:8000/api/design/start \
+  -H 'Content-Type: application/json' \
+  -d '{"level":"junior","scenario_id":"url-shortener"}'
+#   → 200
+#     session_id: "design_url-shortener_1a2b3c4d"
+#     step:       {"id":"clarify","title":"Уточнение требований", ...}
+#
+#     state: step_ids=[...6 шагов...], idx=0
+#            [clarify*]  ← граф «замер» тут (звёздочка = интерrupt)
+
+# 2. Ответили → граф проснулся, оценил, поехал дальше
+curl -X POST localhost:8000/api/design/answer \
+  -H 'Content-Type: application/json' \
+  -d '{"session_id":"design_url-shortener_1a2b3c4d",
+       "step_id":"clarify","user_answer":"Зафиксирую допущения..."}'
+#   → 200  { score_percent:80, rubric:{reqs:80,...,tradeoffs:50},
+#            next_step:{"id":"hla","title":"High-Level архитектура", ...},
+#            is_last:false, ... }
+#
+#     state: idx=1 → текущий стал step_ids[1] = "hla"
+#            [clarify] → [hla*]  ← снова «замер»
+
+# 3. Подсказка (если нужно)  → просто дописывает шаг в hints + return штраф
+curl -X POST localhost:8000/api/design/hint \
+  -H 'Content-Type: application/json' \
+  -d '{"session_id":"design_url-shortener_1a2b3c4d","step_id":"hla"}'
+#   → 200  { hint:"...", penalty_applied_percent:10 }
+#     state: hints=["hla"]  (на следующем ответе LLM-балл минус 10)
+
+# 4. И так до последнего шага tradeoffs → is_last:true, граф доезжает до END
+curl -X POST localhost:8000/api/design/answer \
+  -H 'Content-Type: application/json' \
+  -d '{"session_id":"design_url-shortener_1a2b3c4d",
+       "step_id":"tradeoffs","user_answer":"Компромиссы..."}'
+#   → 200 { score_percent:70, ..., is_last:true, next_step:null, ... }
+
+# 5. Итоги — просто читаем answers из состояния графа
+curl localhost:8000/api/design/results/design_url-shortener_1a2b3c4d
+#   → 200 { summary:{steps:6,passed:4,avg_percent:72}, verdict_level:"middle", ... }
+
+# 6. С `DESIGN_CHECKPOINTER=postgres` интервью переживает рестарт API:
+docker compose restart api
+curl localhost:8000/api/design/results/design_url-shortener_1a2b3c4d   # снова 200
+# и можно продолжить отвечать на тот же session_id — состояние из БД, а не из памяти.
+```
+
+Ключевое: **фронт и контракты `/api/design/*` не поменялись** — та же структура JSON, те же
+коды ошибок («Можно отвечать только на текущий шаг сценария» → 404). Изменилось только то,
+**где** хранится состояние шага (чекпоинтер графа вместо словаря в памяти процесса).
+
+---
+
 ## 3. Шаги внедрения
 
 ### Шаг 1. Зависимости (сделано)
@@ -114,7 +197,8 @@ uv add "langgraph>=0.2.60" "langgraph-checkpoint-postgres>=2.0.0"
   `next_step` строится из `scenario.steps[nxt]` через `format_step_info`.
 - `build_design_graph(scenario, settings, llm, checkpointer) -> CompiledStateGraph`:
   - для каждого шага — `add_node(step.id, make_step_node(...))`;
-  - `set_entry_point(step_ids[0])`, линейные `add_edge`/`add_conditional_edges` до END;
+  - `add_edge(START, steps[0].id)`, линейные `add_edge` между шагами и до END
+    (лесенка всегда линейная, поэтому `add_conditional_edges` не нужны);
   - `compile(checkpointer=checkpointer)`.
 - `DesignGradedStep` — dataclass-результат скоринга; плюс сборка DTO `last_result`.
 
@@ -134,8 +218,9 @@ uv add "langgraph>=0.2.60" "langgraph-checkpoint-postgres>=2.0.0"
   возвращает `(step.hint, penalty)`.
 - `results()`: читает `answers` из состояния; формулы средних/рубрики/вердикта —
   без изменений.
-- `_scenario_by_id_for_session` оставляем для роутера; внутренне переиспользует кэш.
-- `DesignSession`/`DesignSessionStore` **остаются** публічным дескриптором (тесты и роутер
+- `_scenario_by_id_for_session` удалён; для роутера добавлен `step_persist_context(session_id, step_id)`
+  (возвращает `{scenario_id, step_title, hint_used, level}` из состояния графа).
+- `DesignSession`/`DesignSessionStore` **остаются** публичным дескриптором (тесты и роутер
   их читают), но mutable-поля перестают быть источником истины.
 
 ### Шаг 5. Роутер — `backend/src/features/design/api/router.py`
@@ -149,10 +234,10 @@ uv add "langgraph>=0.2.60" "langgraph-checkpoint-postgres>=2.0.0"
   checkpointer = await create_design_checkpointer(settings)   # postgres или memory
   app.state.design_checkpointer = checkpointer
   ```
-- `create_design_checkpointer()`: при `design_checkpointer == "postgres"` и доступной БД —
-  `AsyncPostgresSaver.from_conn_string(dsn)` + `await saver.setup()`; при ошибке/флаге memory —
-  `MemorySaver()`. Возвращает вместе с `close()` для shutdown.
-- В `shutdown`: закрыть async-генератор Postgres-севера/пула.
+- `create_design_checkpointer()` → `(checkpointer, async_close)`: при
+  `design_checkpointer == "postgres"` и доступной БД — `AsyncPostgresSaver.from_conn_string(dsn)`
+  + `await saver.setup()`; при ошибке/флаге memory — `(MemorySaver(), None)`.
+- В `shutdown`: вызвать `async_close()` (закрывает async-генератор Postgres-севера/пула).
 
 ### Шаг 7. README (опционально, для консистентности)
 - Строка в разделе настроек: `DESIGN_CHECKPOINTER` (`memory|postgres`).
@@ -257,3 +342,44 @@ docker compose up --build          # + Ollama на хосте
 - [x] Регрессия 4.3, `make test` (158 passed)
 - [x] `make lint` (ruff: мои файлы чистые; пред-существующие замечания не трогали)
 - [x] README: `DESIGN_CHECKPOINTER`, `.env.example`
+
+---
+
+## 8. Итог внедрения — что реально сделано
+
+### 8.1 Файлы (изменено/создано)
+
+| Файл | Что сделано |
+|---|---|
+| `backend/src/features/design/domain/graph.py` | **новый модуль.** `DesignGraphState`, `DesignGradedStep`, `format_step_info`, `parse_score`, `score_step` (ретраи ≤3, штраф, деградация), `make_step_node` (нода с `interrupt()`), `build_design_graph` (линейные рёбра START→шаги→END, `compile(checkpointer=...)`), `create_design_checkpointer` (postgres с фолбэком на memory). |
+| `backend/src/features/design/domain/services.py` | `DesignService` стал фасадом над графом: `start` → `graph.ainvoke(initial, config)`; `answer` → `Command(resume=...)`; `hint` → `aupdate_state({"hints":[...]})`; `results` → читает `answers` из состояния. Добавлены `_graph_for` (кэш), `_session_state`, `_current_step_id`, `step_persist_context`. |
+| `backend/src/features/design/api/router.py` | фабрика `_service(request)` с `checkpointer=app.state.design_checkpointer`; persist-контекст для `persist_design_answer` берётся из `service.step_persist_context(...)`. |
+| `backend/src/main.py` | в lifespan создаётся `app.state.design_checkpointer` через `create_design_checkpointer(settings)`; на shutdown закрывается. |
+| `backend/src/core/config.py` | поля `design_checkpointer: Literal["memory","postgres"]="postgres"`, `design_graph_max_cache: int = 64`. |
+| `tests/unit/design/test_design_graph.py` | **новый** — 22 теста: `format_step_info`, `parse_score`, `score_step` (ретрай/штраф), полный граф-фло, `aupdate_state` подсказки, пустые шаги, фолбэк чекпоинтера. |
+| `tests/unit/design/test_design_service_graph.py` | **новый** — 12 тестов: start/answer/hint/results, 404-контракты, resume между двумя инстансами на одном чекпоинтере, `step_persist_context`. |
+| `README.md`, `.env.example` | документированы `DESIGN_CHECKPOINTER`, `DESIGN_GRAPH_MAX_CACHE`. |
+
+### 8.2 Отклонения от первоначального плана (осознанные)
+
+- **`session_id` теперь содержит scenario_id**: формат `design_{scenario_id}_{8 hex}`.
+  Нужно, чтобы после рестарта API (postgres-чекпоинтер, in-memory регистр сессий обнулился)
+  можно было восстановить сценарий из только `session_id` (`_scenario_id_from_session`).
+- **`_scenario_by_id_for_session` удалён** вместо «оставить для роутера». Роутер больше не
+  читает mutable `DesignSession`; для persist-пути добавлен граф-метод `step_persist_context(...)`,
+  который отдаёт `{scenario_id, step_title, hint_used, level}` из состояния графа.
+- **`create_design_checkpointer` возвращает кортеж** `(checkpointer, async_close)` — `AsyncPostgresSaver`
+  создаётся через `asynccontextmanager.from_conn_string`, поэтому те же `__aenter__/__aexit__` используются
+  и для закрытия пула на shutdown.
+- Старт графа — `add_edge(START, steps[0].id)` (не `set_entry_point`), линейные переходы
+  `add_edge(prev, nxt)` без `add_conditional_edges` — лесенка всегда линейная.
+- `DesignSessionStore` остался только как дескриптор для `start()`/роутера; источник истины
+  состояния — чекпоинтер графа.
+
+### 8.3 Как проверить руками (без docker)
+
+```bash
+make test                     # 158 passed (включая всю регрессию + 34 новых теста дизайна)
+uv run ruff check backend/src/features/design/ backend/src/core/config.py tests/unit/design/
+# → только пред-существующие замечания (SIM105 в main.py не из этого внедрения)
+```
