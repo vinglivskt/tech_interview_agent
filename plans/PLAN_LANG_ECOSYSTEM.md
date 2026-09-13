@@ -1,4 +1,4 @@
-# План: внедрение LangChain / LangGraph / LangFlow / LangSmith в tech_interview_agent
+# План: внедрение LangChain / LangGraph / LangSmith в tech_interview_agent
 
 > Документ анализирует текущую архитектуру проекта (FastAPI + Qdrant + Ollama + PostgreSQL)
 > и отвечает на вопрос: какая из четырёх технологий LangChain-экосистемы целесообразна,
