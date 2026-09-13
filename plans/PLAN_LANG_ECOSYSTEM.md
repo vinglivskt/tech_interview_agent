@@ -1,7 +1,7 @@
 # План: внедрение LangChain / LangGraph / LangSmith в tech_interview_agent
 
 > Документ анализирует текущую архитектуру проекта (FastAPI + Qdrant + Ollama + PostgreSQL)
-> и отвечает на вопрос: какая из четырёх технологий LangChain-экосистемы целесообразна,
+> и отвечает на вопрос: какая из технологий LangChain-экосистемы целесообразна,
 > что она даст конкретно нашему проекту, как и в каком порядке внедрять.
 
 ---
@@ -12,8 +12,11 @@
 |---|---|---|
 | **LangGraph** | ✅ Внедрять (приоритет №1) | Заменить ручные state-машины режимов **design** и **sobes** на граф с персистентным состоянием в PostgreSQL. Сессии переживают рестарт API. |
 | **LangSmith** | ✅ Внедрять (приоритет №2) | Трассировка всех LLM-вызовов + регрессионные эвалы для промптов. Сейчас правка промптов — «вслепую»: непонятно, как изменение влияет на скоринг. |
-| **LangChain** | ⚠️ Частично (точечно) | Только отдельные кирпичи: JSON-режим Ollama + structured output вместо ручных парсеров/ретраев, сплиттер вместо самописного `chunk_text`. Полная миграция — не нужна. |
-| **LangFlow** | ❌ Не использовать | Визуальный конструктор, не нужен ни как рантайм, ни как инструмент: проекту не подходит ни по архитектуре, ни по способу работы с промптами. |
+| **LangChain** | ⚠️ Частично (точечно) | Четыре конкретных сценария: (1) **structured output** вместо ручных JSON-парсеров/ретраев, (2) `ChatOllama` под нашим `LLMGateway` (usage-метрики для LangSmith), (3) **RecursiveCharacterTextSplitter** вместо самописного `chunk_text`, (4) загрузчики + `QdrantVectorStore` при расширении форматов базы. Полная миграция — не нужна. |
+
+> **Статус на текущий момент:** LangGraph (приоритет №1) и LangSmith (приоритет №2) уже
+> внедрены — см. `plans/PLAN_LANGGRAPH_DESIGN.md` и `plans/PLAN_LANGSMITH.md`. LangFlow
+> исключён из документа; ниже — детальный разбор сценариев LangChain.
 
 ---
 
@@ -179,75 +182,178 @@ async def _generate_traced(self, messages, **kw):
 
 ---
 
-## 5. LangChain — ⚠️ частично (точечно)
+## 5. LangChain — ⚠️ точечно, но с конкретными сценариями
 
-### Полная миграция — НЕ нужна
+### 5.1 Позиция: не миграция, а 4 точечных сценария
 
 Проект уже имеет собственные `LLMGateway`, `EmbeddingGateway`, `VectorStoreGateway`
 (`backend/src/core/interfaces/*`), рабочий `OllamaClient`, `QdrantService`, `chunk_text`.
-Заменять их на LangChain-эквиваленты ради абстракций — нет смысла: это новый незнакомый
-слой зависимостей при неизменной функциональности. Маленький проект — решать это можно.
+Заменять их на LangChain-эквиваленты ради абстракций — нет смысла: это новый слой
+зависимостей при неизменной функциональности.
 
-### Что из LangChain взять точечно — реальная польза
+Но есть **4 конкретных сценария**, где отдельный кирпич LangChain решает реальную боль.
+Ниже — по каждому: что болит, что взять, before/after, когда делать.
 
-**a) Structured output вместо ручных JSON-парсеров и ретраев (самое ценное).**
+### 5.2 Сценарий 1 — структурный вывод (structured output) вместо JSON-ретраев [приоритет]
 
-Сейчас `score_free_answer` (`sobes/domain/scoring.py:77-122`) и `_parse_score`
-(`design/domain/services.py:401-434`) делают хрупкий `json.loads` + ручные ретраи,
-а `classify_batch` — позиционный доступ `data[i]`. Model (qwen2.5:7b) поддерживает
-**JSON-режим Ollama** (`format: "json"`), что само по себе почти устраняет проблему парсинга.
+**Боль.** `score_free_answer` (`sobes/domain/scoring.py:77-122`), `parse_score`
+(`design/domain/graph.py:136-176`) и `classify_batch` (`sobes/domain/classification.py:38-89`)
+делают хрупкий `json.loads` + ручные ретраи + dict-валидацию. По сути мы переписываем
+`with_structured_output`, который в LangChain уже готов.
+
+**Два уровня решения:**
+
+**Уровень A — без LangChain (самый дешёвый).** Модель qwen2.5:7b поддерживает
+JSON-режим Ollama. Достаточно в `OllamaClient.generate` прокинуть `format: "json"`
+для скоринг-вызовов — модель гарантированно вернёт JSON, и ретраи почти перестают
+срабатывать:
 
 ```python
-# Сегодня: ретраи и json.loads вручную
-# Проще: включить JSON-режим в OllamaClient.generate (format="json")
-# и/или использовать pydantic-модель ответа вместо dict-валидации.
+# today: json.loads(raw) + try/except + 3 ретрая «верни только JSON»
+# проще: llm.generate(..., format="json") → payload["format"] = "json"
 ```
 
-Практический шаг без LangChain: расширить `OllamaClient.generate` ключом `format: "json"`
-для скоринг-вызовов — парсинг станет надёжнее, ретраи можно выкинуть. Если авторитетно
-нужен именно LangChain — использовать `with_structured_output(pydantic_structure)` из
-`langchain-ollama`, но для 2-3 точек это скорее роскошь.
+**Уровень B — через LangChain (`langchain-ollama`).** `with_structured_output(schema)`
+возвращает **уже валидированный pydantic-объект** — ретраи-петля не нужна, деградация
+в «0%» происходит реже:
 
-**b) Сплиттер** — `RecursiveCharacterTextSplitter` взамен самописного `chunk_text`
-(`chat/domain/vectorization.py`). Наша версия работает и покрыта тестами; замена даст
-настраиваемые сепараторы (абзацы/строки), но это низкоприоритетный «косметический» апгрейд.
+```python
+from langchain_ollama import ChatOllama
+from pydantic import BaseModel
 
-**c) Загрузчик docx / интеграция Qdrant** — встроенная `QdrantVectorStore` и docx-лоадеры
-заменяют `ingest.py` + `QdrantService`. Опять же, наш слой уже работает; миграция оправдана
-только если планируются другие форматы базы вопросов (pdf, html, разметка) — тогда единый
-интерфейс загрузчиков и сплиттеров реально окупится.
 
-### Итого по LangChain
+class DesignScore(BaseModel):
+    score_percent: int
+    rubric: dict[str, int]
+    covered_points: list[str]
+    missed_points: list[str]
+    techlead_explanation: str
 
-- Точечно: **JSON-режим Ollama для скоринга** (это можно сделать даже без ядра LangChain).
-- Если расширять источники знаний (не только docx) — тогда полноценный `langchain`-слой
-  загрузчиков + сплиттеров + vectorstore становится оправданным.
-- Полная замена `OllamaClient`/`QdrantService` на LangChain — отложить, не блокер.
+
+llm = ChatOllama(model=settings.ollama_model, base_url=settings.ollama_url, temperature=0.2)
+structured = llm.with_structured_output(DesignScore, method="json_schema")
+parsed = await structured.ainvoke(messages)  # pydantic-объект, без json.loads
+```
+
+⚠️ Схема рубрик (`{reqs, arch, data, scale, tradeoffs}`, `0..100`, границы длин) всё равно
+требует валидации: переносим её в pydantic `field_validator` ровно из сегодняшнего
+`parse_score` (+ тесты). Сам `parse_score` не удаляем — он остаётся фолбэком и
+схемой разбора для LangSmith-эвалов.
+
+**Вывод по сценарию:** начинать с Уровня A (одна строка в скоринг-вызовах), Уровень B —
+когда захотим убрать ручные ретраи насовсем. Точки: `sobes/domain/scoring.py`,
+`design/domain/graph.py`, `sobes/domain/classification.py`.
+
+### 5.3 Сценарий 2 — `ChatOllama` под нашим `LLMGateway` (usage-метрики) [опционально]
+
+**Боль.** Сейчас ответ — просто строка: в LangSmith-трейсе видно latency, но не видно
+сколько токенов потрачено/получено (`usage_metadata`).
+
+**Что взять.** Интерфейс `LLMGateway` — уже точка интеграции, меняем только тело
+`OllamaClient.generate` на `ChatOllama` из `langchain-ollama`:
+
+```python
+from langchain_ollama import ChatOllama
+
+
+class OllamaClient:
+    def __init__(self, settings: Settings) -> None:
+        ...
+        self._chat = ChatOllama(
+            model=settings.ollama_model,
+            base_url=settings.ollama_url.rstrip("/"),
+            temperature=settings.ollama_temperature,  # если есть в настройках
+            num_predict=max_tokens_default,
+        )
+
+    async def generate(self, messages, *, temperature=None, max_tokens=None, metadata=None, tags=None, **kwargs):
+        result = await self._chat.ainvoke(messages)
+        return result.content
+```
+
+Плюсы: `usage_metadata` (токены) попадает в LangSmith-трейс, стандартные типы сообщений,
+меньше собственного HTTP-кода. Минусы: ещё одна обёртка поверх `httpx`; формат Ollama
+меняется быстрее, чем адаптеры LangChain; риск потерять тонкий контроль над payload.
+Эмбеддинги при желании — `OllamaEmbeddings`.
+
+**Вывод:** делать только когда понадобится точная метрика токенов (цены/аналитика).
+Контракты роутеров и `LLMGateway` не меняются.
+
+### 5.4 Сценарий 3 — `RecursiveCharacterTextSplitter` для RAG [опционально]
+
+**Боль.** Самописный `chunk_text` (`chat/domain/vectorization.py`) работает и покрыт
+тестами, но плохо режет русские абзацы/списки и не настраивается на ходу.
+
+**Что взять.** Когда появятся новые источники или захочется сепараторы
+(абзац → строки → предложения):
+
+```python
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=settings.chunk_size,
+    chunk_overlap=settings.chunk_overlap,
+    separators=["\n\n", "\n", ". ", " "],
+)
+chunks = splitter.split_text(text)
+```
+
+⚠️ Сохранить контракт и сигнатуру `chunk_text` — «обернуть», а не «заменить»: внутри
+функции использовать сплиттер, наружу отдавать тот же список кусков. Тесты не меняются.
+
+**Вывод:** низкий приоритет, делать вместе со сценарием 4.
+
+### 5.5 Сценарий 4 — загрузчики и `QdrantVectorStore` для новых форматов [опционально]
+
+**Боль.** `ingest.py` (docx→Qdrant, sha256-дедуп) завязан на один формат docx, слой кастомный.
+
+**Что взять.** Если база вопросов расширится (pdf, html, markdown, разметка):
+
+```python
+from langchain_community.document_loaders import Docx2txtLoader  # или PyPDFLoader/TextLoader
+from langchain_ollama import OllamaEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_qdrant import QdrantVectorStore
+
+docs = Docx2txtLoader(settings.interview_docx_path).load()
+pieces = RecursiveCharacterTextSplitter(chunk_size=..., chunk_overlap=...).split_documents(docs)
+QdrantVectorStore.from_documents(
+    pieces, OllamaEmbeddings(model=settings.ollama_embed_model, base_url=settings.ollama_url),
+    url=settings.qdrant_url, collection_name=settings.qdrant_collection,
+)
+```
+
+Единый пайплайн загрузчиков + сплиттеров + vectorstore реально окупается при 2+ форматах.
+Дедуп по sha256 и state-файл индекса (`ingest_state.json`) остаются нашими — их в LangChain
+нет, навешиваем после `from_documents`. Существующие `QdrantService` и индексацию не
+переписываем, пока не появятся новые форматы. Для гибрида (vector + BM25) — Qdrant умеет
+фильтры поверх того же вектора, но у нас уже есть score-пороги в `run_chat`, отдельная итерация.
+
+**Вывод:** мигрировать только при расширении форматов.
+
+### 5.6 Порядок и усилия
+
+| Сценарий | Когда делать | Усилия | Риск | Файлы |
+|---|---|---|---|---|
+| 1A. `format: "json"` в `generate` | сейчас (в связке со скорингом/LangSmith) | 0.5 дня | низкий | `ollama.py`, скоринг-вызовы |
+| 1B. `with_structured_output` | когда надоест руками дёргать ретраи | 1–2 дня | средний | `scoring.py`, `graph.py`, `classification.py` |
+| 2. `ChatOllama` под `LLMGateway` | когда нужны токены в трейсах LangSmith | 1 день | низкий | `ollama.py` |
+| 3. Сплиттер | вместе со сценарием 4 | 0.5 дня | низкий | `vectorization.py` |
+| 4. Загрузчики + vectorstore | при 2+ форматах базы | 2–3 дня | средний | `ingest.py`, `qdrant.py` |
+
+**Итого по LangChain:** максимальная польза при минимальном бюджете — сценарий 1
+(уровень A — день без новых зависимостей). Уровень B и варианты 2–4 — по мере появления
+реальной потребности. Зависимости добавлять точечно под сценарий:
+`langchain-ollama` (1B, 2), `langchain_text_splitters` (3), `langchain-qdrant` +
+`langchain-community` (4).
 
 ---
 
-## 6. LangFlow — ❌ не использовать
+## 6. Рекомендуемый план внедрения (по фазам)
 
-**Почему не подходит:**
-
-1. **Визуальный low-code конструктор поверх LangChain/LangGraph** — это инструмент
-   прототипирования, а не рантайм для FastAPI-приложения. Наш бэкенд — детерминированный
-   код с типами, тестами и контрактами API; «переносить» его в карточки/канаты на не
-   реализовать качественно.
-2. **Наш скоринг слишком специфичен** (строгая JSON-схема, рубрики, штрафы за подсказки,
-   деклайнеры отказов) — такие вещи в визуальной UI-машине держать больно и непрозрачно.
-3. **Ещё один сервис** в docker compose (отдельный API + frontend, тяжёлый), без пользы
-   для конечного пользователя. Проект сейчас офлайн-first и минималистичный.
-4. Промпты в проекте — markdown-файлы, обновляются без пересборки и через `docker compose
-   watch`. LangFlow привязал бы их к своей базе и интерфейсу.
-
-**Единственный сценарий, где LangFlow можно рассмотреть** — песочница для быстрого
-прототипирования нового режима перед написанием кода. Но для личного проекта это
-необязательно.
-
----
-
-## 7. Рекомендуемый план внедрения (по фазам)
+> **Статус:** Фазы 1 (LangSmith) и 2 (LangGraph для design) **выполнены** — см.
+> `plans/PLAN_LANGSMITH.md` и `plans/PLAN_LANGGRAPH_DESIGN.md`. Ниже — исходные вехи
+> для контекста и блок LangChain (Фаза 5) на будущее.
 
 Фазы независимы: каждую можно делать отдельно и откатить без потери остальных.
 
@@ -287,34 +393,48 @@ async def _generate_traced(self, messages, **kw):
 - [ ] Прогнать эвалы после каждой правки `backend/prompts/*` — фиксировать регрессии.
 - Результат: правка промптов становится управляемой и измеримой.
 
+### Фаза 5 — LangChain точечно (опционально, когда появится потребность)
+- [ ] 1A. `OllamaClient.generate` → `format: "json"` для скоринг-вызовов
+      (`sobes/scoring.py`, `design/graph.py`, `sobes/classification.py`) — надёжный JSON.
+- [ ] 1B. `with_structured_output(ScoreSchema)` вместо ручных ретраев/`json.loads`
+      (валидацию рубрик перенести в pydantic `field_validator` из `parse_score`).
+- [ ] 2. `ChatOllama` под нашим `LLMGateway` — если нужны token usage в LangSmith-трейсах.
+- [ ] 3. `RecursiveCharacterTextSplitter` внутри `chunk_text` (контракт/тесты не менять).
+- [ ] 4. `QdrantVectorStore` + загрузчики — только при 2+ форматах базы вопросов.
+- Результат: надёжный структурный вывод и, опционально, единый пайплайн источников.
+
 ---
 
-## 8. Большой вопрос: не перебор ли это?
+## 7. Большой вопрос: не перебор ли это?
 
 Честный ответ: **проект самодостаточен**, и весь LangStack не обязателен. Приоритет:
 - Обязательно ценно: **LangGraph + checkpointer** (решает реальную боль — потерю сессий
   при рестарте и нечитаемое ветвление дизайна) и **JSON-режим Ollama** (чинит хрупкий JSON).
 - Сильно помогает итерациям: **LangSmith** (наблюдаемость + эвалы промптов).
-- Не обязательно: полный **LangChain** (слой заменяет работающий код), **LangFlow** (не нужен).
+- Не обязательно: полный **LangChain** — но 4 точечных сценария из раздела 5 дают
+  конкретную пользу без миграции ядра.
 
 Если хочется минимализма — порядок «Фаза 2 → JSON-mode → Фаза 1» даст 80% ценности
 при минимальном росте зависимостей.
 
 ---
 
-## 9. Карта «где что применить» по файлам
+## 8. Карта «где что применить» по файлам
 
 | Файл проекта | Технология | Изменение |
 |---|---|---|
-| `backend/src/features/chat/providers/ollama.py` | LangChain (точечно) | `format:"json"` для скоринг-вызовов; опционально `ChatOllama` |
-| `backend/src/features/design/domain/services.py` | LangGraph | `DesignService` → `StateGraph` + `PostgresSaver` |
+| `backend/src/features/chat/providers/ollama.py` | LangChain (точечно) | `format:"json"` для скоринг-вызовов; опционально `ChatOllama` на месте тела `generate` (токены в трейсах) |
+| `backend/src/features/design/domain/graph.py` | LangGraph + LangChain (опц.) | граф (`parse_score`, `score_step`) уже реализован; опционально `with_structured_output(DesignScore)` вместо ретраев |
+| `backend/src/features/design/domain/services.py` | LangGraph | `DesignService` → `StateGraph` (реализовано; проверка состояния через checkpointer/`thread_id`) |
 | `backend/src/features/design/domain/scenarios.py` | LangGraph | шаги сценария → ноды/рёбра графа (существующие `Step` сохраняются) |
 | `backend/src/features/sobes/domain/services.py` | LangGraph (опц.) | линейный граф со checkpointer |
-| `backend/src/features/sobes/domain/scoring.py` | LangChain/JSON-mode | структурный вывод вместо ручного `json.loads` + ретраи |
-| `backend/src/features/sobes/domain/classification.py` | LangChart/JSON-mode | то же + пакетный structured output |
-| `backend/src/features/chat/domain/vectorization.py` | LangChain (опц.) | `RecursiveCharacterTextSplitter` |
-| `backend/src/features/chat/domain/ingest.py` | LangChain (опц.) | docx loader → единый пайплайн загрузки |
+| `backend/src/features/sobes/domain/scoring.py` | LangChain/JSON-mode | `format:"json"`; опционально `with_structured_output(ScoreSchema)` вместо `json.loads` + ретраи |
+| `backend/src/features/sobes/domain/classification.py` | LangChain/JSON-mode | то же + пакетный structured output (`classify_batch`) |
+| `backend/src/training/langsmith_eval.py` | LangSmith | скэффолд эвалов уже реализован; датасеты из `sobes_answers`/`design_answers` |
+| `backend/src/features/chat/domain/vectorization.py` | LangChain (опц.) | `RecursiveCharacterTextSplitter` внутри `chunk_text` (без смены контракта) |
+| `backend/src/features/chat/domain/ingest.py` | LangChain (опц.) | `QdrantVectorStore` + docx/pdf/html загрузчики при 2+ форматах |
 | `backend/src/features/chat/domain/services.py` | LangGraph (опц.) | `run_chat` → граф `retrieve→answer→verify→grade` |
 | `backend/src/core/interfaces/*` | — | не менять; шлюзы остаются точкой интеграции |
-| `docker-compose.yml` | LangSmith | self-hosted sercice (если выбран локальный вариант) |
+| `backend/src/core/langsmith.py` | LangSmith | шлюз трассировки реализован (флаг + `traceable`/`tracing_context`) |
+| `docker-compose.yml` | LangSmith | опционально self-hosted сервис (по умолчанию офлайн) |
 | `backend/prompts/*` | LangSmith | подключаем к эвалам и трейсингу |
