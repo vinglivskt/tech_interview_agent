@@ -92,7 +92,12 @@ async def _ensure_classified_index(
             pass
 
     # нет валидного кэша — классифицируем заново
-    classified = await classify_batch(llm, items, settings.sobes_topics)
+    classified = await classify_batch(
+        llm,
+        items,
+        settings.sobes_topics,
+        use_structured=getattr(settings, "llm_structured_output", False),
+    )
     payload = {
         "doc_hash": doc_hash,
         "items": [as_plain_dict(x) for x in classified],
@@ -219,6 +224,7 @@ class SobesService:
                 "session_id": session_id,
                 "topic": cur.topic,
             },
+            use_structured=getattr(self._settings, "llm_structured_output", False),
         )
 
         # записать результат

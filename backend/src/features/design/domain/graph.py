@@ -25,6 +25,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
 from src.core.config import Settings
+from src.core.structured import DesignScore
 from src.features.design.domain.scenarios import Scenario, Step
 
 logger = logging.getLogger(__name__)
@@ -193,6 +194,7 @@ async def score_step(
     max_tokens: int,
     max_expl_len: int,
     session_id: str | None = None,
+    use_structured: bool = False,
 ) -> DesignGradedStep:
     """Оценивает один ответ кандидата через LLM.
 
@@ -200,6 +202,10 @@ async def score_step(
     - ретраи (до 3) при невалидном JSON с подсказкой «Предыдущий ответ невалиден…»;
     - деградация на ошибке (0%, пустая рубрика, стандартное пояснение);
     - штраф за использованную подсказку.
+
+    ``use_structured=True`` использует LangChain structured output
+    (``DesignScore`` через ``OllamaClient.generate_structured``) перед legacy-
+    ретраями: валидация рубрик на стороне Pydantic, фолбэк при сбое.
     """
     system = """Ты проводишь настоящий system design interview уровня Big Tech на русском языке.
 Оцени только текущий ответ кандидата, но учитывай весь контекст сценария и его предыдущие решения.
@@ -234,6 +240,23 @@ covered_points:[str максимум 6], missed_points:[str максимум 6],
                 if attempt == 0
                 else " Предыдущий ответ невалиден: верни только JSON строго по указанной схеме."
             )
+            if use_structured and hasattr(llm, "generate_structured"):
+                result = await llm.generate_structured(
+                    [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                    schema=DesignScore,
+                    temperature=0.2,
+                    max_tokens=max_tokens,
+                    metadata={
+                        "feature": "design",
+                        "scenario_id": scenario.id,
+                        "step_id": step.id,
+                        **({"session_id": session_id} if session_id else {}),
+                    },
+                    tags=["scoring"],
+                )
+                if result is not None:
+                    score, rubric, covered, missed, expl = result.to_legacy_tuple(max_expl_len)
+                    break
             text = await llm.generate(
                 [{"role": "system", "content": system}, {"role": "user", "content": user}],
                 temperature=0.2,
@@ -245,6 +268,7 @@ covered_points:[str максимум 6], missed_points:[str максимум 6],
                     **({"session_id": session_id} if session_id else {}),
                 },
                 tags=["scoring"],
+                format="json",
             )
             try:
                 score, rubric, covered, missed, expl = parse_score(text, max_expl_len)
@@ -325,6 +349,7 @@ def make_step_node(
             max_tokens=max_tokens,
             max_expl_len=max_expl_len,
             session_id=state.get("session_id"),
+            use_structured=getattr(settings, "llm_structured_output", False),
         )
 
         answered = state.get("idx", 0) + 1

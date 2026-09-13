@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from src.core.structured import ScoreResult
 from src.features.chat.providers.ollama import OllamaClient
 
 # Путь к файлу промпта
@@ -83,6 +84,7 @@ async def score_free_answer(
     pass_threshold: int,
     max_expl_len: int,
     metadata: dict[str, Any] | None = None,
+    use_structured: bool = False,
 ) -> tuple[int, bool, str, list[str], list[str]]:
     """
     Оценивает свободный ответ пользователя через LLM.
@@ -90,6 +92,10 @@ async def score_free_answer(
     При сбое парсинга — безопасный degrade (0%).
     Перед LLM применяется детектор явного отказа: «не знаю», «забыл», пустой ответ и т.п.
     автоматически получают 0% без вызова модели.
+
+    ``use_structured=True`` задействует LangChain structured output
+    (``OllamaClient.generate_structured``) для scoring-вызовов; при недоступности
+    или ошибке — фолбэк на ``generate(format="json")`` + ручной парсинг.
     """
     if _is_decline(user_answer):
         return _decline_response(max_expl_len)
@@ -103,6 +109,29 @@ async def score_free_answer(
     user = "Верни только JSON. Кратко, по делу."
 
     try:
+        if use_structured and hasattr(llm, "generate_structured"):
+            result = await llm.generate_structured(
+                [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                schema=ScoreResult,
+                temperature=0.2,
+                max_tokens=600,
+                metadata=metadata,
+                tags=["scoring"],
+            )
+            if result is not None:
+                expl = str(result.techlead_explanation).strip()
+                if len(expl) > max_expl_len:
+                    expl = expl[: max_expl_len - 1] + "…"
+                return (
+                    result.score_percent,
+                    result.score_percent >= pass_threshold,
+                    expl,
+                    list(result.covered_points),
+                    list(result.missed_points),
+                )
         text = await llm.generate(
             [
                 {"role": "system", "content": system},
@@ -112,6 +141,7 @@ async def score_free_answer(
             max_tokens=600,
             metadata=metadata,
             tags=["scoring"],
+            format="json",
         )
         data: dict[str, Any] = json.loads(text)
         percent = int(max(0, min(100, int(data.get("score_percent", 0)))))

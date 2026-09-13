@@ -207,6 +207,17 @@ class Settings(BaseSettings):
         description="Имя проекта (namespace) в LangSmith для записи run-ов.",
     )
 
+    # --- LangChain (структурный вывод через with_structured_output) ---
+    llm_structured_output: bool = Field(
+        default=False,
+        description=(
+            "Использовать LangChain structured output (ChatOllama.with_structured_output, "
+            "JSON-схема Ollama) для скоринг-вызовов. По умолчанию выключено — "
+            "работает проверенный путь generate() + ручной парсинг. При включении "
+            "невалидный JSON модели всё равно фолбэчится на legacy-ретраи."
+        ),
+    )
+
     @field_validator(
         "ollama_url",
         "ollama_model",

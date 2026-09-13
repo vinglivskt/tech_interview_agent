@@ -14,9 +14,10 @@
 | **LangSmith** | ✅ Внедрять (приоритет №2) | Трассировка всех LLM-вызовов + регрессионные эвалы для промптов. Сейчас правка промптов — «вслепую»: непонятно, как изменение влияет на скоринг. |
 | **LangChain** | ⚠️ Частично (точечно) | Четыре конкретных сценария: (1) **structured output** вместо ручных JSON-парсеров/ретраев, (2) `ChatOllama` под нашим `LLMGateway` (usage-метрики для LangSmith), (3) **RecursiveCharacterTextSplitter** вместо самописного `chunk_text`, (4) загрузчики + `QdrantVectorStore` при расширении форматов базы. Полная миграция — не нужна. |
 
-> **Статус на текущий момент:** LangGraph (приоритет №1) и LangSmith (приоритет №2) уже
-> внедрены — см. `plans/PLAN_LANGGRAPH_DESIGN.md` и `plans/PLAN_LANGSMITH.md`. LangFlow
-> исключён из документа; ниже — детальный разбор сценариев LangChain.
+> **Статус на текущий момент:** Фазы 1 (LangSmith), 2 (LangGraph) и 5 (LangChain точечно)
+> **выполнены** — см. `plans/PLAN_LANGGRAPH_DESIGN.md`, `plans/PLAN_LANGSMITH.md`,
+> `plans/PLAN_LANGCHAIN.md`. LangFlow исключён из документа; ниже — итоги по сценариям
+> LangChain.
 
 ---
 
@@ -351,9 +352,9 @@ QdrantVectorStore.from_documents(
 
 ## 6. Рекомендуемый план внедрения (по фазам)
 
-> **Статус:** Фазы 1 (LangSmith) и 2 (LangGraph для design) **выполнены** — см.
-> `plans/PLAN_LANGSMITH.md` и `plans/PLAN_LANGGRAPH_DESIGN.md`. Ниже — исходные вехи
-> для контекста и блок LangChain (Фаза 5) на будущее.
+> **Статус:** Фазы 1 (LangSmith), 2 (LangGraph для design) и 5 (LangChain точечно)
+> **выполнены** — см. `plans/PLAN_LANGSMITH.md`, `plans/PLAN_LANGGRAPH_DESIGN.md`,
+> `plans/PLAN_LANGCHAIN.md`. Ниже — исходные вехи для контекста и итог по Фазе 5.
 
 Фазы независимы: каждую можно делать отдельно и откатить без потери остальных.
 
@@ -393,15 +394,24 @@ QdrantVectorStore.from_documents(
 - [ ] Прогнать эвалы после каждой правки `backend/prompts/*` — фиксировать регрессии.
 - Результат: правка промптов становится управляемой и измеримой.
 
-### Фаза 5 — LangChain точечно (опционально, когда появится потребность)
-- [ ] 1A. `OllamaClient.generate` → `format: "json"` для скоринг-вызовов
+### Фаза 5 — LangChain точечно (выполнено, см. `plans/PLAN_LANGCHAIN.md`)
+
+**Итог внедрения:** сценарии 1A, 1B и 3 реализованы и покрыты тестами (26 новых,
+`pytest` → 199 passed, ruff чист на изменённых строках). Схемы валидации перенесены
+в `backend/src/core/structured.py`; `OllamaClient.generate_structured` через
+`ChatOllama.with_structured_output(method="json_schema")` с фолбэком на legacy.
+`chunk_text` использует `RecursiveCharacterTextSplitter` без смены контракта.
+
+- [x] 1A. `OllamaClient.generate` → `format: "json"` для скоринг-вызовов
       (`sobes/scoring.py`, `design/graph.py`, `sobes/classification.py`) — надёжный JSON.
-- [ ] 1B. `with_structured_output(ScoreSchema)` вместо ручных ретраев/`json.loads`
-      (валидацию рубрик перенести в pydantic `field_validator` из `parse_score`).
-- [ ] 2. `ChatOllama` под нашим `LLMGateway` — если нужны token usage в LangSmith-трейсах.
-- [ ] 3. `RecursiveCharacterTextSplitter` внутри `chunk_text` (контракт/тесты не менять).
-- [ ] 4. `QdrantVectorStore` + загрузчики — только при 2+ форматах базы вопросов.
-- Результат: надёжный структурный вывод и, опционально, единый пайплайн источников.
+- [x] 1B. `with_structured_output(ScoreSchema)` вместо ручных ретраев/`json.loads`
+      (валидация рубрик перенесена в pydantic `field_validator` из `parse_score`);
+      включается флагом `LLM_STRUCTURED_OUTPUT` (default `false`), фолбэк — legacy.
+- [ ] 2. `ChatOllama` под нашим `LLMGateway` — отложено: нужно только для token usage
+      в LangSmith-трейсах основного пути; structured-путь уже даёт токены в трейсы.
+- [x] 3. `RecursiveCharacterTextSplitter` внутри `chunk_text` (контракт/тесты не менять).
+- [ ] 4. `QdrantVectorStore` + загрузчики — отложено до появления 2+ форматов базы.
+- Результат: надёжный структурный вывод и обновлённый RAG-сплиттер.
 
 ---
 
@@ -423,16 +433,16 @@ QdrantVectorStore.from_documents(
 
 | Файл проекта | Технология | Изменение |
 |---|---|---|
-| `backend/src/features/chat/providers/ollama.py` | LangChain (точечно) | `format:"json"` для скоринг-вызовов; опционально `ChatOllama` на месте тела `generate` (токены в трейсах) |
-| `backend/src/features/design/domain/graph.py` | LangGraph + LangChain (опц.) | граф (`parse_score`, `score_step`) уже реализован; опционально `with_structured_output(DesignScore)` вместо ретраев |
+| `backend/src/features/chat/providers/ollama.py` | LangChain (точечно) | `format:"json"` для скоринг-вызовов; `generate_structured` через `ChatOllama.with_structured_output` (реализовано) |
+| `backend/src/features/design/domain/graph.py` | LangGraph + LangChain (опц.) | граф (`parse_score`, `score_step`) уже реализован; `with_structured_output(DesignScore)` в ретрай-цикле (реализовано) |
 | `backend/src/features/design/domain/services.py` | LangGraph | `DesignService` → `StateGraph` (реализовано; проверка состояния через checkpointer/`thread_id`) |
 | `backend/src/features/design/domain/scenarios.py` | LangGraph | шаги сценария → ноды/рёбра графа (существующие `Step` сохраняются) |
 | `backend/src/features/sobes/domain/services.py` | LangGraph (опц.) | линейный граф со checkpointer |
-| `backend/src/features/sobes/domain/scoring.py` | LangChain/JSON-mode | `format:"json"`; опционально `with_structured_output(ScoreSchema)` вместо `json.loads` + ретраи |
-| `backend/src/features/sobes/domain/classification.py` | LangChain/JSON-mode | то же + пакетный structured output (`classify_batch`) |
+| `backend/src/features/sobes/domain/scoring.py` | LangChain/JSON-mode | `format:"json"`; `with_structured_output(ScoreSchema)` вместо `json.loads` + ретраи (реализовано, флаг `LLM_STRUCTURED_OUTPUT`) |
+| `backend/src/features/sobes/domain/classification.py` | LangChain/JSON-mode | то же + пакетный structured output (`classify_batch` через `ClassificationBatch`) |
 | `backend/src/training/langsmith_eval.py` | LangSmith | скэффолд эвалов уже реализован; датасеты из `sobes_answers`/`design_answers` |
-| `backend/src/features/chat/domain/vectorization.py` | LangChain (опц.) | `RecursiveCharacterTextSplitter` внутри `chunk_text` (без смены контракта) |
-| `backend/src/features/chat/domain/ingest.py` | LangChain (опц.) | `QdrantVectorStore` + docx/pdf/html загрузчики при 2+ форматах |
+| `backend/src/features/chat/domain/vectorization.py` | LangChain (опц.) | `RecursiveCharacterTextSplitter` внутри `chunk_text` без смены контракта (реализовано) |
+| `backend/src/features/chat/domain/ingest.py` | LangChain (опц.) | `QdrantVectorStore` + docx/pdf/html загрузчики при 2+ форматах (отложено) |
 | `backend/src/features/chat/domain/services.py` | LangGraph (опц.) | `run_chat` → граф `retrieve→answer→verify→grade` |
 | `backend/src/core/interfaces/*` | — | не менять; шлюзы остаются точкой интеграции |
 | `backend/src/core/langsmith.py` | LangSmith | шлюз трассировки реализован (флаг + `traceable`/`tracing_context`) |
