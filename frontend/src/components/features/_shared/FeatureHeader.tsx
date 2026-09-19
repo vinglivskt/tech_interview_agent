@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, ThemeToggle } from "@/components/ui";
+import { Button } from "@/components/ui";
 import styles from "./FeatureHeader.module.css";
 
 interface Props {
@@ -24,7 +24,6 @@ export const FeatureHeader: React.FC<Props> = ({ onBack, title, center, right, b
         {center && <div className={styles.center}>{center}</div>}
       </div>
       <div className={styles.right}>
-        <ThemeToggle />
         {right}
       </div>
     </header>

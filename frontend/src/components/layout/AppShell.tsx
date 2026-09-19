@@ -106,6 +106,9 @@ export const AppShell: React.FC<AppShellProps> = ({ activeView, onNavigate, chil
             <span>{item.label}</span>
           </button>
         ))}
+        <span className={styles.mobileTheme}>
+          <ThemeToggle />
+        </span>
       </nav>
     </div>
   );
