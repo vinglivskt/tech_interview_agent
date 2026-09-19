@@ -5,7 +5,6 @@ import {
   IconQuiz,
   IconSobes,
   IconArch,
-  IconStats,
   IconArrowRight,
 } from "@/components/ui/icons";
 import { AppShell } from "@/components/layout/AppShell";
@@ -92,11 +91,6 @@ const Inner: React.FC = () => {
           <p className={styles.kicker}>{username ? `Добро пожаловать, ${username}` : "Личный workspace для подготовки"}</p>
           <h1 id="home-title" className={styles.heroTitle}>Подготовка к техническому интервью</h1>
           <p className={styles.heroSubtitle}>Четыре формата тренировки — статистика и слабые места сохраняются автоматически.</p>
-        </div>
-        <div className={styles.homeActions}>
-          <button type="button" onClick={() => setView("stats-overview")} className={styles.statsCta}>
-            <IconStats size={16} /> Открыть общую статистику
-          </button>
         </div>
       </header>
 
