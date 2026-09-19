@@ -1,5 +1,5 @@
 .container {
-  max-width: 720px;
+  max-width: 920px;
   margin: 0 auto;
   animation: fadeInUp 0.28s ease;
 }
@@ -138,6 +138,26 @@
 
 .saveStatus.error {
   color: var(--danger);
+}
+
+.saveTip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.saveTipIcon {
+  flex: none;
+  margin-top: 0.1rem;
+  color: var(--accent);
 }
 
 .meta {

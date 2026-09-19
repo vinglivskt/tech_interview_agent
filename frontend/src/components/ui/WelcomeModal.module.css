@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   background: var(--overlay);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -19,10 +19,10 @@
 }
 
 .modal {
-  background: var(--panel);
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: 2rem;
+  padding: clamp(1.5rem, 5vw, 2.5rem);
   max-width: 480px;
   width: 100%;
   box-shadow: var(--shadow-lg);
@@ -30,15 +30,20 @@
 }
 
 .logo {
-  display: inline-block;
-  font-size: 2rem;
-  line-height: 1;
-  margin-bottom: 0.75rem;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  color: var(--on-accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  margin-bottom: 1.1rem;
 }
 
 .title {
   margin: 0 0 0.5rem 0;
-  font-size: 1.5rem;
+  font-size: clamp(1.45rem, 4vw, 1.85rem);
+  letter-spacing: -.04em;
   color: var(--text);
 }
 

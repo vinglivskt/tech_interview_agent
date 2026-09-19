@@ -1,5 +1,6 @@
 import React from "react";
 import { Button, Markdown } from "@/components/ui";
+import { IconSave, IconBulb } from "@/components/ui/icons";
 import { FeatureHeader } from "@/components/features/_shared/FeatureHeader";
 import type { ChatViewProps } from "./types";
 import styles from "./chat.module.css";
@@ -110,8 +111,9 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
 
       {/* Подсказка, что можно сохранить вопрос в docx */}
       {suggestSave && answer && (
-        <div className={styles.saveStatus}>
-          💡 Этого вопроса нет в базе. Сохраните его в Word, чтобы он попал в RAG для будущих тренировок.
+        <div className={styles.saveTip}>
+          <IconBulb size={16} className={styles.saveTipIcon} />
+          <span>Этого вопроса нет в базе. Сохраните его в Word, чтобы он попал в RAG для будущих тренировок.</span>
         </div>
       )}
 
@@ -169,7 +171,8 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
           onClick={onSave}
           disabled={isLoading || !answer}
         >
-          {suggestSave ? "💾 Сохранить в Word" : "💾 Сохранить"}
+          <IconSave size={16} />
+          <span>{suggestSave ? "Сохранить в Word" : "Сохранить"}</span>
         </Button>
         {onReset && !isCustomMode && (
           <Button variant="success" onClick={onReset} disabled={isLoading}>
@@ -181,7 +184,7 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
       {saveStatus && (
         <div
           className={`${styles.saveStatus} ${styles.visible} ${
-            saveStatus.startsWith("❌") ? styles.error : ""
+            saveStatus.startsWith("Ошибка") ? styles.error : ""
           }`}
           role="status"
         >

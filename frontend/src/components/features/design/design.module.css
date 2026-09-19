@@ -1,5 +1,5 @@
 .container {
-  max-width: 720px;
+  max-width: 920px;
   margin: 0 auto;
   animation: fadeInUp 0.28s ease;
 }
@@ -11,7 +11,7 @@
 }
 
 .setupCard {
-  background: var(--panel);
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 1.5rem;

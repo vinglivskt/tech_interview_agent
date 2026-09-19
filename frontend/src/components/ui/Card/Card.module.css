@@ -6,6 +6,8 @@
   box-shadow: var(--shadow-sm);
 }
 
+.interactive { width: 100%; color: var(--text); font: inherit; text-align: inherit; }
+
 .hoverable {
   cursor: pointer;
   transform: translateY(0);

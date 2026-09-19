@@ -17,7 +17,7 @@ describe("QuestionEntryContainer", () => {
     await user.click(screen.getByRole("button", { name: "Сохранить в Word" }));
 
     expect(saveQA).toHaveBeenCalledWith("Что такое GIL?", "GIL ограничивает выполнение байткода.");
-    expect(await screen.findByText("✅ Вопрос сохранён в Word под №42")).toBeInTheDocument();
+    expect(await screen.findByText("Вопрос сохранён в Word под №42")).toBeInTheDocument();
     expect(screen.getByLabelText("Название вопроса")).toHaveValue("");
 
     saveQA.mockRestore();
@@ -32,7 +32,7 @@ describe("QuestionEntryContainer", () => {
     await user.type(screen.getByLabelText("Ответ на вопрос"), "Ответ");
     await user.click(screen.getByRole("button", { name: "Сохранить в Word" }));
 
-    expect(await screen.findByText("⚠️ Такой вопрос уже есть в базе")).toBeInTheDocument();
+    expect(await screen.findByText("Такой вопрос уже есть в базе")).toBeInTheDocument();
     expect(screen.getByLabelText("Название вопроса")).toHaveValue("Что такое GIL?");
 
     saveQA.mockRestore();

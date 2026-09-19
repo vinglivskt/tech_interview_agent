@@ -232,20 +232,20 @@ export function useChat() {
         setState((prev) => ({
           ...prev,
           isLoading: false,
-          saveStatus: `✅ Сохранено как вопрос №${data.number}`,
+          saveStatus: `Сохранено как вопрос №${data.number}`,
         }));
       } else if (data.status === "skipped") {
         setState((prev) => ({
           ...prev,
           isLoading: false,
-          saveStatus: "⚠️ Такой вопрос уже есть в базе",
+          saveStatus: "Такой вопрос уже есть в базе",
         }));
       }
     } catch (err) {
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        saveStatus: `❌ Ошибка: ${err instanceof Error ? err.message : "Неизвестная ошибка"}`,
+        saveStatus: `Ошибка: ${err instanceof Error ? err.message : "Неизвестная ошибка"}`,
       }));
     }
   }, [state]);

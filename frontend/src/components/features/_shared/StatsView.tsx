@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Button, ThemeToggle } from "@/components/ui";
+import { IconStats, IconArrowLeft, IconWarn, IconTrash } from "@/components/ui/icons";
 import { statsApi, type StatsBreakdown } from "@/services/api";
 import styles from "./StatsView.module.css";
 
@@ -64,9 +65,9 @@ export const StatsView: React.FC<StatsViewProps> = ({ mode, onBack, title }) => 
     <div className={styles.container}>
       <header className={styles.header}>
         <Button variant="secondary" onClick={onBack}>
-          ← Назад
+          <IconArrowLeft size={16} /> Назад
         </Button>
-        <h1 className={styles.title}>📊 Статистика ответов — {heading}</h1>
+        <h1 className={styles.title}><IconStats className={styles.titleIcon} size={20} /> Статистика ответов — {heading}</h1>
         <div className={styles.themeSlot}>
           <ThemeToggle />
         </div>
@@ -81,8 +82,9 @@ export const StatsView: React.FC<StatsViewProps> = ({ mode, onBack, title }) => 
       {loading && <p className={styles.loading}>Загружаем статистику…</p>}
 
       {error && (
-        <div className={styles.error}>
-          <p>⚠️ {error}</p>
+        <div className={styles.error} role="alert">
+          <IconWarn className={styles.errorIcon} size={18} />
+          <p>{error}</p>
         </div>
       )}
 
@@ -91,7 +93,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ mode, onBack, title }) => 
           {selectedMode ? (
             <>
               <Button variant="secondary" onClick={() => setSelectedMode(null)} style={{ marginBottom: "16px" }}>
-                ← К обзору режимов
+                <IconArrowLeft size={16} /> К обзору режимов
               </Button>
               <SingleFeatureView feature={selectedMode} breakdown={overview[selectedMode]} />
             </>
@@ -125,8 +127,8 @@ const ModeCard: React.FC<{ feature: string; breakdown: StatsBreakdown; onClick?:
 }) => {
   const total = breakdown.total;
   const isChat = feature === "chat";
-  return (
-    <div className={styles.card} onClick={onClick} style={{ cursor: onClick ? "pointer" : undefined }}>
+  const content = (
+    <>
       <h3 className={styles.cardTitle}>{MODE_TITLES[feature] ?? feature}</h3>
       {onClick && <p className={styles.cardHint}>Нажмите для подробностей →</p>}
       {isChat ? (
@@ -176,7 +178,26 @@ const ModeCard: React.FC<{ feature: string; breakdown: StatsBreakdown; onClick?:
           )}
         </>
       )}
+    </>
+  );
+
+  return onClick ? (
+    <div
+      className={styles.card}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
+      {content}
     </div>
+  ) : (
+    <section className={styles.card}>{content}</section>
   );
 };
 
@@ -265,7 +286,7 @@ const SingleFeatureView: React.FC<{ feature: string; breakdown: StatsBreakdown }
       <div className={styles.filterBar} style={{ marginTop: "0.5rem" }}>
         {!confirmingClear ? (
           <Button variant="secondary" onClick={() => setConfirmingClear(true)}>
-            🗑 Очистить статистику «{MODE_LABELS[feature] ?? feature}»
+            <IconTrash size={16} /> Очистить статистику «{MODE_LABELS[feature] ?? feature}»
           </Button>
         ) : (
           <span style={{ display: "inline-flex", gap: "0.5rem", alignItems: "center" }}>
@@ -277,11 +298,11 @@ const SingleFeatureView: React.FC<{ feature: string; breakdown: StatsBreakdown }
                 setClearMessage(null);
                 try {
                   const r = await statsApi.clearFeature(feature);
-                  setClearMessage(`✅ Удалено записей: ${r.deleted}`);
+                  setClearMessage(`Удалено записей: ${r.deleted}`);
                   setConfirmingClear(false);
                   setReloadKey((k) => k + 1);
                 } catch (e) {
-                  setClearMessage(`❌ Ошибка: ${e instanceof Error ? e.message : "неизвестно"}`);
+                  setClearMessage(`Ошибка: ${e instanceof Error ? e.message : "неизвестно"}`);
                 } finally {
                   setClearing(false);
                 }

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui";
+import { IconTerminal } from "@/components/ui/icons";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useUser } from "@/components/state/UserContext";
 import styles from "./WelcomeModal.module.css";
@@ -38,7 +39,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ onSuccess }) => {
       </div>
       <div className={styles.modal}>
         <span className={styles.logo} aria-hidden="true">
-          🐍
+          <IconTerminal size={22} />
         </span>
         <h1 className={styles.title}>Python Interview Assistant</h1>
         <p className={styles.subtitle}>Личный помощник для подготовки к собеседованиям по Python.</p>

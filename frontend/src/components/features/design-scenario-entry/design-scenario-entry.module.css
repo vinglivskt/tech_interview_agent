@@ -1,4 +1,4 @@
-.container { max-width: 720px; margin: 0 auto; animation: fadeInUp 0.28s ease; }
+.container { max-width: 920px; margin: 0 auto; animation: fadeInUp 0.28s ease; }
 .intro { margin: 0; padding: 0.9rem 1rem; border: 1px solid var(--accent-border); border-radius: var(--radius-lg); background: var(--accent-soft); color: var(--text-soft); font-size: 0.9rem; }
 .form { margin-top: 1rem; padding: 1.2rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); box-shadow: var(--shadow-sm); }
 .form label:not(:first-child) { margin-top: 1rem; }
@@ -7,7 +7,9 @@
 .twoColumns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
 .twoColumns label { margin-top: 1rem; }
 .actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
-.status { margin: 0; color: var(--success); font-size: 0.85rem; font-weight: 500; }
+.status { margin: 0; display: inline-flex; align-items: center; gap: 0.4rem; color: var(--success); font-size: 0.85rem; font-weight: 500; }
+.statusIcon { flex: none; }
+.status.warn { color: var(--warning); }
 .status.error { color: var(--danger); }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 520px) { .twoColumns { grid-template-columns: 1fr; gap: 0; } }

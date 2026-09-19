@@ -2,15 +2,17 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  max-width: 920px;
+  margin: 0 auto 1.5rem;
   flex-wrap: wrap;
   position: sticky;
   top: 0;
   z-index: 50;
-  padding: 0.5rem 0;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(8px);
-  border-radius: var(--radius-md);
+  padding: .55rem .65rem;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+  backdrop-filter: blur(14px);
+  border-radius: var(--radius-lg);
 }
 
 .middle {

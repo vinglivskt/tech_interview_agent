@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { Card, ThemeToggle } from "@/components/ui";
+import { Card } from "@/components/ui";
+import {
+  IconChat,
+  IconQuiz,
+  IconSobes,
+  IconArch,
+  IconStats,
+  IconQuestion,
+  IconScenario,
+  IconArrowRight,
+} from "@/components/ui/icons";
+import { AppShell } from "@/components/layout/AppShell";
 import { WelcomeModal } from "@/components/ui/WelcomeModal";
 import { UserProvider, useUser } from "@/components/state/UserContext";
 import { setApiUsername } from "@/services/api";
@@ -17,30 +28,36 @@ import styles from "./App.module.css";
 
 type View = AppMode | "home" | "stats-overview" | "question-entry" | "design-scenario-entry";
 
-const MODES: { id: AppMode; title: string; description: string; icon: string }[] = [
+const MODES: {
+  id: AppMode;
+  title: string;
+  description: string;
+  icon: React.FC<{ size?: number; className?: string }>;
+  eyebrow: string;
+}[] = [
   {
     id: "chat",
     title: "Интервью",
     description: "Свободный диалог с ассистентом. Задавайте вопросы, получайте ответы с ссылками на базу знаний.",
-    icon: "💬",
+    icon: IconChat, eyebrow: "Практика с RAG",
   },
   {
     id: "quiz",
     title: "Тестирование",
     description: "20 вопросов с вариантами ответов. Проверьте свои знания и узнайте свой уровень.",
-    icon: "📝",
+    icon: IconQuiz, eyebrow: "20 вопросов",
   },
   {
     id: "sobes",
     title: "Собеседование",
     description: "15–25 вопросов по темам, свободные ответы, оценка в процентах и финальный вердикт.",
-    icon: "🎯",
+    icon: IconSobes, eyebrow: "Открытые ответы",
   },
   {
     id: "design",
     title: "Системный дизайн",
     description: "Проектируйте систему пошагово и получите оценку по архитектурной рубрике.",
-    icon: "🏗️",
+    icon: IconArch, eyebrow: "Архитектурное мышление",
   },
 ];
 
@@ -57,46 +74,37 @@ const Inner: React.FC = () => {
   }
 
   const handleBack = () => setView("home");
-  if (view === "chat") return <ChatContainer onBack={handleBack} />;
-  if (view === "quiz") return <QuizContainer onBack={handleBack} />;
-  if (view === "sobes") return <SobesContainer onBack={handleBack} />;
-  if (view === "design") return <DesignContainer onBack={handleBack} />;
-  if (view === "question-entry") return <QuestionEntryContainer onBack={handleBack} />;
-  if (view === "design-scenario-entry") return <DesignScenarioEntryContainer onBack={handleBack} />;
-
-  if (view === "stats-overview") {
-    return <StatsView mode="overall" onBack={handleBack} />;
-  }
-
-  return (
-    <div className={styles.app}>
-      <div className={styles.topBar}>
-        <span className={styles.brand} aria-hidden="true">
-          🐍
-        </span>
-        <ThemeToggle />
-      </div>
-
-      <div className={styles.home}>
+  let content: React.ReactNode;
+  if (view === "chat") content = <ChatContainer onBack={handleBack} />;
+  else if (view === "quiz") content = <QuizContainer onBack={handleBack} />;
+  else if (view === "sobes") content = <SobesContainer onBack={handleBack} />;
+  else if (view === "design") content = <DesignContainer onBack={handleBack} />;
+  else if (view === "question-entry") content = <QuestionEntryContainer onBack={handleBack} />;
+  else if (view === "design-scenario-entry") content = <DesignScenarioEntryContainer onBack={handleBack} />;
+  else if (view === "stats-overview") content = <StatsView mode="overall" onBack={handleBack} />;
+  else content = (
+    <section className={styles.home} aria-labelledby="home-title">
+      <header className={styles.homeHeader}>
         <div className={styles.hero}>
-          <h1 className={styles.heroTitle}>Python Interview Assistant</h1>
-          <p className={styles.heroSubtitle}>Выберите режим работы</p>
-          {username && (
-            <p className={styles.heroHint}>
-              Привет, <strong>{username}</strong>! ·{" "}
-              <button type="button" onClick={() => setView("stats-overview")} className={styles.linkButton}>
-                Открыть общую статистику
-              </button>
-            </p>
-          )}
+          <p className={styles.kicker}>{username ? `Добро пожаловать, ${username}` : "Личный workspace для подготовки"}</p>
+          <h1 id="home-title" className={styles.heroTitle}>Подготовка к техническому интервью</h1>
+          <p className={styles.heroSubtitle}>Четыре формата тренировки — статистика и слабые места сохраняются автоматически.</p>
         </div>
+        <div className={styles.homeActions}>
+          <button type="button" onClick={() => setView("stats-overview")} className={styles.statsCta}>
+            <IconStats size={16} /> Открыть общую статистику
+          </button>
+        </div>
+      </header>
 
         <div className={styles.modeGrid}>
           {MODES.map((modeItem) => (
             <Card key={modeItem.id} hoverable onClick={() => setView(modeItem.id)} className={styles.modeCard}>
-              <span className={styles.modeIcon}>{modeItem.icon}</span>
+              <span className={styles.modeIcon} aria-hidden="true">{<modeItem.icon size={19} />}</span>
+              <span className={styles.modeEyebrow}>{modeItem.eyebrow}</span>
               <h3 className={styles.modeTitle}>{modeItem.title}</h3>
               <p className={styles.modeDescription}>{modeItem.description}</p>
+              <span className={styles.modeCta}>Открыть режим <IconArrowRight size={14} className={styles.modeCtaIcon} /></span>
             </Card>
           ))}
         </div>
@@ -109,25 +117,27 @@ const Inner: React.FC = () => {
             </p>
           </div>
           <button type="button" className={styles.libraryButton} onClick={() => setView("question-entry")}>
-            <span aria-hidden="true">✍️</span>
+            <span className={styles.libIcon} aria-hidden="true"><IconQuestion size={18} /></span>
             <span>
               <strong>Внесение вопросов</strong>
               <small>Добавить вопрос и ответ в файл интервью</small>
             </span>
-            <span className={styles.libraryArrow} aria-hidden="true">→</span>
+            <IconArrowRight size={18} className={styles.libraryArrow} />
           </button>
           <button type="button" className={styles.libraryButton} onClick={() => setView("design-scenario-entry")}>
-            <span aria-hidden="true">🏗️</span>
+            <span className={styles.libIcon} aria-hidden="true"><IconScenario size={18} /></span>
             <span>
               <strong>Сценарий системного дизайна</strong>
               <small>Добавить новую задачу в YAML-библиотеку сценариев</small>
             </span>
-            <span className={styles.libraryArrow} aria-hidden="true">→</span>
+            <IconArrowRight size={18} className={styles.libraryArrow} />
           </button>
         </section>
-      </div>
-    </div>
+    </section>
   );
+
+  const shellView = view === "question-entry" || view === "design-scenario-entry" ? "home" : view;
+  return <AppShell activeView={shellView} onNavigate={setView}>{content}</AppShell>;
 };
 
 export const App: React.FC = () => {

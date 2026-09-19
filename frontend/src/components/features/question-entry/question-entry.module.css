@@ -1,5 +1,5 @@
 .container {
-  max-width: 720px;
+  max-width: 920px;
   margin: 0 auto;
   animation: fadeInUp 0.28s ease;
 }
@@ -48,9 +48,20 @@
 
 .status {
   margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   color: var(--success);
   font-size: 0.85rem;
   font-weight: 500;
+}
+
+.statusIcon {
+  flex: none;
+}
+
+.status.warn {
+  color: var(--warning);
 }
 
 .status.error {

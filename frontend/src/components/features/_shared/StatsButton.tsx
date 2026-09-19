@@ -1,5 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui";
+import { IconStats } from "@/components/ui/icons";
 
 interface Props {
   onClick: () => void;
@@ -7,7 +8,7 @@ interface Props {
 
 export const StatsButton: React.FC<Props> = ({ onClick }) => (
   <Button variant="secondary" onClick={onClick}>
-    📊 Статистика ответов
+    <IconStats size={16} /> Статистика ответов
   </Button>
 );
 

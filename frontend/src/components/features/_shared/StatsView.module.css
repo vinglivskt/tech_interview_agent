@@ -1,7 +1,7 @@
 .container {
-  max-width: 960px;
+  max-width: 920px;
   margin: 0 auto;
-  padding: 2rem 1.25rem 3rem;
+  padding: 0;
   animation: fadeInUp 0.3s ease;
 }
 
@@ -18,6 +18,13 @@
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.titleIcon {
+  color: var(--accent);
 }
 
 .themeSlot {
@@ -36,12 +43,20 @@
 }
 
 .error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
   background: var(--danger-soft);
   border: 1px solid var(--danger-border, var(--danger));
   color: var(--danger-text);
   border-radius: var(--radius-md);
   padding: 1rem;
   margin-bottom: 1rem;
+}
+
+.errorIcon {
+  flex: none;
+  margin-top: 0.1rem;
 }
 
 .error p {
@@ -55,6 +70,10 @@
 }
 
 .card {
+  width: 100%;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
