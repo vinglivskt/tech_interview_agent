@@ -46,7 +46,7 @@ export const QuestionEntryContainer: React.FC<Props> = ({ onBack }) => {
 
   return (
     <main className={styles.container}>
-      <FeatureHeader onBack={onBack} title="Внесение вопросов" />
+      <FeatureHeader onBack={onBack} title="Внесение вопросов" backLabel="К пополнению базы" />
       <div className={styles.intro}>
         <p>
           Добавьте новый вопрос и готовый ответ. Если вопрос уже есть в файле, новая запись не будет создана.

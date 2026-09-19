@@ -56,7 +56,7 @@ export const DesignScenarioEntryContainer: React.FC<Props> = ({ onBack }) => {
 
   return (
     <main className={styles.container}>
-      <FeatureHeader onBack={onBack} title="Новый сценарий дизайна" />
+      <FeatureHeader onBack={onBack} title="Новый сценарий дизайна" backLabel="К пополнению базы" />
       <p className={styles.intro}>Сценарий будет добавлен в YAML-библиотеку и сразу появится среди задач системного дизайна.</p>
       <form className={styles.form} onSubmit={saveScenario}>
         <label htmlFor="scenario-title">Название системы</label>

@@ -171,3 +171,11 @@ export const IconTerminal: React.FC<IconProps> = ({ size = 18, className }) =>
       <path d="M12 19h8" />
     </>
   ));
+
+export const IconPlus: React.FC<IconProps> = ({ size = 18, className }) =>
+  base(size, className, (
+    <>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </>
+  ));

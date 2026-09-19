@@ -1,10 +1,10 @@
 import React from "react";
 import { ThemeToggle } from "@/components/ui";
-import { IconHome, IconChat, IconQuiz, IconSobes, IconArch, IconProgress, IconTerminal } from "@/components/ui/icons";
+import { IconHome, IconChat, IconQuiz, IconSobes, IconArch, IconProgress, IconTerminal, IconPlus } from "@/components/ui/icons";
 import { useUser } from "@/components/state/UserContext";
 import styles from "./AppShell.module.css";
 
-type ShellView = "home" | "chat" | "quiz" | "sobes" | "design" | "stats-overview";
+type ShellView = "home" | "chat" | "quiz" | "sobes" | "design" | "stats-overview" | "library";
 
 interface AppShellProps {
   activeView: ShellView;
@@ -22,6 +22,10 @@ const NAVIGATION: Array<{
   { id: "quiz", label: "Квиз", icon: IconQuiz },
   { id: "sobes", label: "Устный опрос", icon: IconSobes },
   { id: "design", label: "Архитектура", icon: IconArch },
+];
+
+const MOBILE_EXTRA: Array<{ id: ShellView; label: string; icon: React.FC<{ size?: number; className?: string }> }> = [
+  { id: "library", label: "База", icon: IconPlus },
 ];
 
 export const AppShell: React.FC<AppShellProps> = ({ activeView, onNavigate, children }) => {
@@ -53,6 +57,14 @@ export const AppShell: React.FC<AppShellProps> = ({ activeView, onNavigate, chil
         <div className={styles.sidebarFooter}>
           <button
             type="button"
+            className={`${styles.statsLink} ${activeView === "library" ? styles.active : ""}`}
+            onClick={() => onNavigate("library")}
+            aria-current={activeView === "library" ? "page" : undefined}
+          >
+            <span className={styles.navIcon} aria-hidden="true"><IconPlus size={18} /></span> Пополнение базы
+          </button>
+          <button
+            type="button"
             className={`${styles.statsLink} ${activeView === "stats-overview" ? styles.active : ""}`}
             onClick={() => onNavigate("stats-overview")}
             aria-current={activeView === "stats-overview" ? "page" : undefined}
@@ -71,6 +83,18 @@ export const AppShell: React.FC<AppShellProps> = ({ activeView, onNavigate, chil
 
       <nav className={styles.mobileNav} aria-label="Быстрая навигация">
         {NAVIGATION.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={`${styles.mobileItem} ${activeView === item.id ? styles.active : ""}`}
+            onClick={() => onNavigate(item.id)}
+            aria-current={activeView === item.id ? "page" : undefined}
+          >
+            <span aria-hidden="true">{<item.icon size={19} />}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+        {MOBILE_EXTRA.map((item) => (
           <button
             key={item.id}
             type="button"

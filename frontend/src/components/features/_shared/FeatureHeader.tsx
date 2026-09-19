@@ -9,13 +9,15 @@ interface Props {
   center?: React.ReactNode;
   /** Слот справа (например, <StatsButton />). */
   right?: React.ReactNode;
+  /** Текст кнопки назад. По умолчанию "На главную". */
+  backLabel?: string;
 }
 
-export const FeatureHeader: React.FC<Props> = ({ onBack, title, center, right }) => {
+export const FeatureHeader: React.FC<Props> = ({ onBack, title, center, right, backLabel = "На главную" }) => {
   return (
     <header className={styles.header}>
       <Button variant="secondary" onClick={onBack}>
-        ← На главную
+        ← {backLabel}
       </Button>
       <div className={styles.middle}>
         {title && <h1 className={styles.title}>{title}</h1>}

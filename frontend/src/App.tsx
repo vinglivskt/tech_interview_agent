@@ -6,8 +6,6 @@ import {
   IconSobes,
   IconArch,
   IconStats,
-  IconQuestion,
-  IconScenario,
   IconArrowRight,
 } from "@/components/ui/icons";
 import { AppShell } from "@/components/layout/AppShell";
@@ -21,12 +19,13 @@ import {
   DesignContainer,
   QuestionEntryContainer,
   DesignScenarioEntryContainer,
+  LibraryView,
 } from "@/components/features";
 import { StatsView } from "@/components/features/_shared/StatsView";
 import type { AppMode } from "@/types";
 import styles from "./App.module.css";
 
-type View = AppMode | "home" | "stats-overview" | "question-entry" | "design-scenario-entry";
+type View = AppMode | "home" | "stats-overview" | "library" | "question-entry" | "design-scenario-entry";
 
 const MODES: {
   id: AppMode;
@@ -74,13 +73,17 @@ const Inner: React.FC = () => {
   }
 
   const handleBack = () => setView("home");
+  const handleLibraryBack = () => setView("library");
   let content: React.ReactNode;
   if (view === "chat") content = <ChatContainer onBack={handleBack} />;
   else if (view === "quiz") content = <QuizContainer onBack={handleBack} />;
   else if (view === "sobes") content = <SobesContainer onBack={handleBack} />;
   else if (view === "design") content = <DesignContainer onBack={handleBack} />;
-  else if (view === "question-entry") content = <QuestionEntryContainer onBack={handleBack} />;
-  else if (view === "design-scenario-entry") content = <DesignScenarioEntryContainer onBack={handleBack} />;
+  else if (view === "question-entry") content = <QuestionEntryContainer onBack={handleLibraryBack} />;
+  else if (view === "design-scenario-entry") content = <DesignScenarioEntryContainer onBack={handleLibraryBack} />;
+  else if (view === "library") content = (
+    <LibraryView onBack={handleBack} onSelect={(target) => setView(target)} />
+  );
   else if (view === "stats-overview") content = <StatsView mode="overall" onBack={handleBack} />;
   else content = (
     <section className={styles.home} aria-labelledby="home-title">
@@ -108,35 +111,11 @@ const Inner: React.FC = () => {
             </Card>
           ))}
         </div>
-
-        <section className={styles.librarySection} aria-labelledby="library-title">
-          <div>
-            <h2 id="library-title" className={styles.libraryTitle}>Пополнение базы</h2>
-            <p className={styles.libraryDescription}>
-              Добавляйте материалы в базу знаний. Здесь появятся и следующие режимы пополнения.
-            </p>
-          </div>
-          <button type="button" className={styles.libraryButton} onClick={() => setView("question-entry")}>
-            <span className={styles.libIcon} aria-hidden="true"><IconQuestion size={18} /></span>
-            <span>
-              <strong>Внесение вопросов</strong>
-              <small>Добавить вопрос и ответ в файл интервью</small>
-            </span>
-            <IconArrowRight size={18} className={styles.libraryArrow} />
-          </button>
-          <button type="button" className={styles.libraryButton} onClick={() => setView("design-scenario-entry")}>
-            <span className={styles.libIcon} aria-hidden="true"><IconScenario size={18} /></span>
-            <span>
-              <strong>Сценарий системного дизайна</strong>
-              <small>Добавить новую задачу в YAML-библиотеку сценариев</small>
-            </span>
-            <IconArrowRight size={18} className={styles.libraryArrow} />
-          </button>
-        </section>
     </section>
   );
 
-  const shellView = view === "question-entry" || view === "design-scenario-entry" ? "home" : view;
+  const shellView =
+    view === "question-entry" || view === "design-scenario-entry" ? "library" : view;
   return <AppShell activeView={shellView} onNavigate={setView}>{content}</AppShell>;
 };
 

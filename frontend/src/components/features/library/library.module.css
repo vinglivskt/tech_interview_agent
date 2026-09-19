@@ -1,0 +1,25 @@
+.container { max-width: 920px; margin: 0 auto; animation: fadeInUp 0.28s ease; }
+
+.intro { margin: 0 0 1.1rem; padding: 0.9rem 1rem; border: 1px solid var(--accent-border); border-radius: var(--radius-lg); background: var(--accent-soft); color: var(--text-soft); font-size: 0.9rem; }
+
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+
+.panel { min-height: 200px; display: flex; flex-direction: column; align-items: flex-start; padding: 1.3rem; border-radius: var(--radius-xl); background: var(--bg-elevated); }
+
+.icon { display: grid; place-items: center; width: 36px; height: 36px; margin-bottom: 1.25rem; border-radius: 10px; color: var(--accent); background: var(--accent-soft); }
+
+.eyebrow { margin-bottom: 0.3rem; color: var(--muted); font-size: 0.7rem; font-weight: 750; letter-spacing: 0.055em; text-transform: uppercase; }
+
+.title { margin: 0; font-size: 1.13rem; letter-spacing: -0.025em; }
+
+.description { margin: 0.5rem 0 0.9rem; color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+
+.cta { margin-top: auto; display: inline-flex; align-items: center; gap: 0.3rem; color: var(--accent); font-size: 0.8rem; font-weight: 750; }
+
+.ctaIcon { transition: transform 0.16s ease; }
+
+.panel:hover .ctaIcon { transform: translateX(3px); }
+
+@media (max-width: 560px) { .grid { grid-template-columns: 1fr; } .panel { min-height: 180px; } }
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

@@ -240,3 +240,6 @@ export interface DesignResultsResponse {
 
 // App Types
 export type AppMode = 'home' | 'chat' | 'quiz' | 'sobes' | 'design';
+
+/** Целевые экраны из раздела «Пополнение базы». */
+export type LibraryTarget = 'question-entry' | 'design-scenario-entry';
