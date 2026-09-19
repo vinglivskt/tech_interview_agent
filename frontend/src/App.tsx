@@ -31,31 +31,30 @@ const MODES: {
   title: string;
   description: string;
   icon: React.FC<{ size?: number; className?: string }>;
-  eyebrow: string;
 }[] = [
   {
     id: "chat",
     title: "Интервью",
     description: "Свободный диалог с ассистентом. Задавайте вопросы, получайте ответы с ссылками на базу знаний.",
-    icon: IconChat, eyebrow: "Практика с RAG",
+    icon: IconChat,
   },
   {
     id: "quiz",
     title: "Тестирование",
     description: "20 вопросов с вариантами ответов. Проверьте свои знания и узнайте свой уровень.",
-    icon: IconQuiz, eyebrow: "20 вопросов",
+    icon: IconQuiz,
   },
   {
     id: "sobes",
     title: "Собеседование",
     description: "15–25 вопросов по темам, свободные ответы, оценка в процентах и финальный вердикт.",
-    icon: IconSobes, eyebrow: "Открытые ответы",
+    icon: IconSobes,
   },
   {
     id: "design",
     title: "Системный дизайн",
     description: "Проектируйте систему пошагово и получите оценку по архитектурной рубрике.",
-    icon: IconArch, eyebrow: "Архитектурное мышление",
+    icon: IconArch,
   },
 ];
 
@@ -96,11 +95,12 @@ const Inner: React.FC = () => {
         <div className={styles.modeGrid}>
           {MODES.map((modeItem) => (
             <Card key={modeItem.id} hoverable onClick={() => setView(modeItem.id)} className={styles.modeCard}>
-              <span className={styles.modeIcon} aria-hidden="true">{<modeItem.icon size={19} />}</span>
-              <span className={styles.modeEyebrow}>{modeItem.eyebrow}</span>
-              <h3 className={styles.modeTitle}>{modeItem.title}</h3>
-              <p className={styles.modeDescription}>{modeItem.description}</p>
-              <span className={styles.modeCta}>Открыть режим <IconArrowRight size={14} className={styles.modeCtaIcon} /></span>
+              <span className={styles.modeIcon} aria-hidden="true">{<modeItem.icon size={20} />}</span>
+              <span className={styles.modeBody}>
+                <h3 className={styles.modeTitle}>{modeItem.title}</h3>
+                <p className={styles.modeDescription}>{modeItem.description}</p>
+                <span className={styles.modeCta}>Открыть режим <IconArrowRight size={14} className={styles.modeCtaIcon} /></span>
+              </span>
             </Card>
           ))}
         </div>
