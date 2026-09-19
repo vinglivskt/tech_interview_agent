@@ -73,6 +73,8 @@ services:
       # База вопросов изменяется самим API. Прямое монтирование сохраняет
       # дополнения в backend/src и переживает пересоздание контейнера.
       - ./backend/src/interview_questions.docx:/app/src/interview_questions.docx:rw
+      # Сценарии дизайна также изменяются из UI и должны оставаться в проекте.
+      - ./backend/prompts/design/library.yaml:/app/prompts/design/library.yaml:rw
     develop:
       watch:
         - path: ./backend/src

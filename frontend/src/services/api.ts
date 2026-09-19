@@ -211,6 +211,22 @@ export const sobesApi = {
 
 // Design API
 export const designApi = {
+  saveScenario: (data: {
+    title: string;
+    summary: string;
+    level: "junior" | "middle" | "senior";
+    category: string;
+    requirements: string[];
+    nfr: string[];
+    constraints: string[];
+    acceptance_criteria: string[];
+    topics: string[];
+  }) =>
+    request<{ status: "saved" | "skipped"; id?: string }>("/design/library/scenarios", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   getConfig: () =>
     request<{
       levels: string[];

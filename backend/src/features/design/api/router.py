@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
 from src.core.config import Settings
 from src.core.deps import decode_username_header
-from src.db.writer import persist_design_answer
+from src.db.writer import persist_design_answer, seed_design_scenarios_from_file
+from src.features.design.api.models import SaveDesignScenarioRequest
+from src.features.design.domain.library_repository import append_design_scenario
 from src.features.design.domain.models import (
     DesignAnswerRequest,
     DesignAnswerResponse,
@@ -41,6 +44,35 @@ def _service(request: Request) -> DesignService:
         _store_get(),
         checkpointer=getattr(request.app.state, "design_checkpointer", None),
     )
+
+
+@router.post("/design/library/scenarios")
+async def save_library_scenario(request: Request, body: SaveDesignScenarioRequest):
+    """Сохраняет новый сценарий в YAML-библиотеку и сразу добавляет его в PostgreSQL."""
+    settings: Settings = request.app.state.settings
+    library_path = Path(settings.design_library_path)
+    try:
+        result = await append_design_scenario(
+            library_path,
+            title=body.title,
+            summary=body.summary,
+            level=body.level,
+            category=body.category,
+            requirements=body.requirements,
+            nfr=body.nfr,
+            constraints=body.constraints,
+            acceptance_criteria=body.acceptance_criteria,
+            topics=body.topics,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    if result["status"] == "saved":
+        try:
+            await seed_design_scenarios_from_file(library_path)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail="Сценарий сохранён в YAML, но не добавлен в базу данных") from exc
+    return result
 
 
 @router.get("/design/config", response_model=DesignConfigResponse)
