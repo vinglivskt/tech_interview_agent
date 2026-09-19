@@ -1,9 +1,8 @@
 .home { max-width: 1080px; margin: 0 auto; animation: fadeInUp .3s ease; }
-.homeHeader { margin: clamp(1.2rem, 3vw, 2.2rem) 0 1.5rem; }
+.homeHeader { text-align: center; margin: clamp(1.2rem, 3vw, 2.2rem) 0 1.5rem; }
 .hero { min-width: 0; }
 .kicker { margin: 0 0 .4rem; color: var(--accent); font-size: .82rem; font-weight: 700; }
 .heroTitle { margin: 0; color: var(--text); font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.12; letter-spacing: -.035em; }
-.heroSubtitle { margin: .55rem 0 0; max-width: 560px; color: var(--muted); font-size: .94rem; line-height: 1.55; }
 .modeGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .modeCard { min-height: 200px; display: flex; flex-direction: column; align-items: flex-start; padding: 1.3rem; border-radius: var(--radius-xl); background: var(--bg-elevated); }
 .modeCard:nth-child(1) { border-color: var(--accent-border); }

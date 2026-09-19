@@ -90,7 +90,6 @@ const Inner: React.FC = () => {
         <div className={styles.hero}>
           <p className={styles.kicker}>{username ? `Добро пожаловать, ${username}` : "Личный workspace для подготовки"}</p>
           <h1 id="home-title" className={styles.heroTitle}>Подготовка к техническому интервью</h1>
-          <p className={styles.heroSubtitle}>Четыре формата тренировки — статистика и слабые места сохраняются автоматически.</p>
         </div>
       </header>
 
