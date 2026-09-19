@@ -69,6 +69,10 @@ services:
         condition: service_started
       postgres:
         condition: service_healthy
+    volumes:
+      # База вопросов изменяется самим API. Прямое монтирование сохраняет
+      # дополнения в backend/src и переживает пересоздание контейнера.
+      - ./backend/src/interview_questions.docx:/app/src/interview_questions.docx:rw
     develop:
       watch:
         - path: ./backend/src

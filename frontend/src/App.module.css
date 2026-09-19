@@ -125,6 +125,66 @@
   line-height: 1.5;
 }
 
+.librarySection {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+  text-align: left;
+}
+
+.libraryTitle {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.libraryDescription {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.libraryButton {
+  width: 100%;
+  min-height: 0;
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+}
+
+.libraryButton:hover {
+  border-color: var(--accent);
+  background: var(--panel-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.libraryButton strong,
+.libraryButton small {
+  display: block;
+}
+
+.libraryButton small {
+  margin-top: 0.1rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
+.libraryArrow {
+  margin-left: auto;
+  color: var(--accent);
+  font-size: 1.2rem;
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;

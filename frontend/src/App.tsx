@@ -3,12 +3,12 @@ import { Card, ThemeToggle } from "@/components/ui";
 import { WelcomeModal } from "@/components/ui/WelcomeModal";
 import { UserProvider, useUser } from "@/components/state/UserContext";
 import { setApiUsername } from "@/services/api";
-import { ChatContainer, QuizContainer, SobesContainer, DesignContainer } from "@/components/features";
+import { ChatContainer, QuizContainer, SobesContainer, DesignContainer, QuestionEntryContainer } from "@/components/features";
 import { StatsView } from "@/components/features/_shared/StatsView";
 import type { AppMode } from "@/types";
 import styles from "./App.module.css";
 
-type View = AppMode | "home" | "stats-overview";
+type View = AppMode | "home" | "stats-overview" | "question-entry";
 
 const MODES: { id: AppMode; title: string; description: string; icon: string }[] = [
   {
@@ -54,6 +54,7 @@ const Inner: React.FC = () => {
   if (view === "quiz") return <QuizContainer onBack={handleBack} />;
   if (view === "sobes") return <SobesContainer onBack={handleBack} />;
   if (view === "design") return <DesignContainer onBack={handleBack} />;
+  if (view === "question-entry") return <QuestionEntryContainer onBack={handleBack} />;
 
   if (view === "stats-overview") {
     return <StatsView mode="overall" onBack={handleBack} />;
@@ -91,6 +92,23 @@ const Inner: React.FC = () => {
             </Card>
           ))}
         </div>
+
+        <section className={styles.librarySection} aria-labelledby="library-title">
+          <div>
+            <h2 id="library-title" className={styles.libraryTitle}>Пополнение базы</h2>
+            <p className={styles.libraryDescription}>
+              Добавляйте материалы в базу знаний. Здесь появятся и следующие режимы пополнения.
+            </p>
+          </div>
+          <button type="button" className={styles.libraryButton} onClick={() => setView("question-entry")}>
+            <span aria-hidden="true">✍️</span>
+            <span>
+              <strong>Внесение вопросов</strong>
+              <small>Добавить вопрос и ответ в файл интервью</small>
+            </span>
+            <span className={styles.libraryArrow} aria-hidden="true">→</span>
+          </button>
+        </section>
       </div>
     </div>
   );
