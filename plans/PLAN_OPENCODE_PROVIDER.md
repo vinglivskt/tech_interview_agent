@@ -36,23 +36,42 @@
 Причина по документации: эти модели бесплатны **внутри OpenCode** и
 используются для сбора отзывов. Из чужого процесса через API они недоступны.
 
-### Reasoning-бюджет
+### Reasoning-бюджет — главная причина «не всегда доходят вопросы»
 
 Zen-модели — reasoning-модели: часть `max_tokens` уходит на внутренние
 размышления, и `message.content` приходит **пустым**. Замеры для
-`space-bunny-free`:
+`space-bunny-free` на реальном вопросе собеседования:
 
 | `max_tokens` | `content` | usage |
 |---|---|---|
 | 40 | `''` (пусто) | reasoning съел весь бюджет |
 | 512 | `'Да.'` | 43 из 45 completion-токенов — reasoning |
-| 2048 | `'Да.'` | 49 из 51 — reasoning |
+| 1024 | пусто / обрыв | **908** thinking-токенов, `finish_reason=length` |
+| 1024 + `reasoning_effort=low` | 652 символа | **33** thinking-токена, `finish_reason=stop` |
 
-Отсюда `_MIN_MAX_TOKENS = 1024` в клиенте: маленький бюджет приподнимается,
-а пустой ответ превращается в понятную `RuntimeError`, а не в молчаливую
-пустую строку. Это критично, потому что вызывающие коды передают малые
-значения: `question_enricher.py:153` → 200, `quiz_generator.py:79` → 300,
-`sobes/scoring.py:120,141` → 600.
+Ключевой параметр — **`reasoning_effort`**. Замер latency:
+
+| Запрос | Время | thinking-токены | content |
+|---|---|---|---|
+| без `reasoning_effort` | **14.1s** | 908 | finish=length, почти пусто |
+| `reasoning_effort="low"` | **4.1s** | 33 | finish=stop, нормальный ответ |
+
+`reasoning_effort="none"` и `thinking: {"type": "disabled"}` провайдер
+отклоняет с HTTP 400 (`invalid_request_error`).
+
+Реализация:
+- `_MIN_MAX_TOKENS = 1024` — приподнимает маленький бюджет вызывающего кода
+  (а он передаёт 200/300/600 в `question_enricher.py:153`,
+  `quiz_generator.py:79`, `sobes/scoring.py:120,141`);
+- `OPENCODE_REASONING_EFFORT=low` (дефолт `low`) — убирает и пустые ответы,
+  и 14-секундные задержки;
+- `_rejects_param()` — если модель не принимает параметр (HTTP 400 с
+  `invalid`/`unsupported` и упоминанием `reasoning_effort`), запрос
+  автоматически повторяется без него, один раз;
+- пустой content больше не возвращается молча — это `RuntimeError` с
+  actionable-текстом.
+
+Сквозная задержка `/api/chat` после фикса: 5.9–10.5s против 14s+ и пустых ответов.
 
 ---
 
@@ -96,6 +115,7 @@ opencode_key: str = ""
 opencode_url: str = "https://opencode.ai/zen/v1"
 opencode_model: str = "space-bunny-free"
 opencode_timeout_sec: float = 120.0
+opencode_reasoning_effort: str = "low"
 embed_provider: Literal["ollama"] = "ollama"
 ```
 
@@ -110,6 +130,7 @@ OPENCODE_KEY=oc_sk_...
 OPENCODE_URL=https://opencode.ai/zen/v1
 OPENCODE_MODEL=space-bunny-free
 OPENCODE_TIMEOUT_SEC=120
+OPENCODE_REASONING_EFFORT=low
 ```
 
 ---
@@ -124,7 +145,9 @@ OPENCODE_TIMEOUT_SEC=120
 | `backend/src/features/chat/providers/__init__.py` | Экспорт клиентов |
 | `backend/src/main.py` | Фабрика провайдера, fallback генерации на Zen, отдельный Ollama-embedder для Qdrant |
 | `.env.example`, `docker-compose.yml`, `.env` | Переменные `LLM_PROVIDER` и `OPENCODE_*` |
-| `tests/unit/test_opencode_provider.py` | 30 юнитов, включая бюджет токенов и пустой ответ |
+| `backend/src/main.py` | `_log_ingest_failure()` — сбой индексации при выключенной Ollama логируется одной actionable-строкой без traceback; неожиданные ошибки сохраняют traceback |
+| `tests/unit/test_opencode_provider.py` | 34 юнита: бюджет токенов, пустой ответ, `reasoning_effort` и его retry |
+| `tests/unit/test_ingest_failure_logging.py` | 3 юнита: разделение ожидаемого/неожиданного сбоя индексации |
 
 ### Обработка ошибок
 
@@ -143,7 +166,7 @@ OPENCODE_TIMEOUT_SEC=120
 ## 5. Проверка
 
 ```bash
-uv run pytest tests/unit/ -q     # 195 passed
+uv run pytest tests/unit/ -q     # 202 passed
 uv run ruff check backend/src/features/chat/providers/ backend/src/config.py
 docker compose up -d --build --force-recreate api
 curl -X POST http://localhost:8000/api/chat \
@@ -174,7 +197,10 @@ curl -X POST http://localhost:8000/api/chat \
    ручной парсинг. Для включения: `uv add langchain-openai`.
 5. **Runtime-фолбэк Zen → Ollama не реализован.** Есть только стартовый
    выбор и стартовый фолбэк Ollama → Zen.
-6. **`tests/integration/test_lang_integrations.py` не собирается** —
+6. **Сбой индексации при выключенной Ollama** — теперь одна строка WARNING
+   вместо ~60 строк traceback в логе при каждом старте. Состояние не
+   изменилось: RAG требует Ollama.
+7. **`tests/integration/test_lang_integrations.py` не собирается** —
    pre-existing `ImportError: cannot import name 'ClassifyWarehouse'`. Не
    связано с этой задачей.
 
