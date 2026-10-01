@@ -64,6 +64,12 @@ services:
       INGEST_INTERVAL_HOURS: ${INGEST_INTERVAL_HOURS:-1}
       DATABASE_URL: postgresql+asyncpg://interview:interview@postgres:5432/interview
       DATABASE_ECHO: ${DATABASE_ECHO:-false}
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      OPENCODE_KEY: ${OPENCODE_KEY:-}
+      OPENCODE_URL: ${OPENCODE_URL:-https://opencode.ai/zen/v1}
+      OPENCODE_MODEL: ${OPENCODE_MODEL:-space-bunny-free}
+      OPENCODE_REASONING_EFFORT: ${OPENCODE_REASONING_EFFORT:-low}
+      OPENCODE_TIMEOUT_SEC: ${OPENCODE_TIMEOUT_SEC:-120}
     depends_on:
       qdrant:
         condition: service_started

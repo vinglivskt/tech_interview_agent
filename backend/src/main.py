@@ -13,8 +13,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from httpx import ConnectError, ConnectTimeout
 
 from src.core.config import get_settings
+from src.core.interfaces.embeddings import EmbeddingGateway
+from src.core.interfaces.llm import LLMGateway
 from src.core.logger import configure_logging
 from src.db.database import (
     create_all_tables,
@@ -27,7 +30,9 @@ from src.features.chat.api.router import router as chat_router
 from src.features.chat.domain.ingest import sync_interview_index
 from src.features.chat.domain.services import SessionStore
 from src.features.chat.infrastructure.qdrant import QdrantService
+from src.features.chat.providers.composite import CompositeLLMClient
 from src.features.chat.providers.ollama import OllamaClient
+from src.features.chat.providers.opencode import OpenCodeClient
 from src.features.design.api.router import router as design_router
 from src.features.design.domain.graph import create_design_checkpointer
 from src.features.quiz.api.router import router as quiz_router
@@ -37,15 +42,66 @@ from src.features.stats.api.router import router as stats_router
 configure_logging()
 logger = logging.getLogger(__name__)
 
+_INGEST_UNAVAILABLE_HINT = (
+    "Индексация docx пропущена: не работает провайдер эмбеддингов (Ollama по %s). "
+    "Генерация через OpenCode Zen продолжит работать, но RAG-поиск и индексация "
+    "не появятся до запуска Ollama."
+)
+
+
+def _log_ingest_failure(exc: Exception, *, phase: str, ollama_url: str) -> None:
+    """Логирует сбой индексации, разделяя ожидаемый и неожиданный случаи.
+
+    Недоступность Ollama — это состояние конфигурации, о котором уже сообщено
+    при старте. Дублировать его многокадровым traceback не нужно: он только
+    забивает лог и прячет реальные ошибки. Неожиданные сбои по-прежнему
+    логируются с полным traceback.
+    """
+    if isinstance(exc, (ConnectError, ConnectTimeout)):
+        logger.warning(_INGEST_UNAVAILABLE_HINT, ollama_url)
+    else:
+        logger.exception("%s: %s", phase, exc)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
-    llm = OllamaClient(settings)
-    qdrant = QdrantService(settings, llm)
 
-    if not await llm.ping():
-        logger.warning("Ollama недоступна по %s", settings.ollama_url)
+    # --- Провайдер генерации LLM ---
+    llm: LLMGateway
+    if settings.llm_provider == "opencode":
+        llm = OpenCodeClient(settings)
+        if not await llm.ping():
+            logger.warning("OpenCode Zen недоступен по %s", settings.opencode_url)
+    else:
+        ollama_llm = OllamaClient(settings)
+        if await ollama_llm.ping():
+            llm = ollama_llm
+        else:
+            logger.warning(
+                "Ollama недоступна по %s — переключаю генерацию на OpenCode Zen (%s)",
+                settings.ollama_url,
+                settings.opencode_model,
+            )
+            await ollama_llm.close()
+            llm = OpenCodeClient(settings)
+
+    # --- Провайдер эмбеддингов (всегда Ollama: у Zen нет /embeddings) ---
+    embeddings_available = True
+    if isinstance(llm, OllamaClient):
+        embedder: EmbeddingGateway = llm
+    else:
+        embedder = OllamaClient(settings)
+        if not await embedder.ping():
+            embeddings_available = False
+            logger.error(
+                "Ollama недоступна (%s) — эмбеддингов не будет: RAG-поиск и индексация "
+                "docx не заработают. Zen эмбеддинги не отдаёт. Запустите Ollama.",
+                settings.ollama_url,
+            )
+
+    client = CompositeLLMClient(llm, embedder)
+    qdrant = QdrantService(settings, client)
 
     try:
         await qdrant.ensure_collection()
@@ -67,7 +123,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.exception("Не удалось инициализировать БД (PostgreSQL). Статистика будет недоступна.")
 
     app.state.settings = settings
-    app.state.llm = llm
+    app.state.llm = client
     app.state.qdrant = qdrant
     app.state.sessions = SessionStore(
         max_sessions=settings.session_store_max_sessions,
@@ -92,8 +148,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         try:
             state = await sync_interview_index(settings, qdrant)
             logger.info("Состояние начальной индексации: %s", state)
-        except Exception:
-            logger.exception("Первая индексация docx не удалась")
+        except Exception as exc:
+            if embeddings_available:
+                _log_ingest_failure(
+                    exc, phase="Первая индексация docx не удалась", ollama_url=settings.ollama_url
+                )
+            else:
+                logger.warning(_INGEST_UNAVAILABLE_HINT, settings.ollama_url)
 
         # Сид библиотеки сценариев системного дизайна в PostgreSQL
         try:
@@ -115,8 +176,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                     state = await sync_interview_index(settings, qdrant)
                     if state.get("status") == "updated":
                         logger.info("Индекс обновлён: %s", state)
-                except Exception:
-                    logger.exception("Периодическая индексация не удалась")
+                except Exception as exc:
+                    _log_ingest_failure(
+                        exc,
+                        phase="Периодическая индексация не удалась",
+                        ollama_url=settings.ollama_url,
+                    )
 
     initial_ingest_task = asyncio.create_task(initial_ingest())
     task = asyncio.create_task(periodic_ingest_loop())
@@ -130,7 +195,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             pass
 
     await qdrant.close()
-    await llm.close()
+    await client.close()
     if design_checkpointer_close is not None:
         try:
             await design_checkpointer_close()

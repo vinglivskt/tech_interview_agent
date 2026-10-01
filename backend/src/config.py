@@ -218,6 +218,43 @@ class Settings(BaseSettings):
         ),
     )
 
+    # --- LLM провайдер (Ollama | OpenCode Zen) ---
+    llm_provider: Literal["ollama", "opencode"] = Field(
+        default="ollama",
+        description="Провайдер генерации LLM: ollama (локальный) или opencode (Zen API)",
+    )
+    opencode_key: str = Field(default="", description="API-ключ OpenCode Zen (env: OPENCODE_KEY)")
+    opencode_url: str = Field(
+        default="https://opencode.ai/zen/v1",
+        description="Base URL OpenCode Zen API (OpenAI-совместимый /chat/completions)",
+    )
+    opencode_model: str = Field(
+        default="space-bunny-free",
+        description="Модель OpenCode Zen. ВАЖНО: большинство free-tier моделей "
+        "(big-pickle, nemotron, mimo, muse-spark) отдают 403 FreeTierError при прямом "
+        "вызове API — они работают только изнутри OpenCode. Проверенная рабочая "
+        "бесплатная модель для прямого API: space-bunny-free (лимит max_tokens).",
+    )
+    opencode_timeout_sec: float = Field(default=120.0, gt=0, description="Таймаут запросов к OpenCode Zen (сек)")
+    opencode_reasoning_effort: str = Field(
+        default="low",
+        description="Глубина размышлений reasoning-моделей Zen (env: OPENCODE_REASONING_EFFORT). "
+        "Эмпирически измерено на space-bunny-free: effort=low — 4.1s и 33 thinking-токена "
+        "(контент всегда непустой), без него — 14.1s и 908 thinking-токенов, бюджет "
+        "исчерпывается (finish_reason=length) и content приходит пустым. "
+        "Пустое значение отключает параметр; модели без его поддержки "
+        "обрабатываются автоматическим retry без параметра.",
+    )
+
+    # --- Провайдер эмбеддингов ---
+    # OpenCode Zen — это шлюз только для чата: эндпоинта /embeddings у него нет (404).
+    # Поэтому эмбеддинги для RAG всегда считаются отдельным провайдером (Ollama).
+    embed_provider: Literal["ollama"] = Field(
+        default="ollama",
+        description="Провайдер эмбеддингов для RAG. OpenCode Zen эмбеддинги не отдаёт, "
+        "поэтому при выборе LLM=opencode эмбеддинги всё равно берутся из Ollama.",
+    )
+
     @field_validator(
         "ollama_url",
         "ollama_model",
