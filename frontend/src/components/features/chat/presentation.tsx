@@ -19,6 +19,9 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
   customQuestion,
   isCustomMode,
   suggestSave,
+  correctionDraft,
+  isCorrectionOpen,
+  correctionStatus,
   onAnswerChange,
   onCustomQuestionChange,
   onEnterCustomMode,
@@ -26,6 +29,10 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
   onSubmitCustomQuestion,
   onSend,
   onSave,
+  onStartQuestionCorrection,
+  onCorrectionChange,
+  onSaveQuestionCorrection,
+  onCancelQuestionCorrection,
   onBack,
   onReset,
   statsButton,
@@ -123,6 +130,66 @@ export const ChatPresentation: React.FC<ChatViewProps> = ({
           <Button variant="secondary" onClick={onEnterCustomMode} disabled={isLoading}>
             Задать свой вопрос
           </Button>
+          {answer && questionNumber !== "—" && (
+            <Button
+              variant="secondary"
+              onClick={onStartQuestionCorrection}
+              disabled={isLoading}
+              loading={isLoading && isCorrectionOpen}
+            >
+              Улучшить формулировку вопроса
+            </Button>
+          )}
+        </div>
+      )}
+
+      {isCorrectionOpen && !isCustomMode && (
+        <div className={styles.correctionPanel}>
+          <label className={styles.label} htmlFor="corrected-question">
+            Предложение для вопроса №{questionNumber}
+          </label>
+          <p className={styles.correctionHelp}>
+            ИИ подготовил более ясную формулировку по исходному вопросу и разбору ответа. Проверьте её,
+            при необходимости исправьте вручную и сохраните. В Word заменится только вопрос, эталонный ответ останется прежним.
+          </p>
+          <textarea
+            id="corrected-question"
+            className={styles.textarea}
+            value={correctionDraft}
+            onChange={(event) => onCorrectionChange(event.target.value)}
+            disabled={isLoading}
+            maxLength={4000}
+            rows={4}
+          />
+          <div
+            className={`${styles.correctionStatus} ${correctionStatus.startsWith("Ошибка") || correctionStatus.startsWith("Не удалось") ? styles.error : ""}`}
+            role="status"
+            aria-live="polite"
+          >
+            {correctionStatus}
+          </div>
+          <div className={styles.row}>
+            <Button
+              variant="success"
+              onClick={onSaveQuestionCorrection}
+              disabled={isLoading || !correctionDraft.trim()}
+              loading={isLoading && correctionStatus.startsWith("Сохраняю")}
+            >
+              Сохранить исправленный вопрос
+            </Button>
+            <Button variant="secondary" onClick={onCancelQuestionCorrection} disabled={isLoading}>
+              Отмена
+            </Button>
+          </div>
+        </div>
+      )}
+      {!isCorrectionOpen && correctionStatus && (
+        <div
+          className={`${styles.correctionStatus} ${correctionStatus.startsWith("Ошибка") ? styles.error : ""}`}
+          role="status"
+          aria-live="polite"
+        >
+          {correctionStatus}
         </div>
       )}
 

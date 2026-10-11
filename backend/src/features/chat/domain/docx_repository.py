@@ -273,3 +273,50 @@ def save_question_answer(
         question[:80],
     )
     return {"status": "saved", "number": next_number}
+
+
+def replace_question(
+    path: Path,
+    number: int,
+    question: str,
+    *,
+    expected_question: str | None = None,
+) -> dict[str, object]:
+    """Заменяет формулировку вопроса в строке DOCX с заданным номером."""
+    if not path.exists():
+        raise FileNotFoundError(f"Файл не найден: {path}")
+    clean_question = _clean_text(question)
+    if not clean_question:
+        raise ValueError("Новая формулировка вопроса не должна быть пустой")
+
+    doc = Document(str(path))
+    table = _find_table(doc)
+    target_row = None
+    target_question = ""
+    for row in table.rows:
+        if len(row.cells) < 3 or not row.cells[0].text.strip().isdigit():
+            continue
+        row_number = int(row.cells[0].text.strip())
+        row_question = row.cells[1].text.strip()
+        if row_number == number:
+            target_row = row
+            target_question = row_question
+            continue
+        if _matches_question(row_question, clean_question):
+            return {
+                "status": "duplicate",
+                "number": number,
+                "duplicate_number": row_number,
+            }
+
+    if target_row is None:
+        raise KeyError(f"Вопрос №{number} не найден в DOCX")
+    if expected_question is not None and not _matches_question(target_question, expected_question):
+        raise RuntimeError("Вопрос в файле уже изменён. Обновите страницу и повторите попытку.")
+    if _matches_question(target_question, clean_question):
+        return {"status": "unchanged", "number": number, "question": target_question}
+
+    _set_cell_text(target_row.cells[1], clean_question, bold=True)
+    doc.save(str(path))
+    logger.info("Обновлена формулировка вопроса №%d в %s", number, path.name)
+    return {"status": "updated", "number": number, "question": clean_question}

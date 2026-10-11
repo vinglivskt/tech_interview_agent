@@ -37,6 +37,9 @@ export interface ChatState {
   customQuestion: string;
   isCustomMode: boolean;
   suggestSave: boolean;
+  correctionDraft: string;
+  isCorrectionOpen: boolean;
+  correctionStatus: string;
 }
 
 export function useChat() {
@@ -56,6 +59,9 @@ export function useChat() {
     customQuestion: "",
     isCustomMode: false,
     suggestSave: false,
+    correctionDraft: "",
+    isCorrectionOpen: false,
+    correctionStatus: "",
   });
 
   const hasLoadedQuestion = useRef(false);
@@ -73,6 +79,9 @@ export function useChat() {
       isAnswerEmpty: true,
       statusText: "Генерация вопроса…",
       saveStatus: "",
+      correctionDraft: "",
+      isCorrectionOpen: false,
+      correctionStatus: "",
       error: null,
     }));
 
@@ -129,6 +138,9 @@ export function useChat() {
       customQuestion: "",
       lastQuestion: "",
       suggestSave: false,
+      correctionDraft: "",
+      isCorrectionOpen: false,
+      correctionStatus: "",
     }));
   }, []);
 
@@ -172,6 +184,9 @@ export function useChat() {
         userAnswer: "",
         isCustomMode: false,
         suggestSave: Boolean(meta.suggest_save),
+        correctionDraft: "",
+        isCorrectionOpen: false,
+        correctionStatus: "",
       }));
     } catch (err) {
       setState((prev) => ({
@@ -250,6 +265,92 @@ export function useChat() {
     }
   }, [state]);
 
+  const startQuestionCorrection = useCallback(async () => {
+    const number = Number(state.questionNumber);
+    if (!Number.isInteger(number) || number < 1 || !state.lastQuestion || !state.lastAnswer || state.isLoading) {
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      isCorrectionOpen: true,
+      correctionDraft: prev.lastQuestion,
+      correctionStatus: "ИИ готовит более ясную формулировку…",
+      error: null,
+    }));
+
+    try {
+      const result = await chatApi.suggestQuestionCorrection(number, state.lastAnswer);
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        correctionDraft: result.suggestion,
+        correctionStatus: "Проверьте предложение и при необходимости поправьте его перед сохранением.",
+      }));
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        correctionDraft: prev.lastQuestion,
+        correctionStatus: `Не удалось получить предложение. Можно исправить вопрос вручную. ${err instanceof Error ? err.message : ""}`,
+      }));
+    }
+  }, [state]);
+
+  const setCorrectionDraft = useCallback((correctionDraft: string) => {
+    setState((prev) => ({ ...prev, correctionDraft }));
+  }, []);
+
+  const cancelQuestionCorrection = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      isCorrectionOpen: false,
+      correctionDraft: "",
+      correctionStatus: "",
+    }));
+  }, []);
+
+  const saveQuestionCorrection = useCallback(async () => {
+    const number = Number(state.questionNumber);
+    const corrected = state.correctionDraft.trim();
+    if (!Number.isInteger(number) || !corrected || !state.lastQuestion || state.isLoading) return;
+
+    setState((prev) => ({ ...prev, isLoading: true, correctionStatus: "Сохраняю в Word и обновляю поиск…" }));
+    try {
+      const result = await chatApi.replaceQuestion(number, state.lastQuestion, corrected);
+      if (result.status === "duplicate") {
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          correctionStatus: `Такая формулировка уже есть у вопроса №${result.duplicate_number}. Измените текст и попробуйте ещё раз.`,
+        }));
+        return;
+      }
+
+      const savedQuestion = result.question || corrected;
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        questionText: savedQuestion,
+        lastQuestion: savedQuestion,
+        isCorrectionOpen: false,
+        correctionStatus:
+          result.index_status === "stale"
+            ? `Вопрос №${number} обновлён в Word. Поисковый индекс обновится позже.`
+            : result.status === "unchanged"
+              ? "Формулировка не изменилась."
+              : `Вопрос №${number} обновлён в Word и поиске.`,
+      }));
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        correctionStatus: `Ошибка сохранения: ${err instanceof Error ? err.message : "Неизвестная ошибка"}`,
+      }));
+    }
+  }, [state]);
+
   const resetConversation = useCallback(() => {
     hasLoadedQuestion.current = false;
     setState((prev) => ({
@@ -267,6 +368,9 @@ export function useChat() {
       customQuestion: "",
       isCustomMode: false,
       suggestSave: false,
+      correctionDraft: "",
+      isCorrectionOpen: false,
+      correctionStatus: "",
     }));
     loadRandomQuestion();
   }, [loadRandomQuestion]);
@@ -280,6 +384,10 @@ export function useChat() {
     submitCustomQuestion,
     sendAnswer,
     saveToWord,
+    startQuestionCorrection,
+    setCorrectionDraft,
+    cancelQuestionCorrection,
+    saveQuestionCorrection,
     loadRandomQuestion,
     resetConversation,
   };

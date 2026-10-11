@@ -14,6 +14,9 @@ export interface ChatViewProps {
   customQuestion: string;
   isCustomMode: boolean;
   suggestSave: boolean;
+  correctionDraft: string;
+  isCorrectionOpen: boolean;
+  correctionStatus: string;
   onAnswerChange: (value: string) => void;
   onCustomQuestionChange: (value: string) => void;
   onEnterCustomMode: () => void;
@@ -21,6 +24,10 @@ export interface ChatViewProps {
   onSubmitCustomQuestion: () => void;
   onSend: () => void;
   onSave: () => void;
+  onStartQuestionCorrection: () => void;
+  onCorrectionChange: (value: string) => void;
+  onSaveQuestionCorrection: () => void;
+  onCancelQuestionCorrection: () => void;
   onBack: () => void;
   onReset?: () => void;
   statsButton?: ReactNode;

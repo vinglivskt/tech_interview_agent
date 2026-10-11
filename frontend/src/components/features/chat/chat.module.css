@@ -160,6 +160,34 @@
   color: var(--accent);
 }
 
+.correctionPanel {
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-sm);
+  animation: fadeInUp 0.2s ease;
+}
+
+.correctionHelp {
+  margin: 0 0 0.75rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.correctionStatus {
+  margin-top: 0.55rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.correctionStatus.error {
+  color: var(--danger);
+}
+
 .meta {
   margin-top: 0.6rem;
   font-size: 0.78rem;

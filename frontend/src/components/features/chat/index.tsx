@@ -35,6 +35,9 @@ export const ChatContainer: React.FC<Props> = ({ onBack }) => {
         customQuestion={chat.customQuestion}
         isCustomMode={chat.isCustomMode}
         suggestSave={chat.suggestSave}
+        correctionDraft={chat.correctionDraft}
+        isCorrectionOpen={chat.isCorrectionOpen}
+        correctionStatus={chat.correctionStatus}
         onAnswerChange={chat.setUserAnswer}
         onCustomQuestionChange={chat.setCustomQuestion}
         onEnterCustomMode={chat.enterCustomMode}
@@ -42,6 +45,10 @@ export const ChatContainer: React.FC<Props> = ({ onBack }) => {
         onSubmitCustomQuestion={chat.submitCustomQuestion}
         onSend={chat.sendAnswer}
         onSave={chat.saveToWord}
+        onStartQuestionCorrection={chat.startQuestionCorrection}
+        onCorrectionChange={chat.setCorrectionDraft}
+        onSaveQuestionCorrection={chat.saveQuestionCorrection}
+        onCancelQuestionCorrection={chat.cancelQuestionCorrection}
         onBack={handleBack}
         onReset={chat.resetConversation}
         statsButton={statsButton}

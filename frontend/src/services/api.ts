@@ -49,6 +49,27 @@ export const chatApi = {
       body: JSON.stringify({ question, correct_answer: correctAnswer, session_id: sessionId }),
     }),
 
+  suggestQuestionCorrection: (number: number, llmAnswer: string) =>
+    request<{ number: number; original_question: string; suggestion: string }>(
+      "/interview/question/suggest-correction",
+      {
+        method: "POST",
+        body: JSON.stringify({ number, llm_answer: llmAnswer }),
+      },
+    ),
+
+  replaceQuestion: (number: number, originalQuestion: string, question: string) =>
+    request<{
+      status: "updated" | "unchanged" | "duplicate";
+      number: number;
+      question?: string;
+      duplicate_number?: number;
+      index_status?: "updated" | "stale";
+    }>(`/interview/question/${number}`, {
+      method: "PUT",
+      body: JSON.stringify({ original_question: originalQuestion, question }),
+    }),
+
   getRandomQuestion: () => request<{ number: number; question: string; total: number }>("/interview/random-question"),
 };
 

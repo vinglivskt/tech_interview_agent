@@ -1,4 +1,6 @@
 # tech_interview_agent/app/features/chat/api/router.py
+import asyncio
+import logging
 import random
 from pathlib import Path
 from typing import Annotated
@@ -7,13 +9,24 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
 from src.core.deps import decode_username_header
 from src.db.writer import persist_chat_message
+from src.features.chat.api.models.question_correction import (
+    SaveQuestionCorrectionRequest,
+    SuggestQuestionCorrectionRequest,
+)
 from src.features.chat.api.models.save_qa_request import SaveQARequest
-from src.features.chat.domain.docx_repository import question_exists, save_question_answer
+from src.features.chat.domain.docx_repository import (
+    question_exists,
+    replace_question,
+    save_question_answer,
+)
+from src.features.chat.domain.ingest import sync_interview_index
 from src.features.chat.domain.interview_docx import load_interview_qa
 from src.features.chat.domain.models import ChatRequest
+from src.features.chat.domain.question_rewriter import suggest_question_rewrite
 from src.features.chat.domain.services import SessionStore, run_chat
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/health")
@@ -134,6 +147,74 @@ async def save_qa_endpoint(
         raise HTTPException(status_code=500, detail=f"Файл не найден: {docx_path}")
 
     result = save_question_answer(docx_path, question, answer)
+    return result
+
+
+@router.post("/interview/question/suggest-correction")
+async def suggest_question_correction_endpoint(
+    request: Request,
+    body: SuggestQuestionCorrectionRequest,
+):
+    """Предлагает исправленную формулировку для вопроса из DOCX."""
+    docx_path = Path(request.app.state.settings.interview_docx_path)
+    if not await asyncio.to_thread(docx_path.exists):
+        raise HTTPException(status_code=500, detail=f"Файл не найден: {docx_path}")
+    items = await asyncio.to_thread(load_interview_qa, docx_path)
+    qa = next((item for item in items if item.number == body.number), None)
+    if qa is None:
+        raise HTTPException(status_code=404, detail=f"Вопрос №{body.number} не найден")
+    try:
+        suggestion = await suggest_question_rewrite(
+            request.app.state.llm,
+            number=qa.number,
+            question=qa.question,
+            llm_answer=body.llm_answer,
+        )
+    except Exception as exc:
+        logger.exception("Не удалось предложить редакцию вопроса №%d", body.number)
+        raise HTTPException(
+            status_code=502, detail="Не удалось подготовить вариант вопроса"
+        ) from exc
+    return {"number": qa.number, "original_question": qa.question, "suggestion": suggestion}
+
+
+@router.put("/interview/question/{number}")
+async def replace_question_endpoint(
+    request: Request,
+    number: int,
+    body: SaveQuestionCorrectionRequest,
+):
+    """Сохраняет исправленный текст в существующую запись DOCX и обновляет RAG."""
+    settings = request.app.state.settings
+    docx_path = Path(settings.interview_docx_path)
+    try:
+        result = await asyncio.to_thread(
+            replace_question,
+            docx_path,
+            number,
+            body.question,
+            expected_question=body.original_question,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if result["status"] == "updated":
+        try:
+            await sync_interview_index(settings, request.app.state.qdrant)
+        except Exception:
+            logger.exception(
+                "DOCX обновлён, но не удалось синхронизировать RAG после правки вопроса №%d",
+                number,
+            )
+            result["index_status"] = "stale"
+        else:
+            result["index_status"] = "updated"
     return result
 
 
