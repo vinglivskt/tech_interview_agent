@@ -1,5 +1,11 @@
 # План: внедрение LangChain / LangGraph / LangSmith в tech_interview_agent
 
+> **Актуальность:** это исходный план; рекомендации о точечном LangChain-внедрении
+> и флаге `LLM_STRUCTURED_OUTPUT` устарели. Текущая реализация описана в
+> `plans/PLAN_LANGCHAIN.md` и `docs/LANG_ECOSYSTEM_GUIDE.md`: генерация LLM и
+> Ollama-эмбеддинги проходят через LangChain, а скоринг всегда использует
+> structured output без обхода через старый HTTP/JSON-путь.
+
 > Документ анализирует текущую архитектуру проекта (FastAPI + Qdrant + Ollama + PostgreSQL)
 > и отвечает на вопрос: какая из технологий LangChain-экосистемы целесообразна,
 > что она даст конкретно нашему проекту, как и в каком порядке внедрять.

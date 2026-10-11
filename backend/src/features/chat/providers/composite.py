@@ -45,7 +45,6 @@ class CompositeLLMClient:
         max_tokens: int | None = None,
         metadata: dict[str, Any] | None = None,
         tags: list[str] | None = None,
-        **kwargs: Any,
     ) -> str:
         return await self._llm.generate(
             messages,
@@ -53,7 +52,6 @@ class CompositeLLMClient:
             max_tokens=max_tokens,
             metadata=metadata,
             tags=tags,
-            **kwargs,
         )
 
     async def generate_structured(
@@ -65,7 +63,6 @@ class CompositeLLMClient:
         max_tokens: int | None = None,
         metadata: dict[str, Any] | None = None,
         tags: list[str] | None = None,
-        **kwargs: Any,
     ) -> Any | None:
         return await self._llm.generate_structured(
             messages,
@@ -74,7 +71,6 @@ class CompositeLLMClient:
             max_tokens=max_tokens,
             metadata=metadata,
             tags=tags,
-            **kwargs,
         )
 
     async def embed(self, texts: list[str]) -> list[list[float]]:

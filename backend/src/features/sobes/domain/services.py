@@ -96,7 +96,6 @@ async def _ensure_classified_index(
         llm,
         items,
         settings.sobes_topics,
-        use_structured=getattr(settings, "llm_structured_output", False),
     )
     payload = {
         "doc_hash": doc_hash,
@@ -224,7 +223,6 @@ class SobesService:
                 "session_id": session_id,
                 "topic": cur.topic,
             },
-            use_structured=getattr(self._settings, "llm_structured_output", False),
         )
 
         # записать результат
@@ -317,4 +315,3 @@ class SobesService:
         is_last = sess.current_index >= sess.planned_total or sess.current_index >= len(sess.questions)
         next_q = None if is_last else sess.questions[sess.current_index]
         return next_q, is_last
-

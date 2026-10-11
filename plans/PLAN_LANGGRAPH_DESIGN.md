@@ -1,5 +1,9 @@
 # План внедрения LangGraph в режим «Системный дизайн»
 
+> **Актуальность:** реализация оценки обновлена после перехода скоринга на LangChain
+> structured output. Упоминания `parse_score` ниже описывают историческую реализацию;
+> текущий граф вызывает `generate_structured(DesignScore)` и не разбирает сырой JSON.
+
 > **Цель:** заменить ручную state-машину `DesignService` (`current_index`, `steps_order`,
 > `hinted_steps`, in-memory `DesignSessionStore`) на граф LangGraph с перезапускаемым
 > состоянием (checkpoint) — **без изменения API-контракта** `/api/design/*` и фронтенда.

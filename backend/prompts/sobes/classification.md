@@ -30,15 +30,13 @@
 ## Формат вывода
 
 ### ВАЖНО
-- Отвечай **ТОЛЬКО** JSON-массивом
-- Без текста до/после
-- Без пояснений
-- Порядок элементов — как во входных данных
+- Верни JSON-объект с единственным ключом `items`, значение которого — массив классификаций.
+- Без текста до/после и без пояснений.
+- Порядок элементов в `items` должен совпадать с порядком входных вопросов.
 
 ### Схема каждого элемента
 ```json
 {
-  "number": <номер из входа>,
   "topic": "<тема>",
   "level": "junior|middle|senior",
   "difficulty_score": <0.0-1.0>
@@ -47,11 +45,13 @@
 
 ### Пример вывода
 ```json
-[
-  {"number": 1, "topic": "python", "level": "middle", "difficulty_score": 0.5},
-  {"number": 2, "topic": "db", "level": "junior", "difficulty_score": 0.3},
-  {"number": 3, "topic": "other", "level": "middle", "difficulty_score": 0.6}
-]
+{
+  "items": [
+    {"topic": "python", "level": "middle", "difficulty_score": 0.5},
+    {"topic": "db", "level": "junior", "difficulty_score": 0.3},
+    {"topic": "other", "level": "middle", "difficulty_score": 0.6}
+  ]
+}
 ```
 
 ## Правила

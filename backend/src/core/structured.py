@@ -1,18 +1,12 @@
-"""Pydantic-схемы структурного вывода (structured output) для LLM-скоринга.
+"""Pydantic-схемы, используемые LangChain structured output для LLM-скоринга.
 
-Уровень B LangChain-сценария: вместо ручного ``json.loads`` + ретраев LLM
-получает JSON-схему (Ollama structured output API) и возвращает уже
-валидированный Pydantic-объект. Валидация рубрик, лимитов списков и клампов
-перенесена сюда из ``parse_score``/sobes-парсинга; legacy-парсеры остаются
-фолбэком и используют ту же эталонную логику.
-
-Схемы не зависят от сети и тестируются офлайн. Используются вместе с
-``OllamaClient.generate_structured`` (обёртка над ``ChatOllama.with_structured_output``).
+Провайдеры возвращают валидированные модели вместо текстового JSON. Сетевые
+ошибки обрабатываются в вызывающей фиче безопасной деградацией.
 """
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, TypeAdapter, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 # Ключи рубрики дизайна — совместимость со статистикой и промптами (не менять).
 RUBRIC_KEYS = frozenset({"reqs", "arch", "data", "scale", "tradeoffs"})
@@ -23,11 +17,12 @@ __all__ = [
     "ClassificationRow",
     "DesignScore",
     "ScoreResult",
+    "WrongAnswers",
 ]
 
 
 def _clamp_0_100(value: object) -> int:
-    """Те же границы, что в legacy-парсерах: 0..100, без жёсткой ошибки на диапазон."""
+    """Ограничивает числовую оценку диапазоном 0..100."""
     return max(0, min(100, int(value or 0)))
 
 
@@ -62,11 +57,7 @@ class ScoreResult(BaseModel):
 
 
 class DesignScore(BaseModel):
-    """Оценка шага системного дизайна: баллы + рубрика + пункты + пояснение.
-
-    ``rubric`` обязан содержать ровно ключи requis…/tradeoffs — иначе validation
-    error, и вызывающий код фолбэчит на legacy-ретраи (то же, что ``parse_score``).
-    """
+    """Оценка шага системного дизайна: баллы + рубрика + пункты + пояснение."""
 
     score_percent: int = Field(default=0)
     rubric: dict[str, int] = Field(default_factory=dict)
@@ -98,10 +89,10 @@ class DesignScore(BaseModel):
     def _stringify_explanation(cls, value: object) -> str:
         return str(value or "")
 
-    def to_legacy_tuple(
+    def to_scoring_tuple(
         self, max_expl_len: int
     ) -> tuple[int, dict[str, int], list[str], list[str], str]:
-        """Превращает валидированный объект в кортеж формата ``parse_score``."""
+        """Преобразует модель в кортеж, который ожидают текущие API и статистика."""
         explanation = self.techlead_explanation.strip()[:max_expl_len]
         return (
             self.score_percent,
@@ -139,6 +130,13 @@ class ClassificationRow(BaseModel):
         return min(1.0, max(0.0, float(value or 0.5)))
 
 
-# Батч классификаций: тип, который `with_structured_output` умеет конвертировать
-# в JSON-схему массива и парсить обратно в ``list[ClassificationRow]``.
-ClassificationBatch = TypeAdapter(list[ClassificationRow])
+class ClassificationBatch(BaseModel):
+    """Батч классификаций; объектная оболочка совместима с JSON Schema API."""
+
+    items: list[ClassificationRow] = Field(default_factory=list)
+
+
+class WrongAnswers(BaseModel):
+    """Три неправильных варианта для вопроса квиза."""
+
+    items: list[str] = Field(min_length=3, max_length=3)

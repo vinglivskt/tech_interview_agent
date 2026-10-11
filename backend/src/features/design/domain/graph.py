@@ -3,7 +3,7 @@
 Каждый сценарий компилируется в StateGraph:
 - каждый шаг интервью — отдельная нода;
 - нода «замирает» на ``interrupt()`` в ожидании ответа кандидата;
-- ответ оценивается LLM (та же JSON-схема и ретраи, что и раньше);
+- ответ оценивается LLM через LangChain structured output;
 - чекпоинтер (``thread_id = session_id``) хранит состояние интервью:
   в памяти (MemorySaver) или персистентно (AsyncPostgresSaver).
 
@@ -36,7 +36,6 @@ __all__ = [
     "build_design_graph",
     "create_design_checkpointer",
     "format_step_info",
-    "parse_score",
     "score_step",
 ]
 
@@ -134,49 +133,6 @@ def format_step_info(scenario: Scenario, step: Step, *, first: bool = False) -> 
     return {"id": step.id, "title": step.title, "prompt": prompt}
 
 
-def parse_score(
-    text: str,
-    max_expl_len: int,
-) -> tuple[int, dict[str, int], list[str], list[str], str]:
-    """Разбирает и валидирует JSON-ответ LLM со скорингом шага.
-
-    Схема (не менять — совместимость со статистикой и промптами):
-    ``{score_percent, rubric, covered_points, missed_points, techlead_explanation}``.
-    """
-    data = json.loads(text)
-    if not isinstance(data, dict) or set(data) != {
-        "score_percent",
-        "rubric",
-        "covered_points",
-        "missed_points",
-        "techlead_explanation",
-    }:
-        raise ValueError("Неверная JSON-схема оценки")
-    if type(data["score_percent"]) is not int or not 0 <= data["score_percent"] <= 100:
-        raise ValueError("Неверный score_percent")
-    rubric_raw = data["rubric"]
-    keys = {"reqs", "arch", "data", "scale", "tradeoffs"}
-    if not isinstance(rubric_raw, dict) or set(rubric_raw) != keys:
-        raise ValueError("Неверная рубрика")
-    if any(type(value) is not int or not 0 <= value <= 100 for value in rubric_raw.values()):
-        raise ValueError("Неверные значения рубрики")
-    if not all(
-        isinstance(data[key], list) and len(data[key]) <= 6
-        for key in ("covered_points", "missed_points")
-    ):
-        raise ValueError("Неверные списки пунктов")
-    if not isinstance(data["techlead_explanation"], str):
-        raise ValueError("Неверное пояснение")
-    explanation = data["techlead_explanation"].strip()[:max_expl_len]
-    return (
-        data["score_percent"],
-        dict(rubric_raw),
-        [str(item) for item in data["covered_points"]],
-        [str(item) for item in data["missed_points"]],
-        explanation,
-    )
-
-
 # ---------------------------------------------------------------------------
 # Скоринг шага
 # ---------------------------------------------------------------------------
@@ -194,18 +150,16 @@ async def score_step(
     max_tokens: int,
     max_expl_len: int,
     session_id: str | None = None,
-    use_structured: bool = False,
 ) -> DesignGradedStep:
     """Оценивает один ответ кандидата через LLM.
 
     Повторяет поведение прежнего ``DesignService.answer``:
-    - ретраи (до 3) при невалидном JSON с подсказкой «Предыдущий ответ невалиден…»;
+    - до трёх попыток structured output с подсказкой при сбое;
     - деградация на ошибке (0%, пустая рубрика, стандартное пояснение);
     - штраф за использованную подсказку.
 
-    ``use_structured=True`` использует LangChain structured output
-    (``DesignScore`` через ``OllamaClient.generate_structured``) перед legacy-
-    ретраями: валидация рубрик на стороне Pydantic, фолбэк при сбое.
+    LangChain structured output (`DesignScore`) — единственный путь вызова LLM.
+    После трёх неудачных попыток применяется безопасная оценка по умолчанию.
     """
     system = """Ты проводишь настоящий system design interview уровня Big Tech на русском языке.
 Оцени только текущий ответ кандидата, но учитывай весь контекст сценария и его предыдущие решения.
@@ -240,25 +194,9 @@ covered_points:[str максимум 6], missed_points:[str максимум 6],
                 if attempt == 0
                 else " Предыдущий ответ невалиден: верни только JSON строго по указанной схеме."
             )
-            if use_structured and hasattr(llm, "generate_structured"):
-                result = await llm.generate_structured(
-                    [{"role": "system", "content": system}, {"role": "user", "content": user}],
-                    schema=DesignScore,
-                    temperature=0.2,
-                    max_tokens=max_tokens,
-                    metadata={
-                        "feature": "design",
-                        "scenario_id": scenario.id,
-                        "step_id": step.id,
-                        **({"session_id": session_id} if session_id else {}),
-                    },
-                    tags=["scoring"],
-                )
-                if result is not None:
-                    score, rubric, covered, missed, expl = result.to_legacy_tuple(max_expl_len)
-                    break
-            text = await llm.generate(
+            result = await llm.generate_structured(
                 [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                schema=DesignScore,
                 temperature=0.2,
                 max_tokens=max_tokens,
                 metadata={
@@ -268,14 +206,12 @@ covered_points:[str максимум 6], missed_points:[str максимум 6],
                     **({"session_id": session_id} if session_id else {}),
                 },
                 tags=["scoring"],
-                format="json",
             )
-            try:
-                score, rubric, covered, missed, expl = parse_score(text, max_expl_len)
+            if result is not None:
+                score, rubric, covered, missed, expl = result.to_scoring_tuple(max_expl_len)
                 break
-            except Exception as exc:
-                last_error = exc
-                user += retry
+            last_error = ValueError("LangChain не вернул валидную оценку")
+            user += retry
         else:
             raise last_error or ValueError("Невалидный ответ LLM")
     except Exception:
@@ -349,7 +285,6 @@ def make_step_node(
             max_tokens=max_tokens,
             max_expl_len=max_expl_len,
             session_id=state.get("session_id"),
-            use_structured=getattr(settings, "llm_structured_output", False),
         )
 
         answered = state.get("idx", 0) + 1

@@ -1,11 +1,11 @@
 # Генерация неправильных вариантов ответов для квиза с помощью LLM.
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 
-from src.features.chat.providers.ollama import OllamaClient
+from src.core.interfaces.llm import LLMGateway
+from src.core.structured import WrongAnswers
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ def _truncate_to_length(text: str, target_length: int) -> str:
 
 
 async def generate_wrong_answers(
-    llm: OllamaClient,
+    llm: LLMGateway,
     question: str,
     correct_answer: str,
 ) -> list[str]:
@@ -73,36 +73,24 @@ async def generate_wrong_answers(
     ]
 
     try:
-        raw = await llm.generate(
+        result = await llm.generate_structured(
             messages,
+            schema=WrongAnswers,
             temperature=0.8,
             max_tokens=300,
             metadata={"feature": "quiz", "kind": "wrong-answers"},
             tags=["wrong-answers"],
         )
-        cleaned = raw.strip()
-
-        # Убираем markdown-обёртку если есть
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("```", 1)[1]
-            if cleaned.startswith("json"):
-                cleaned = cleaned[4:]
-            cleaned = cleaned.rsplit("```", 1)[0].strip()
-
-        result = json.loads(cleaned)
-        if isinstance(result, list) and len(result) >= 3:
-            wrong_answers = [str(item).strip() for item in result[:3]]
-
-            # Приводим все ответы к целевой длине
+        if result is not None:
             adjusted = []
-            for ans in wrong_answers:
-                if len(ans) > target_length * 1.3:
-                    ans = _truncate_to_length(ans, target_length)
-                adjusted.append(ans)
-
+            for answer in result.items:
+                answer = answer.strip()
+                if len(answer) > target_length * 1.3:
+                    answer = _truncate_to_length(answer, target_length)
+                adjusted.append(answer)
             return adjusted
 
-    except (json.JSONDecodeError, Exception) as exc:
+    except Exception as exc:
         logger.warning("Не удалось сгенерировать неправильные ответы через LLM: %s", exc)
 
     # Fallback: генерируем правдоподобные неправильные ответы на основе правильного

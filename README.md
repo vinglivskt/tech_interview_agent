@@ -251,20 +251,18 @@ tech_interview_agent/
 | `LANGSMITH_API_KEY` | — | Ключ API (обязателен, если включена трассировка) |
 | `LANGSMITH_ENDPOINT` | — | Self-hosted LangSmith endpoint (например `http://localhost:1984`); без него — облачный LangSmith |
 
-### LangChain (структурный вывод и сплиттер)
+### LangChain (вызовы LLM, структурный вывод и сплиттер)
 
-Скоринг-вызовы (sobes/design/classification) отдают JSON надёжно, двумя уровнями:
-
-- **Уровень A — работает всегда**: `format: "json"` в payload скоринг-вызовов —
-  модель гарантированно возвращает JSON.
-- **Уровень B — флаг `LLM_STRUCTURED_OUTPUT=true`**: ответ валидирует
-  `ChatOllama.with_structured_output(..., method="json_schema")` по Pydantic-схемам
-  из `backend/src/core/structured.py` (`ScoreResult`, `DesignScore`, `ClassificationBatch`).
-  При сбое модели — автоматический фолбэк на legacy-парсинг с ретраями.
-
-| Переменная | Значение по умолчанию | Описание |
-|---|---|---|
-| `LLM_STRUCTURED_OUTPUT` | `false` | Включить структурный вывод (уровень B) через `ChatOllama.with_structured_output` |
+Все генеративные вызовы LLM идут через адаптеры LangChain: `ChatOllama` для Ollama
+и `ChatOpenAI` для OpenCode Zen. Скоринг собеседования, классификация вопросов,
+генерация неправильных ответов квиза и оценка системного дизайна всегда используют
+LangChain `with_structured_output` с Pydantic-схемами из `backend/src/core/structured.py`. Если структурированный
+вызов не удаётся, приложение использует безопасное поведение фичи (например,
+нулевую оценку или значения классификации по умолчанию), а не прежний прямой
+HTTP-вызов и ручной JSON-парсер. Эмбеддинги Ollama также вызываются через
+`OllamaEmbeddings`; `RecursiveCharacterTextSplitter` используется для чанков RAG.
+В OpenCode Zen вызовы чата остаются через LangChain OpenAI-совместимый адаптер;
+эмбеддинги по-прежнему берутся у Ollama, потому что Zen их не предоставляет.
 
 ---
 

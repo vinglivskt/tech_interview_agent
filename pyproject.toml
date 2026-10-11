@@ -22,6 +22,7 @@ dependencies = [
     "langgraph-checkpoint-postgres>=2.0.0",
     "langsmith>=0.12.4",
     "langchain-ollama>=0.2.0",
+    "langchain-openai>=0.3.0",
     "langchain-text-splitters>=0.4.0",
 ]
 
